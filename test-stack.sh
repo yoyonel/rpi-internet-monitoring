@@ -4,8 +4,11 @@
 # Usage: ./test-stack.sh
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_user=$(grep '^GF_SECURITY_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+_pass=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
 GRAFANA_URL="http://localhost:3000"
-GRAFANA_CREDS="admin:***REDACTED***"
+GRAFANA_CREDS="${_user:-admin}:${_pass}"
 CHRONOGRAF_URL="http://localhost:8888"
 INFLUXDB_CONTAINER="influxdb"
 
