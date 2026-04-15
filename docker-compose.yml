@@ -73,7 +73,6 @@ services:
         condition: service_healthy
     volumes:
       - ./telegraf/telegraf.conf:/etc/telegraf/telegraf.conf:ro
-      # System monitoring — read-only, minimal surface
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /var/run/utmp:/var/run/utmp:ro
@@ -82,6 +81,21 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+
+  speedtest:
+    container_name: speedtest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: speedtest:bookworm
+    networks:
+      - speedtest
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    profiles:
+      - run-once
+    # Triggered by cron: docker compose run --rm speedtest
 
 networks:
   speedtest:
