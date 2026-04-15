@@ -28,7 +28,7 @@ Stack Docker pour monitorer le débit internet (download, upload, ping) via [Ook
 
 | Service | Version | Port | Description |
 |---|---|---|---|
-| Grafana | 11.6.14 | 3000 | Dashboards (SpeedTest, System, Docker, RPi Alerts) |
+| Grafana | 12.4.3 | 3000 | Dashboards (SpeedTest, System, Docker, RPi Alerts) |
 | InfluxDB | 1.8.10 | 8086 (interne) | Time-series DB |
 | Chronograf | 1.9.4 | 8888 | Admin InfluxDB |
 | Telegraf | 1.38.2 | — | Métriques système (CPU, RAM, disk, temp) |
