@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="refresh" content="660">
+    <title>Internet Speed Monitor — RPi4</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 24px;
+            padding: 20px;
+            background: #161b22;
+            border-radius: 12px;
+            border: 1px solid #30363d;
+        }
+        h1 { font-size: 1.8em; color: #58a6ff; margin-bottom: 8px; }
+        .subtitle { color: #8b949e; font-size: 0.95em; }
+        .updated { color: #8b949e; font-size: 0.85em; margin-top: 8px; }
+        .updated time { color: #58a6ff; font-weight: 500; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-card .label {
+            color: #8b949e; font-size: 0.75em;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .stat-card .value { font-size: 1.8em; font-weight: 700; margin: 4px 0; }
+        .stat-card .unit { color: #8b949e; font-size: 0.75em; }
+        .stat-card.download .value { color: #58a6ff; }
+        .stat-card.upload .value { color: #3fb950; }
+        .stat-card.ping .value { color: #d29922; }
+
+        .chart-container {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .chart-container h2 {
+            font-size: 1em; color: #8b949e;
+            margin-bottom: 12px; font-weight: 500;
+        }
+
+        .no-data {
+            text-align: center; padding: 40px;
+            color: #484f58; font-size: 1.1em;
+        }
+
+        footer {
+            text-align: center; color: #484f58;
+            font-size: 0.8em; margin-top: 24px; padding: 16px;
+        }
+        footer a { color: #58a6ff; text-decoration: none; }
+
+        @media (max-width: 600px) {
+            body { padding: 12px; }
+            h1 { font-size: 1.3em; }
+            .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+            .stat-card { padding: 10px; }
+            .stat-card .value { font-size: 1.3em; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>&#x1F310; Internet Speed Monitor</h1>
+        <p class="subtitle">Raspberry Pi 4 &mdash; Speedtest toutes les 10 min</p>
+        <p class="updated">Derni&egrave;re mise &agrave; jour : <time>__LAST_UPDATE__</time></p>
+    </header>
+
+    <div class="stats-grid" id="statsGrid"></div>
+
+    <div class="chart-container">
+        <h2>&#x1F4E5; D&eacute;bit descendant (Mbps)</h2>
+        <canvas id="downloadChart"></canvas>
+    </div>
+
+    <div class="chart-container">
+        <h2>&#x1F4E4; D&eacute;bit montant (Mbps)</h2>
+        <canvas id="uploadChart"></canvas>
+    </div>
+
+    <div class="chart-container">
+        <h2>&#x1F3D3; Latence (ms)</h2>
+        <canvas id="pingChart"></canvas>
+    </div>
+
+    <footer>
+        Donn&eacute;es collect&eacute;es via
+        <a href="https://www.speedtest.net/apps/cli" rel="noopener">Ookla Speedtest CLI</a>
+        sur Raspberry Pi 4<br>
+        Mise &agrave; jour automatique toutes les 10 min &mdash;
+        Page g&eacute;n&eacute;r&eacute;e le __GENERATED_AT__
+    </footer>
+
+    <script>
+    // Data injected by publish script
+    const RAW_DATA = "__SPEEDTEST_DATA__";
+
+    (function() {
+        if (!RAW_DATA || !RAW_DATA.results) {
+            document.getElementById('statsGrid').innerHTML =
+                '<div class="no-data">Aucune donn&eacute;e disponible</div>';
+            return;
+        }
+
+        const series = RAW_DATA.results[0].series;
+        if (!series || !series[0] || !series[0].values || series[0].values.length === 0) {
+            document.getElementById('statsGrid').innerHTML =
+                '<div class="no-data">Aucune donn&eacute;e disponible</div>';
+            return;
+        }
+
+        const cols = series[0].columns;
+        const iTime = cols.indexOf('time');
+        const iDl   = cols.indexOf('download_bandwidth');
+        const iUl   = cols.indexOf('upload_bandwidth');
+        const iPing  = cols.indexOf('ping_latency');
+
+        const data = series[0].values.map(function(row) {
+            return {
+                time:     new Date(row[iTime]),
+                download: row[iDl] / 125000,
+                upload:   row[iUl] / 125000,
+                ping:     row[iPing]
+            };
+        });
+
+        // --- Stats ---
+        var dls   = data.map(function(d) { return d.download; });
+        var uls   = data.map(function(d) { return d.upload; });
+        var pings = data.map(function(d) { return d.ping; });
+
+        function avg(a) { return a.reduce(function(s, v) { return s + v; }, 0) / a.length; }
+
+        var stats = [
+            { label: 'DL actuel',  value: dls[dls.length - 1].toFixed(1),       unit: 'Mbps', cls: 'download' },
+            { label: 'DL moyen',   value: avg(dls).toFixed(1),                   unit: 'Mbps', cls: 'download' },
+            { label: 'DL max',     value: Math.max.apply(null, dls).toFixed(1),  unit: 'Mbps', cls: 'download' },
+            { label: 'UL actuel',  value: uls[uls.length - 1].toFixed(1),        unit: 'Mbps', cls: 'upload' },
+            { label: 'UL moyen',   value: avg(uls).toFixed(1),                   unit: 'Mbps', cls: 'upload' },
+            { label: 'Ping moyen', value: avg(pings).toFixed(1),                 unit: 'ms',   cls: 'ping' },
+        ];
+
+        document.getElementById('statsGrid').innerHTML = stats.map(function(s) {
+            return '<div class="stat-card ' + s.cls + '">'
+                + '<div class="label">' + s.label + '</div>'
+                + '<div class="value">' + s.value + '</div>'
+                + '<div class="unit">' + s.unit + '</div>'
+                + '</div>';
+        }).join('');
+
+        // --- Charts ---
+        Chart.defaults.color = '#8b949e';
+        Chart.defaults.borderColor = '#30363d';
+
+        var timeLabels = data.map(function(d) { return d.time; });
+
+        function makeChart(id, label, values, color, fill) {
+            new Chart(document.getElementById(id), {
+                type: 'line',
+                data: {
+                    labels: timeLabels,
+                    datasets: [{
+                        label: label,
+                        data: values,
+                        borderColor: color,
+                        backgroundColor: fill,
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 1.5,
+                        pointHoverRadius: 5,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: window.innerWidth < 600 ? 1.5 : 3,
+                    interaction: { mode: 'index', intersect: false },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                tooltipFormat: 'dd/MM HH:mm',
+                                displayFormats: { hour: 'dd/MM HH:mm', day: 'dd/MM' }
+                            },
+                            grid: { color: '#21262d' }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#21262d' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#161b22',
+                            borderColor: '#30363d',
+                            borderWidth: 1
+                        }
+                    }
+                }
+            });
+        }
+
+        makeChart('downloadChart', 'Download (Mbps)', dls, '#58a6ff', 'rgba(88,166,255,0.1)');
+        makeChart('uploadChart',   'Upload (Mbps)',   uls, '#3fb950', 'rgba(63,185,80,0.1)');
+        makeChart('pingChart',     'Ping (ms)',       pings, '#d29922', 'rgba(210,153,34,0.1)');
+    })();
+    </script>
+</body>
+</html>

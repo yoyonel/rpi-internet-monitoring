@@ -16,12 +16,18 @@ Stack Docker pour monitorer le débit internet (download, upload, ping) via [Ook
                                                         │
                          ┌───────────┐   query          │
                          │  Grafana  │◀─────────────────┘
-                         │  11.6.14  │
+                         │  12.4.3   │
                          └───────────┘
                          ┌────────────┐  query
                          │ Chronograf │◀────────────────┘
                          │   1.9.4    │
                          └────────────┘
+
+┌──────────┐  cron */10  ┌──────────────┐  push   ┌──────────────┐
+│  crontab │────────────▶│ publish      │────────▶│ GitHub Pages │
+└──────────┘             │ (InfluxDB →  │         │ (static HTML │
+                         │  Chart.js)   │         │  + Chart.js) │
+                         └──────────────┘         └──────────────┘
 ```
 
 ## Services
@@ -105,6 +111,12 @@ crontab -e
 | `just test` | Suite de régression complète (17 checks) |
 | `just check` | Health check rapide des 4 services |
 
+### Publication
+
+| Commande | Description |
+|---|---|
+| `just publish [N]` | Publier la page de monitoring sur GitHub Pages (N jours d'historique, défaut: 7) |
+
 ### Utilitaires
 
 | Commande | Description |
@@ -164,6 +176,28 @@ just backup    # Crée un dossier horodaté dans backups/ avec dashboards + Infl
 ```bash
 just test      # 17 checks: services, dashboards, pipeline, data integrity
 just check     # Health check rapide (4 services)
+```
+
+## GitHub Pages — Vue externe
+
+Une page statique publique affiche les résultats speedtest des 7 derniers jours :
+
+**https://yoyonel.github.io/rpi-internet-monitoring/**
+
+- Graphiques interactifs (Chart.js) : débit descendant, montant, ping
+- Statistiques : valeur actuelle, moyenne, max
+- Mise à jour automatique toutes les 10 min via cron
+- Thème sombre, responsive (mobile-friendly)
+
+```bash
+just publish       # Publication manuelle (7 jours)
+just publish 30    # 30 jours d'historique
+```
+
+Pour automatiser via cron :
+```bash
+crontab -e
+# Ajouter : */10 * * * * cd /path/to/project && just publish >/dev/null 2>&1
 ```
 
 ## Références
