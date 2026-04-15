@@ -232,15 +232,24 @@
         var iUl   = cols.indexOf('upload_bandwidth');
         var iPing  = cols.indexOf('ping_latency');
 
-        // Parse all data once
+        // Parse all data once — pre-compute timestamps for fast filtering
         var allData = series[0].values.map(function(row) {
+            var t = new Date(row[iTime]);
             return {
-                time:     new Date(row[iTime]),
+                time:     t,
+                ts:       t.getTime(),
                 download: row[iDl] / 125000,
                 upload:   row[iUl] / 125000,
                 ping:     row[iPing]
             };
         });
+
+        // Pre-build typed {x,y} arrays for each metric (avoids re-mapping on every render)
+        var allXY = {
+            download: allData.map(function(d) { return { x: d.ts, y: d.download }; }),
+            upload:   allData.map(function(d) { return { x: d.ts, y: d.upload }; }),
+            ping:     allData.map(function(d) { return { x: d.ts, y: d.ping }; })
+        };
 
         var dataStart = allData[0].time;
         var dataEnd = allData[allData.length - 1].time;
@@ -270,17 +279,21 @@
                         borderColor: color,
                         backgroundColor: fill,
                         fill: true,
-                        tension: 0.3,
-                        pointRadius: 1.5,
-                        pointHoverRadius: 5,
-                        borderWidth: 2
+                        tension: 0,
+                        pointRadius: 0,
+                        pointHitRadius: 8,
+                        pointHoverRadius: 4,
+                        pointHoverBorderWidth: 2,
+                        borderWidth: 1.5
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
                     aspectRatio: window.innerWidth < 600 ? 1.5 : 3,
-                    animation: { duration: 300 },
+                    animation: false,
+                    parsing: false,
+                    normalized: true,
                     interaction: { mode: 'index', intersect: false },
                     scales: {
                         x: {
@@ -304,6 +317,11 @@
                             backgroundColor: '#161b22',
                             borderColor: '#30363d',
                             borderWidth: 1
+                        },
+                        decimation: {
+                            enabled: true,
+                            algorithm: 'lttb',
+                            samples: 400
                         }
                     }
                 }
@@ -323,36 +341,60 @@
             return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
         }
 
-        function filterData(start, end) {
-            return allData.filter(function(d) {
-                return d.time >= start && d.time <= end;
-            });
+        // Binary search for fast range filtering (data is sorted by time)
+        function bsearch(arr, ts, findFirst) {
+            var lo = 0, hi = arr.length - 1, mid, result = findFirst ? arr.length : -1;
+            while (lo <= hi) {
+                mid = (lo + hi) >> 1;
+                if (findFirst) {
+                    if (arr[mid].ts >= ts) { result = mid; hi = mid - 1; }
+                    else lo = mid + 1;
+                } else {
+                    if (arr[mid].ts <= ts) { result = mid; lo = mid + 1; }
+                    else hi = mid - 1;
+                }
+            }
+            return result;
+        }
+
+        function filterIndices(startTs, endTs) {
+            var i0 = bsearch(allData, startTs, true);
+            var i1 = bsearch(allData, endTs, false);
+            return (i0 <= i1 && i0 < allData.length) ? [i0, i1 + 1] : null;
         }
 
         // ── Render ──
         function render() {
-            var filtered = filterData(rangeStart, rangeEnd);
+            var startTs = rangeStart.getTime();
+            var endTs = rangeEnd.getTime();
+            var range = filterIndices(startTs, endTs);
 
             // Stats (based on visible range)
-            if (filtered.length === 0) {
+            if (!range) {
                 document.getElementById('statsGrid').innerHTML =
                     '<div class="no-data" style="grid-column:1/-1">Aucune donn&eacute;e sur cette p&eacute;riode</div>';
             } else {
-                var dls   = filtered.map(function(d) { return d.download; });
-                var uls   = filtered.map(function(d) { return d.upload; });
-                var pings = filtered.map(function(d) { return d.ping; });
+                var i0 = range[0], i1 = range[1];
+                var dlSum = 0, ulSum = 0, piSum = 0, dlMax = 0, n = i1 - i0;
+                var lastDl = 0, lastUl = 0;
+                for (var i = i0; i < i1; i++) {
+                    var d = allData[i];
+                    dlSum += d.download; ulSum += d.upload; piSum += d.ping;
+                    if (d.download > dlMax) dlMax = d.download;
+                    lastDl = d.download; lastUl = d.upload;
+                }
 
                 var stats = [
-                    { label: 'DL actuel',  value: dls[dls.length - 1].toFixed(1),       unit: 'Mbps', cls: 'download' },
-                    { label: 'DL moyen',   value: avg(dls).toFixed(1),                   unit: 'Mbps', cls: 'download' },
-                    { label: 'DL max',     value: Math.max.apply(null, dls).toFixed(1),  unit: 'Mbps', cls: 'download' },
-                    { label: 'UL actuel',  value: uls[uls.length - 1].toFixed(1),        unit: 'Mbps', cls: 'upload' },
-                    { label: 'UL moyen',   value: avg(uls).toFixed(1),                   unit: 'Mbps', cls: 'upload' },
-                    { label: 'Ping moyen', value: avg(pings).toFixed(1),                 unit: 'ms',   cls: 'ping' },
+                    { label: 'DL actuel',  value: lastDl.toFixed(1),            unit: 'Mbps', cls: 'download' },
+                    { label: 'DL moyen',   value: (dlSum / n).toFixed(1),       unit: 'Mbps', cls: 'download' },
+                    { label: 'DL max',     value: dlMax.toFixed(1),             unit: 'Mbps', cls: 'download' },
+                    { label: 'UL actuel',  value: lastUl.toFixed(1),            unit: 'Mbps', cls: 'upload' },
+                    { label: 'UL moyen',   value: (ulSum / n).toFixed(1),       unit: 'Mbps', cls: 'upload' },
+                    { label: 'Ping moyen', value: (piSum / n).toFixed(1),       unit: 'ms',   cls: 'ping' },
                 ];
 
                 document.getElementById('statsGrid').innerHTML = stats.map(function(s) {
-                    return '<div class="stat-card ' + s.cls + '">'
+                    return '<div class="stat-card ' + s.cls + '">' 
                         + '<div class="label">' + s.label + '</div>'
                         + '<div class="value">' + s.value + '</div>'
                         + '<div class="unit">' + s.unit + '</div>'
@@ -360,21 +402,16 @@
                 }).join('');
             }
 
-            // Charts: update data + x-axis bounds
-            var xyDl = filtered.map(function(d) { return { x: d.time, y: d.download }; });
-            var xyUl = filtered.map(function(d) { return { x: d.time, y: d.upload }; });
-            var xyPi = filtered.map(function(d) { return { x: d.time, y: d.ping }; });
-
-            charts.download.data.datasets[0].data = xyDl;
-            charts.upload.data.datasets[0].data   = xyUl;
-            charts.ping.data.datasets[0].data     = xyPi;
+            // Charts: use slices of pre-built arrays (zero allocation)
+            var sl = range || [0, 0];
+            charts.download.data.datasets[0].data = allXY.download.slice(sl[0], sl[1]);
+            charts.upload.data.datasets[0].data   = allXY.upload.slice(sl[0], sl[1]);
+            charts.ping.data.datasets[0].data     = allXY.ping.slice(sl[0], sl[1]);
 
             [charts.download, charts.upload, charts.ping].forEach(function(c) {
-                c.options.scales.x.min = rangeStart.getTime();
-                c.options.scales.x.max = rangeEnd.getTime();
-                c.update();
-            });
-
+                c.options.scales.x.min = startTs;
+                c.options.scales.x.max = endTs;
+                c.update('none');
             // Range label
             document.getElementById('rangeLabel').textContent =
                 fmtDate(rangeStart) + '  \u2192  ' + fmtDate(rangeEnd);
