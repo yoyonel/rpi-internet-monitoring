@@ -127,7 +127,7 @@ Connection à Grafana depuis l'extérieur:
 url: http://192.168.1.24:3000
 
 1ère connection -> utiliser l'authent par défaut admin/admin, 
-puis définir un nouveau mot de passe: "***REDACTED***"
+puis définir un nouveau mot de passe (stocké dans .env: GF_SECURITY_ADMIN_PASSWORD)
 
 Configuration Grafana:
 - `/datasources/new?utm_source=grafana_gettingstarted`
