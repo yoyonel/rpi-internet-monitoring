@@ -186,8 +186,8 @@ alerts:
     curl -sf -u "$CREDS" "http://localhost:3000/api/prometheus/grafana/api/v1/rules" \
         | jq -r '.data.groups[].rules[] | "  \(if .state == "inactive" then "✅" elif .state == "firing" then "🔴" else "⚠️ " end) \(.name) [\(.state)] (\(.health))"'
 
-# Publish monitoring page to GitHub Pages (last 7 days by default)
-publish days="7":
+# Publish monitoring page to GitHub Pages (last 30 days by default)
+publish days="30":
     bash scripts/publish-gh-pages.sh {{ days }}
 
 # Open an InfluxDB CLI shell

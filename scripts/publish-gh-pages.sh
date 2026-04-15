@@ -3,12 +3,12 @@
 # a static monitoring page to the gh-pages branch on GitHub.
 #
 # Usage: bash scripts/publish-gh-pages.sh [days]
-#   days  Number of days of history to export (default: 7)
+#   days  Number of days of history to export (default: 30)
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
 TEMPLATE="$SCRIPT_DIR/gh-pages/index.template.html"
-DAYS="${1:-7}"
+DAYS="${1:-30}"
 NOW=$(date -Iseconds)
 REPO_URL=$(git -C "$SCRIPT_DIR" remote get-url origin 2>/dev/null || echo "https://github.com/yoyonel/rpi-internet-monitoring.git")
 

@@ -19,7 +19,7 @@
         }
         header {
             text-align: center;
-            margin-bottom: 24px;
+            margin-bottom: 16px;
             padding: 20px;
             background: #161b22;
             border-radius: 12px;
@@ -29,6 +29,78 @@
         .subtitle { color: #8b949e; font-size: 0.95em; }
         .updated { color: #8b949e; font-size: 0.85em; margin-top: 8px; }
         .updated time { color: #58a6ff; font-weight: 500; }
+
+        /* ── Time Range Picker (Grafana-style) ── */
+        .time-picker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .time-picker .nav-btn {
+            background: #161b22;
+            border: 1px solid #30363d;
+            color: #8b949e;
+            width: 32px; height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+        .time-picker .nav-btn:hover { background: #21262d; color: #c9d1d9; }
+        .time-picker .range-group {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 3px;
+        }
+        .time-picker .range-btn {
+            background: transparent;
+            border: none;
+            color: #8b949e;
+            padding: 5px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            font-weight: 500;
+            transition: all 0.15s;
+            white-space: nowrap;
+        }
+        .time-picker .range-btn:hover { color: #c9d1d9; background: #21262d; }
+        .time-picker .range-btn.active {
+            background: #1f6feb;
+            color: #fff;
+        }
+        .time-picker .zoom-btn {
+            background: #161b22;
+            border: 1px solid #30363d;
+            color: #8b949e;
+            width: 32px; height: 32px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+        .time-picker .zoom-btn:hover { background: #21262d; color: #c9d1d9; }
+        .time-picker .range-label {
+            color: #58a6ff;
+            font-size: 0.82em;
+            font-weight: 500;
+            margin-left: 8px;
+            min-width: 190px;
+            text-align: center;
+        }
 
         .stats-grid {
             display: grid;
@@ -82,6 +154,8 @@
             .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
             .stat-card { padding: 10px; }
             .stat-card .value { font-size: 1.3em; }
+            .time-picker .range-btn { padding: 4px 8px; font-size: 0.78em; }
+            .time-picker .range-label { font-size: 0.75em; min-width: 150px; }
         }
     </style>
 </head>
@@ -91,6 +165,23 @@
         <p class="subtitle">Raspberry Pi 4 &mdash; Speedtest toutes les 10 min</p>
         <p class="updated">Derni&egrave;re mise &agrave; jour : <time>__LAST_UPDATE__</time></p>
     </header>
+
+    <!-- Time Range Picker -->
+    <div class="time-picker" id="timePicker">
+        <button class="nav-btn" id="btnBack" title="Reculer">&laquo;</button>
+        <div class="range-group" id="rangeGroup">
+            <button class="range-btn" data-hours="6">6h</button>
+            <button class="range-btn" data-hours="12">12h</button>
+            <button class="range-btn" data-hours="24">24h</button>
+            <button class="range-btn active" data-hours="48">2j</button>
+            <button class="range-btn" data-hours="168">7j</button>
+            <button class="range-btn" data-hours="720">30j</button>
+        </div>
+        <button class="nav-btn" id="btnForward" title="Avancer">&raquo;</button>
+        <button class="zoom-btn" id="btnZoomOut" title="Zoom out">&#x1F50D;&#x2212;</button>
+        <button class="zoom-btn" id="btnZoomIn" title="Zoom in">&#x1F50D;+</button>
+        <span class="range-label" id="rangeLabel"></span>
+    </div>
 
     <div class="stats-grid" id="statsGrid"></div>
 
@@ -119,7 +210,7 @@
 
     <script>
     // Data injected by publish script
-    const RAW_DATA = "__SPEEDTEST_DATA__";
+    var RAW_DATA = "__SPEEDTEST_DATA__";
 
     (function() {
         if (!RAW_DATA || !RAW_DATA.results) {
@@ -128,20 +219,21 @@
             return;
         }
 
-        const series = RAW_DATA.results[0].series;
+        var series = RAW_DATA.results[0].series;
         if (!series || !series[0] || !series[0].values || series[0].values.length === 0) {
             document.getElementById('statsGrid').innerHTML =
                 '<div class="no-data">Aucune donn&eacute;e disponible</div>';
             return;
         }
 
-        const cols = series[0].columns;
-        const iTime = cols.indexOf('time');
-        const iDl   = cols.indexOf('download_bandwidth');
-        const iUl   = cols.indexOf('upload_bandwidth');
-        const iPing  = cols.indexOf('ping_latency');
+        var cols = series[0].columns;
+        var iTime = cols.indexOf('time');
+        var iDl   = cols.indexOf('download_bandwidth');
+        var iUl   = cols.indexOf('upload_bandwidth');
+        var iPing  = cols.indexOf('ping_latency');
 
-        const data = series[0].values.map(function(row) {
+        // Parse all data once
+        var allData = series[0].values.map(function(row) {
             return {
                 time:     new Date(row[iTime]),
                 download: row[iDl] / 125000,
@@ -150,44 +242,31 @@
             };
         });
 
-        // --- Stats ---
-        var dls   = data.map(function(d) { return d.download; });
-        var uls   = data.map(function(d) { return d.upload; });
-        var pings = data.map(function(d) { return d.ping; });
+        var dataStart = allData[0].time;
+        var dataEnd = allData[allData.length - 1].time;
 
-        function avg(a) { return a.reduce(function(s, v) { return s + v; }, 0) / a.length; }
+        // ── Time range state ──
+        var HOUR = 3600000;
+        var rangePresets = [6, 12, 24, 48, 168, 720]; // hours
+        var currentHours = 48;
+        var rangeEnd = new Date(dataEnd.getTime() + 600000); // +10min padding
+        var rangeStart = new Date(rangeEnd.getTime() - currentHours * HOUR);
+        var isLive = true; // anchored to "now" (latest data)
 
-        var stats = [
-            { label: 'DL actuel',  value: dls[dls.length - 1].toFixed(1),       unit: 'Mbps', cls: 'download' },
-            { label: 'DL moyen',   value: avg(dls).toFixed(1),                   unit: 'Mbps', cls: 'download' },
-            { label: 'DL max',     value: Math.max.apply(null, dls).toFixed(1),  unit: 'Mbps', cls: 'download' },
-            { label: 'UL actuel',  value: uls[uls.length - 1].toFixed(1),        unit: 'Mbps', cls: 'upload' },
-            { label: 'UL moyen',   value: avg(uls).toFixed(1),                   unit: 'Mbps', cls: 'upload' },
-            { label: 'Ping moyen', value: avg(pings).toFixed(1),                 unit: 'ms',   cls: 'ping' },
-        ];
-
-        document.getElementById('statsGrid').innerHTML = stats.map(function(s) {
-            return '<div class="stat-card ' + s.cls + '">'
-                + '<div class="label">' + s.label + '</div>'
-                + '<div class="value">' + s.value + '</div>'
-                + '<div class="unit">' + s.unit + '</div>'
-                + '</div>';
-        }).join('');
-
-        // --- Charts ---
+        // ── Charts ──
         Chart.defaults.color = '#8b949e';
         Chart.defaults.borderColor = '#30363d';
 
-        var timeLabels = data.map(function(d) { return d.time; });
+        var charts = {};
 
-        function makeChart(id, label, values, color, fill) {
-            new Chart(document.getElementById(id), {
+        function makeChart(id, label, color, fill) {
+            var ctx = document.getElementById(id);
+            return new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: timeLabels,
                     datasets: [{
                         label: label,
-                        data: values,
+                        data: [],
                         borderColor: color,
                         backgroundColor: fill,
                         fill: true,
@@ -201,15 +280,18 @@
                     responsive: true,
                     maintainAspectRatio: true,
                     aspectRatio: window.innerWidth < 600 ? 1.5 : 3,
+                    animation: { duration: 300 },
                     interaction: { mode: 'index', intersect: false },
                     scales: {
                         x: {
                             type: 'time',
                             time: {
                                 tooltipFormat: 'dd/MM HH:mm',
-                                displayFormats: { hour: 'dd/MM HH:mm', day: 'dd/MM' }
+                                displayFormats: { hour: 'HH:mm', day: 'dd/MM' }
                             },
-                            grid: { color: '#21262d' }
+                            grid: { color: '#21262d' },
+                            min: null,
+                            max: null
                         },
                         y: {
                             beginAtZero: true,
@@ -228,9 +310,143 @@
             });
         }
 
-        makeChart('downloadChart', 'Download (Mbps)', dls, '#58a6ff', 'rgba(88,166,255,0.1)');
-        makeChart('uploadChart',   'Upload (Mbps)',   uls, '#3fb950', 'rgba(63,185,80,0.1)');
-        makeChart('pingChart',     'Ping (ms)',       pings, '#d29922', 'rgba(210,153,34,0.1)');
+        charts.download = makeChart('downloadChart', 'Download (Mbps)', '#58a6ff', 'rgba(88,166,255,0.1)');
+        charts.upload   = makeChart('uploadChart',   'Upload (Mbps)',   '#3fb950', 'rgba(63,185,80,0.1)');
+        charts.ping     = makeChart('pingChart',     'Ping (ms)',       '#d29922', 'rgba(210,153,34,0.1)');
+
+        // ── Helpers ──
+        function avg(a) { return a.length ? a.reduce(function(s, v) { return s + v; }, 0) / a.length : 0; }
+
+        function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+
+        function fmtDate(d) {
+            return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+        }
+
+        function filterData(start, end) {
+            return allData.filter(function(d) {
+                return d.time >= start && d.time <= end;
+            });
+        }
+
+        // ── Render ──
+        function render() {
+            var filtered = filterData(rangeStart, rangeEnd);
+
+            // Stats (based on visible range)
+            if (filtered.length === 0) {
+                document.getElementById('statsGrid').innerHTML =
+                    '<div class="no-data" style="grid-column:1/-1">Aucune donn&eacute;e sur cette p&eacute;riode</div>';
+            } else {
+                var dls   = filtered.map(function(d) { return d.download; });
+                var uls   = filtered.map(function(d) { return d.upload; });
+                var pings = filtered.map(function(d) { return d.ping; });
+
+                var stats = [
+                    { label: 'DL actuel',  value: dls[dls.length - 1].toFixed(1),       unit: 'Mbps', cls: 'download' },
+                    { label: 'DL moyen',   value: avg(dls).toFixed(1),                   unit: 'Mbps', cls: 'download' },
+                    { label: 'DL max',     value: Math.max.apply(null, dls).toFixed(1),  unit: 'Mbps', cls: 'download' },
+                    { label: 'UL actuel',  value: uls[uls.length - 1].toFixed(1),        unit: 'Mbps', cls: 'upload' },
+                    { label: 'UL moyen',   value: avg(uls).toFixed(1),                   unit: 'Mbps', cls: 'upload' },
+                    { label: 'Ping moyen', value: avg(pings).toFixed(1),                 unit: 'ms',   cls: 'ping' },
+                ];
+
+                document.getElementById('statsGrid').innerHTML = stats.map(function(s) {
+                    return '<div class="stat-card ' + s.cls + '">'
+                        + '<div class="label">' + s.label + '</div>'
+                        + '<div class="value">' + s.value + '</div>'
+                        + '<div class="unit">' + s.unit + '</div>'
+                        + '</div>';
+                }).join('');
+            }
+
+            // Charts: update data + x-axis bounds
+            var xyDl = filtered.map(function(d) { return { x: d.time, y: d.download }; });
+            var xyUl = filtered.map(function(d) { return { x: d.time, y: d.upload }; });
+            var xyPi = filtered.map(function(d) { return { x: d.time, y: d.ping }; });
+
+            charts.download.data.datasets[0].data = xyDl;
+            charts.upload.data.datasets[0].data   = xyUl;
+            charts.ping.data.datasets[0].data     = xyPi;
+
+            [charts.download, charts.upload, charts.ping].forEach(function(c) {
+                c.options.scales.x.min = rangeStart.getTime();
+                c.options.scales.x.max = rangeEnd.getTime();
+                c.update();
+            });
+
+            // Range label
+            document.getElementById('rangeLabel').textContent =
+                fmtDate(rangeStart) + '  \u2192  ' + fmtDate(rangeEnd);
+
+            // Update active preset button
+            var btns = document.querySelectorAll('.range-btn');
+            btns.forEach(function(b) {
+                b.classList.toggle('active', parseInt(b.dataset.hours) === currentHours);
+            });
+        }
+
+        // ── Time Picker Controls ──
+        function setRange(hours) {
+            currentHours = hours;
+            if (isLive) {
+                rangeEnd = new Date(dataEnd.getTime() + 600000);
+            }
+            rangeStart = new Date(rangeEnd.getTime() - currentHours * HOUR);
+            render();
+        }
+
+        function shiftRange(direction) {
+            var shift = currentHours * HOUR * 0.5 * direction;
+            rangeStart = new Date(rangeStart.getTime() + shift);
+            rangeEnd = new Date(rangeEnd.getTime() + shift);
+            isLive = rangeEnd.getTime() >= dataEnd.getTime();
+            render();
+        }
+
+        // Preset buttons
+        document.querySelectorAll('.range-btn').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                isLive = true;
+                setRange(parseInt(this.dataset.hours));
+            });
+        });
+
+        // Navigation arrows
+        document.getElementById('btnBack').addEventListener('click', function() { shiftRange(-1); });
+        document.getElementById('btnForward').addEventListener('click', function() { shiftRange(1); });
+
+        // Zoom buttons
+        document.getElementById('btnZoomIn').addEventListener('click', function() {
+            var idx = rangePresets.indexOf(currentHours);
+            if (idx > 0) {
+                setRange(rangePresets[idx - 1]);
+            } else if (currentHours > rangePresets[0]) {
+                setRange(rangePresets[0]);
+            }
+        });
+        document.getElementById('btnZoomOut').addEventListener('click', function() {
+            var idx = rangePresets.indexOf(currentHours);
+            if (idx >= 0 && idx < rangePresets.length - 1) {
+                setRange(rangePresets[idx + 1]);
+            } else if (idx < 0) {
+                // Find next larger preset
+                for (var i = 0; i < rangePresets.length; i++) {
+                    if (rangePresets[i] > currentHours) { setRange(rangePresets[i]); break; }
+                }
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowLeft') shiftRange(-1);
+            else if (e.key === 'ArrowRight') shiftRange(1);
+            else if (e.key === '+' || e.key === '=') document.getElementById('btnZoomIn').click();
+            else if (e.key === '-') document.getElementById('btnZoomOut').click();
+        });
+
+        // Initial render with default range (Last 2 days)
+        render();
     })();
     </script>
 </body>
