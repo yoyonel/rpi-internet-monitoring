@@ -1,0 +1,339 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: RPi System Resources
+    folder: RPi Alerts
+    interval: 1m
+    rules:
+
+      # ── CPU Usage > 80% for 5 min ──────────────────────────
+      - uid: rpi-cpu-high
+        title: "High CPU Usage"
+        condition: threshold
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU usage is {{ $values.reduce.Value | printf \"%.0f\" }}% (threshold: 80%)"
+        data:
+          - refId: query
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: 2QPKy_O4k
+            model:
+              refId: query
+              datasource:
+                uid: 2QPKy_O4k
+                type: influxdb
+              query: "SELECT 100 - mean(\"usage_idle\") FROM \"cpu\" WHERE (\"cpu\" = 'cpu-total') AND $timeFilter GROUP BY time(1m) fill(none)"
+              rawQuery: true
+              resultFormat: time_series
+          - refId: reduce
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: reduce
+              type: reduce
+              datasource:
+                type: __expr__
+                uid: __expr__
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [0]
+                  reducer:
+                    type: last
+              expression: query
+              reducer: last
+          - refId: threshold
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: threshold
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: reduce
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [80]
+
+      # ── CPU Temperature > 70°C for 2 min ───────────────────
+      - uid: rpi-cpu-temp
+        title: "High CPU Temperature"
+        condition: threshold
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CPU temperature is {{ $values.reduce.Value | printf \"%.0f\" }} m°C (threshold: 70000 m°C / 70°C)"
+        data:
+          - refId: query
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: 2QPKy_O4k
+            model:
+              refId: query
+              datasource:
+                uid: 2QPKy_O4k
+                type: influxdb
+              query: "SELECT mean(\"value\") FROM \"cpu_temperature\" WHERE $timeFilter GROUP BY time(1m) fill(none)"
+              rawQuery: true
+              resultFormat: time_series
+          - refId: reduce
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: reduce
+              type: reduce
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: query
+              reducer: last
+          - refId: threshold
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: threshold
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: reduce
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [70000]
+
+      # ── RAM Usage > 85% for 5 min ──────────────────────────
+      - uid: rpi-ram-high
+        title: "High RAM Usage"
+        condition: threshold
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RAM usage is {{ $values.reduce.Value | printf \"%.0f\" }}% (threshold: 85%)"
+        data:
+          - refId: query
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: 2QPKy_O4k
+            model:
+              refId: query
+              datasource:
+                uid: 2QPKy_O4k
+                type: influxdb
+              query: "SELECT mean(\"used_percent\") FROM \"mem\" WHERE $timeFilter GROUP BY time(1m) fill(none)"
+              rawQuery: true
+              resultFormat: time_series
+          - refId: reduce
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: reduce
+              type: reduce
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: query
+              reducer: last
+          - refId: threshold
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: threshold
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: reduce
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [85]
+
+      # ── Swap Usage > 50% for 10 min ────────────────────────
+      - uid: rpi-swap-high
+        title: "High Swap Usage"
+        condition: threshold
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Swap usage is {{ $values.reduce.Value | printf \"%.0f\" }}% (threshold: 50%)"
+        data:
+          - refId: query
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: 2QPKy_O4k
+            model:
+              refId: query
+              datasource:
+                uid: 2QPKy_O4k
+                type: influxdb
+              query: "SELECT mean(\"used_percent\") FROM \"swap\" WHERE $timeFilter GROUP BY time(1m) fill(none)"
+              rawQuery: true
+              resultFormat: time_series
+          - refId: reduce
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: reduce
+              type: reduce
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: query
+              reducer: last
+          - refId: threshold
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: threshold
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: reduce
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [50]
+
+      # ── Disk Usage > 85% for 10 min ────────────────────────
+      - uid: rpi-disk-high
+        title: "High Disk Usage"
+        condition: threshold
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk usage is {{ $values.reduce.Value | printf \"%.0f\" }}% (threshold: 85%)"
+        data:
+          - refId: query
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: 2QPKy_O4k
+            model:
+              refId: query
+              datasource:
+                uid: 2QPKy_O4k
+                type: influxdb
+              query: "SELECT mean(\"used_percent\") FROM \"disk\" WHERE (\"path\" = '/') AND $timeFilter GROUP BY time(5m) fill(none)"
+              rawQuery: true
+              resultFormat: time_series
+          - refId: reduce
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: reduce
+              type: reduce
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: query
+              reducer: last
+          - refId: threshold
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: threshold
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: reduce
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [85]
+
+      # ── Load Average > 4 for 5 min (RPi4 = 4 cores) ───────
+      - uid: rpi-load-high
+        title: "High Load Average"
+        condition: threshold
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Load average (1m) is {{ $values.reduce.Value | printf \"%.1f\" }} (threshold: 4, RPi4 has 4 cores)"
+        data:
+          - refId: query
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: 2QPKy_O4k
+            model:
+              refId: query
+              datasource:
+                uid: 2QPKy_O4k
+                type: influxdb
+              query: "SELECT mean(\"load1\") FROM \"system\" WHERE $timeFilter GROUP BY time(1m) fill(none)"
+              rawQuery: true
+              resultFormat: time_series
+          - refId: reduce
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: reduce
+              type: reduce
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: query
+              reducer: last
+          - refId: threshold
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: __expr__
+            model:
+              refId: threshold
+              type: threshold
+              datasource:
+                type: __expr__
+                uid: __expr__
+              expression: reduce
+              conditions:
+                - type: query
+                  evaluator:
+                    type: gt
+                    params: [4]

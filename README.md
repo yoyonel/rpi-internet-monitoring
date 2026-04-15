@@ -109,6 +109,7 @@ crontab -e
 
 | Commande | Description |
 |---|---|
+| `just alerts` | État des alertes (✅/🔴) |
 | `just influx-shell` | Shell InfluxDB interactif |
 | `just shell <svc>` | Shell bash dans un container |
 | `just cron` | Afficher le crontab actif |
@@ -120,6 +121,21 @@ Les credentials sont dans `.env` (non versionné). Copier `.env.example` :
 ```bash
 cp .env.example .env
 ```
+
+## Alertes
+
+6 alertes Grafana provisionées automatiquement (`grafana/provisioning/alerting/`) :
+
+| Alerte | Seuil | Durée | Sévérité |
+|---|---|---|---|
+| High CPU Usage | > 80% | 5 min | warning |
+| High CPU Temperature | > 70°C | 2 min | critical |
+| High RAM Usage | > 85% | 5 min | warning |
+| High Swap Usage | > 50% | 10 min | warning |
+| High Disk Usage | > 85% | 10 min | warning |
+| High Load Average | > 4 (= 100% des 4 cores) | 5 min | warning |
+
+Visibles dans Grafana → Alerting → Alert rules, ou via `just alerts`.
 
 ## Données
 

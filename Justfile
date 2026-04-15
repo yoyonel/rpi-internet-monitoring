@@ -175,6 +175,17 @@ check:
 
 # ── Utilities ───────────────────────────────────────────
 
+# Show alert rules and their current state
+alerts:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    _user=$(grep '^GF_SECURITY_ADMIN_USER=' "{{ project_dir }}/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+    _pass=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "{{ project_dir }}/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+    CREDS="${_user:-admin}:${_pass}"
+    echo "── Alert Rules ──"
+    curl -sf -u "$CREDS" "http://localhost:3000/api/prometheus/grafana/api/v1/rules" \
+        | jq -r '.data.groups[].rules[] | "  \(if .state == "inactive" then "✅" elif .state == "firing" then "🔴" else "⚠️ " end) \(.name) [\(.state)] (\(.health))"'
+
 # Open an InfluxDB CLI shell
 influx-shell:
     docker exec -it influxdb influx
