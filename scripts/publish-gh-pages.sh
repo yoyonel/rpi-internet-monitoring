@@ -51,6 +51,41 @@ if [[ "$POINT_COUNT" -eq 0 ]]; then
     exit 1
 fi
 
+# ── 1b. Export alert status from Grafana ──────────────────
+echo ""
+echo "── Exporting alert status from Grafana ──"
+
+# Load Grafana credentials
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+    _gf_user=$(grep '^GF_SECURITY_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+    _gf_pass=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+fi
+GF_CREDS="${_gf_user:-admin}:${_gf_pass:?GF_SECURITY_ADMIN_PASSWORD not set}"
+
+ALERTS_JSON=$(curl -sf -u "$GF_CREDS" "http://localhost:3000/api/prometheus/grafana/api/v1/rules" 2>/dev/null || echo '{}')
+
+ALERTS_DATA=$(echo "$ALERTS_JSON" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+alerts = []
+for g in d.get('data', {}).get('groups', []):
+    for r in g.get('rules', []):
+        val = ''
+        for a in r.get('alerts', []):
+            s = a.get('annotations', {}).get('summary', '')
+            if s: val = s
+        alerts.append({
+            'name': r['name'],
+            'state': r['state'],
+            'health': r.get('health', ''),
+            'severity': r.get('labels', {}).get('severity', ''),
+            'summary': val
+        })
+print(json.dumps(alerts))
+")
+ALERT_COUNT=$(echo "$ALERTS_DATA" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
+echo "  → $ALERT_COUNT alert rules exported"
+
 # ── 2. Build the static page ─────────────────────────────
 echo ""
 echo "── Building static page ──"
@@ -61,8 +96,9 @@ trap 'rm -rf "$BUILD_DIR"' EXIT
 LAST_UPDATE=$(date '+%d/%m/%Y %H:%M')
 GENERATED_AT=$(date '+%d/%m/%Y à %H:%M:%S')
 
-# Write data to temp file, then inject into template
+# Write data to temp files, then inject into template
 echo "$JSON_DATA" > "$BUILD_DIR/data.json"
+echo "$ALERTS_DATA" > "$BUILD_DIR/alerts.json"
 
 python3 << PYEOF
 import json
@@ -73,7 +109,11 @@ with open("$TEMPLATE") as f:
 with open("$BUILD_DIR/data.json") as f:
     data = f.read().strip()
 
+with open("$BUILD_DIR/alerts.json") as f:
+    alerts = f.read().strip()
+
 html = html.replace('"__SPEEDTEST_DATA__"', data)
+html = html.replace('"__ALERTS_DATA__"', alerts)
 html = html.replace('__LAST_UPDATE__', '$LAST_UPDATE')
 html = html.replace('__GENERATED_AT__', '$GENERATED_AT')
 

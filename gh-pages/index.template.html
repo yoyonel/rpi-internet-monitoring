@@ -95,6 +95,37 @@
 
         .no-data { text-align: center; padding: 40px; color: #484f58; font-size: 1.1em; }
 
+        /* ── Alerts Panel ── */
+        .alerts-panel {
+            background: #181b1f; border: 1px solid #2a2e35; border-radius: 8px;
+            padding: 14px 16px; margin-bottom: 12px;
+        }
+        .alerts-panel h2 { font-size: 0.9em; color: #c9d1d9; font-weight: 500; margin-bottom: 10px; }
+        .alert-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 6px 0; border-bottom: 1px solid #1e2228;
+            font-size: 0.82em;
+        }
+        .alert-row:last-child { border-bottom: none; }
+        .alert-icon { font-size: 1.1em; flex-shrink: 0; width: 20px; text-align: center; }
+        .alert-name { color: #c9d1d9; font-weight: 500; min-width: 180px; }
+        .alert-summary { color: #6e7681; flex: 1; }
+        .alert-badge {
+            font-size: 0.7em; font-weight: 600; padding: 2px 8px;
+            border-radius: 3px; text-transform: uppercase; flex-shrink: 0;
+        }
+        .alert-badge.normal { background: #1a3a2a; color: #3fb950; }
+        .alert-badge.firing { background: #3d1a1a; color: #f85149; }
+        .alert-badge.pending { background: #3d2e1a; color: #d29922; }
+        .alert-badge.sev-critical { border: 1px solid #f85149; }
+        .alert-badge.sev-warning { border: 1px solid #d29922; }
+
+        @media (max-width: 600px) {
+            .alert-row { flex-wrap: wrap; gap: 4px; }
+            .alert-name { min-width: auto; }
+            .alert-summary { display: none; }
+        }
+
         footer {
             text-align: center; color: #3d424a; font-size: 0.75em; margin-top: 20px; padding: 12px;
         }
@@ -135,6 +166,11 @@
 
     <div class="stats-row" id="statsRow"></div>
 
+    <div class="alerts-panel" id="alertsPanel" style="display:none">
+        <h2>Alertes RPi</h2>
+        <div id="alertsList"></div>
+    </div>
+
     <div class="chart-panel">
         <div class="panel-header">
             <h2>Bandwidth</h2>
@@ -158,6 +194,29 @@
 
     <script>
     var RAW_DATA = "__SPEEDTEST_DATA__";
+    var ALERTS = "__ALERTS_DATA__";
+
+    // Render alerts
+    (function() {
+        if (!ALERTS || !ALERTS.length) return;
+        var panel = document.getElementById('alertsPanel');
+        var list = document.getElementById('alertsList');
+        panel.style.display = '';
+
+        var html = ALERTS.map(function(a) {
+            var icon = a.state === 'firing' ? '\uD83D\uDD34' : a.state === 'pending' ? '\u26A0\uFE0F' : '\u2705';
+            var badgeCls = a.state === 'firing' ? 'firing' : a.state === 'pending' ? 'pending' : 'normal';
+            var sevCls = a.severity === 'critical' ? ' sev-critical' : ' sev-warning';
+            var stateLabel = a.state === 'inactive' ? 'ok' : a.state;
+            return '<div class="alert-row">'
+                + '<span class="alert-icon">' + icon + '</span>'
+                + '<span class="alert-name">' + a.name + '</span>'
+                + '<span class="alert-summary">' + (a.summary || '') + '</span>'
+                + '<span class="alert-badge ' + badgeCls + sevCls + '">' + stateLabel + '</span>'
+                + '</div>';
+        }).join('');
+        list.innerHTML = html;
+    })();
 
     (function() {
         if (!RAW_DATA || !RAW_DATA.results) {
