@@ -190,6 +190,10 @@ alerts:
 publish days="30":
     bash scripts/publish-gh-pages.sh {{ days }}
 
+# Preview monitoring page locally (http://localhost:8080) without pushing
+preview days="30":
+    bash scripts/publish-gh-pages.sh --preview {{ days }}
+
 # Open an InfluxDB CLI shell
 influx-shell:
     docker exec -it influxdb influx

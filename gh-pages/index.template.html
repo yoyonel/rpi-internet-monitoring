@@ -412,6 +412,8 @@
                 c.options.scales.x.min = startTs;
                 c.options.scales.x.max = endTs;
                 c.update('none');
+            });
+
             // Range label
             document.getElementById('rangeLabel').textContent =
                 fmtDate(rangeStart) + '  \u2192  ' + fmtDate(rangeEnd);
