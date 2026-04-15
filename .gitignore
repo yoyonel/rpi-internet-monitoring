@@ -1,0 +1,17 @@
+# Backups
+backups/
+
+# Environment (contains secrets)
+.env
+
+# Editor
+*.swp
+*~
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Legacy backup files
+*.bak
