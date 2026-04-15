@@ -1,0 +1,517 @@
+{
+  "dashboard": {
+    "uid": "rpi-docker-dashboard",
+    "title": "Docker Containers",
+    "tags": ["docker", "telegraf"],
+    "timezone": "browser",
+    "refresh": "30s",
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "container",
+          "type": "query",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SHOW TAG VALUES FROM docker_container_cpu WITH KEY = container_name",
+          "multi": true,
+          "includeAll": true,
+          "current": { "text": "All", "value": "$__all" },
+          "refresh": 2
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "type": "stat",
+        "title": "Running Containers",
+        "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+        "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "red", "value": null },
+                { "color": "green", "value": 1 }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "graphMode": "none",
+          "colorMode": "background",
+          "reduceOptions": { "calcs": ["lastNotNull"] },
+          "textMode": "auto"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT last(\"n_containers_running\") FROM \"docker\" WHERE $timeFilter",
+            "rawQuery": true,
+            "resultFormat": "time_series"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "type": "stat",
+        "title": "Stopped",
+        "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+        "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "orange", "value": 1 }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "graphMode": "none",
+          "colorMode": "background",
+          "reduceOptions": { "calcs": ["lastNotNull"] },
+          "textMode": "auto"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT last(\"n_containers_stopped\") FROM \"docker\" WHERE $timeFilter",
+            "rawQuery": true,
+            "resultFormat": "time_series"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "type": "stat",
+        "title": "Total Images",
+        "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+        "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+        "fieldConfig": {
+          "defaults": {
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "blue", "value": null }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "graphMode": "none",
+          "colorMode": "background",
+          "reduceOptions": { "calcs": ["lastNotNull"] },
+          "textMode": "auto"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT last(\"n_images\") FROM \"docker\" WHERE $timeFilter",
+            "rawQuery": true,
+            "resultFormat": "time_series"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "type": "stat",
+        "title": "Total CPU %",
+        "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+        "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "decimals": 1,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 50 },
+                { "color": "orange", "value": 80 },
+                { "color": "red", "value": 100 }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "graphMode": "area",
+          "colorMode": "background",
+          "reduceOptions": { "calcs": ["lastNotNull"] },
+          "textMode": "auto"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT sum(\"usage_percent\") FROM \"docker_container_cpu\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+            "rawQuery": true,
+            "resultFormat": "time_series"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "type": "stat",
+        "title": "Total RAM",
+        "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+        "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes",
+            "decimals": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "green", "value": null },
+                { "color": "yellow", "value": 1073741824 },
+                { "color": "red", "value": 3221225472 }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "graphMode": "area",
+          "colorMode": "background",
+          "reduceOptions": { "calcs": ["lastNotNull"] },
+          "textMode": "auto"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT sum(\"usage\") FROM \"docker_container_mem\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+            "rawQuery": true,
+            "resultFormat": "time_series"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "type": "stat",
+        "title": "Total Net RX",
+        "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+        "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "decbytes",
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "color": "blue", "value": null }
+              ]
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "graphMode": "area",
+          "colorMode": "background",
+          "reduceOptions": { "calcs": ["lastNotNull"] },
+          "textMode": "auto"
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT sum(\"rx_bytes\") FROM \"docker_container_net\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+            "rawQuery": true,
+            "resultFormat": "time_series"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "type": "timeseries",
+        "title": "CPU Usage per Container",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+        "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "color": { "mode": "palette-classic" },
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 20,
+              "gradientMode": "scheme",
+              "showPoints": "never",
+              "stacking": { "mode": "none" }
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max", "lastNotNull"] },
+          "tooltip": { "mode": "multi", "sort": "desc" }
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "alias": "$tag_container_name",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT mean(\"usage_percent\") FROM \"docker_container_cpu\" WHERE (\"container_name\" =~ /^$container$/) AND $timeFilter GROUP BY time($__interval), \"container_name\" fill(none)",
+            "rawQuery": true,
+            "resultFormat": "time_series"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "type": "timeseries",
+        "title": "Memory Usage per Container",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+        "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes",
+            "min": 0,
+            "color": { "mode": "palette-classic" },
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 20,
+              "gradientMode": "scheme",
+              "showPoints": "never",
+              "stacking": { "mode": "none" }
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max", "lastNotNull"] },
+          "tooltip": { "mode": "multi", "sort": "desc" }
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "alias": "$tag_container_name",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT mean(\"usage\") FROM \"docker_container_mem\" WHERE (\"container_name\" =~ /^$container$/) AND $timeFilter GROUP BY time($__interval), \"container_name\" fill(none)",
+            "rawQuery": true,
+            "resultFormat": "time_series"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "type": "timeseries",
+        "title": "Memory % per Container",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "color": { "mode": "palette-classic" },
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 20,
+              "gradientMode": "scheme",
+              "showPoints": "never"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max", "lastNotNull"] },
+          "tooltip": { "mode": "multi", "sort": "desc" }
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "alias": "$tag_container_name",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT mean(\"usage_percent\") FROM \"docker_container_mem\" WHERE (\"container_name\" =~ /^$container$/) AND $timeFilter GROUP BY time($__interval), \"container_name\" fill(none)",
+            "rawQuery": true,
+            "resultFormat": "time_series"
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "type": "timeseries",
+        "title": "Network I/O per Container",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+        "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "Bps",
+            "color": { "mode": "palette-classic" },
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 10,
+              "gradientMode": "scheme",
+              "showPoints": "never"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] },
+          "tooltip": { "mode": "multi", "sort": "desc" }
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "alias": "$tag_container_name RX",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT non_negative_derivative(mean(\"rx_bytes\"), 1s) FROM \"docker_container_net\" WHERE (\"container_name\" =~ /^$container$/) AND $timeFilter GROUP BY time($__interval), \"container_name\" fill(none)",
+            "rawQuery": true,
+            "resultFormat": "time_series"
+          },
+          {
+            "refId": "B",
+            "alias": "$tag_container_name TX",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT non_negative_derivative(mean(\"tx_bytes\"), 1s) * -1 FROM \"docker_container_net\" WHERE (\"container_name\" =~ /^$container$/) AND $timeFilter GROUP BY time($__interval), \"container_name\" fill(none)",
+            "rawQuery": true,
+            "resultFormat": "time_series"
+          }
+        ]
+      },
+      {
+        "id": 14,
+        "type": "timeseries",
+        "title": "Block I/O per Container",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+        "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "Bps",
+            "color": { "mode": "palette-classic" },
+            "custom": {
+              "lineWidth": 1,
+              "fillOpacity": 10,
+              "gradientMode": "scheme",
+              "showPoints": "never"
+            }
+          },
+          "overrides": []
+        },
+        "options": {
+          "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] },
+          "tooltip": { "mode": "multi", "sort": "desc" }
+        },
+        "targets": [
+          {
+            "refId": "A",
+            "alias": "$tag_container_name Read",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT non_negative_derivative(mean(\"io_service_bytes_recursive_read\"), 1s) FROM \"docker_container_blkio\" WHERE (\"container_name\" =~ /^$container$/) AND $timeFilter GROUP BY time($__interval), \"container_name\" fill(none)",
+            "rawQuery": true,
+            "resultFormat": "time_series"
+          },
+          {
+            "refId": "B",
+            "alias": "$tag_container_name Write",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT non_negative_derivative(mean(\"io_service_bytes_recursive_write\"), 1s) * -1 FROM \"docker_container_blkio\" WHERE (\"container_name\" =~ /^$container$/) AND $timeFilter GROUP BY time($__interval), \"container_name\" fill(none)",
+            "rawQuery": true,
+            "resultFormat": "time_series"
+          }
+        ]
+      },
+      {
+        "id": 15,
+        "type": "table",
+        "title": "Container Status",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+        "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+        "fieldConfig": {
+          "defaults": {},
+          "overrides": [
+            {
+              "matcher": { "id": "byName", "options": "uptime_ns" },
+              "properties": [{ "id": "unit", "value": "ns" }]
+            },
+            {
+              "matcher": { "id": "byName", "options": "usage_percent" },
+              "properties": [
+                { "id": "unit", "value": "percent" },
+                { "id": "decimals", "value": 1 },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      { "color": "green", "value": null },
+                      { "color": "yellow", "value": 25 },
+                      { "color": "orange", "value": 50 },
+                      { "color": "red", "value": 80 }
+                    ]
+                  }
+                },
+                { "id": "custom.cellOptions", "value": { "type": "color-background" } }
+              ]
+            },
+            {
+              "matcher": { "id": "byName", "options": "mem_usage" },
+              "properties": [{ "id": "unit", "value": "bytes" }]
+            }
+          ]
+        },
+        "options": {
+          "showHeader": true,
+          "sortBy": [{ "displayName": "usage_percent", "desc": true }]
+        },
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": { "Time": true },
+              "renameByName": {
+                "container_name": "Container",
+                "usage_percent": "CPU %",
+                "mem_usage": "Memory",
+                "uptime_ns": "Uptime",
+                "restart_count": "Restarts",
+                "oomkilled": "OOM Killed"
+              }
+            }
+          }
+        ],
+        "targets": [
+          {
+            "refId": "A",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT last(\"usage_percent\") AS \"usage_percent\" FROM \"docker_container_cpu\" WHERE $timeFilter GROUP BY \"container_name\"",
+            "rawQuery": true,
+            "resultFormat": "table"
+          },
+          {
+            "refId": "B",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT last(\"usage\") AS \"mem_usage\" FROM \"docker_container_mem\" WHERE $timeFilter GROUP BY \"container_name\"",
+            "rawQuery": true,
+            "resultFormat": "table"
+          },
+          {
+            "refId": "C",
+            "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+            "query": "SELECT last(\"uptime_ns\") AS \"uptime_ns\", last(\"restart_count\") AS \"restart_count\", last(\"oomkilled\") AS \"oomkilled\" FROM \"docker_container_status\" WHERE $timeFilter GROUP BY \"container_name\"",
+            "rawQuery": true,
+            "resultFormat": "table"
+          }
+        ]
+      }
+    ],
+    "schemaVersion": 39
+  },
+  "folderUid": "",
+  "overwrite": true
+}

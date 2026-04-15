@@ -64,6 +64,7 @@ services:
     image: telegraf:1.38.2
     hostname: rpi-latty
     restart: unless-stopped
+    user: "telegraf:995"
     environment:
       INFLUXDB_USER: ${INFLUXDB_USER}
       INFLUXDB_USER_PASSWORD: ${INFLUXDB_USER_PASSWORD}
@@ -77,6 +78,7 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /var/run/utmp:/var/run/utmp:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     healthcheck:
       test: ["CMD-SHELL", "pgrep telegraf || exit 1"]
       interval: 30s
