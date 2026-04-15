@@ -28,7 +28,7 @@ Stack Docker pour monitorer le débit internet (download, upload, ping) via [Ook
 
 | Service | Version | Port | Description |
 |---|---|---|---|
-| Grafana | 11.6.14 | 3000 | Dashboards (SpeedTest, System) |
+| Grafana | 11.6.14 | 3000 | Dashboards (SpeedTest, System, RPi Alerts) |
 | InfluxDB | 1.8.10 | 8086 (interne) | Time-series DB |
 | Chronograf | 1.9.4 | 8888 | Admin InfluxDB |
 | Telegraf | 1.38.2 | — | Métriques système (CPU, RAM, disk, temp) |
@@ -122,6 +122,14 @@ Les credentials sont dans `.env` (non versionné). Copier `.env.example` :
 cp .env.example .env
 ```
 
+## Dashboards
+
+| Dashboard | UID | Dossier | Description |
+|---|---|---|---|
+| SpeedTest | `Ha9ke1iRk` | General | Download, upload, ping |
+| System | `000000128` | General | CPU, RAM, disk, réseau, température |
+| RPi Alerts Overview | `rpi-alerts-dashboard` | RPi Alerts | Gauges + graphiques avec seuils d'alerte |
+
 ## Alertes
 
 6 alertes Grafana provisionées automatiquement (`grafana/provisioning/alerting/`) :
@@ -134,6 +142,8 @@ cp .env.example .env
 | High Swap Usage | > 50% | 10 min | warning |
 | High Disk Usage | > 85% | 10 min | warning |
 | High Load Average | > 4 (= 100% des 4 cores) | 5 min | warning |
+
+Le dashboard **RPi Alerts Overview** affiche les 6 métriques surveillées avec les seuils d'alerte en rouge sur les graphiques, plus un panneau d'historique des alertes.
 
 Visibles dans Grafana → Alerting → Alert rules, ou via `just alerts`.
 
