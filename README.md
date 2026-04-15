@@ -115,7 +115,8 @@ crontab -e
 
 | Commande | Description |
 |---|---|
-| `just publish [N]` | Publier la page de monitoring sur GitHub Pages (N jours d'historique, défaut: 7) |
+| `just publish [N]` | Publier la page de monitoring sur GitHub Pages (N jours d'historique, défaut: 30) |
+| `just preview [N]` | Prévisualiser en local sur `http://localhost:8080` avant publication |
 
 ### Utilitaires
 
@@ -180,18 +181,22 @@ just check     # Health check rapide (4 services)
 
 ## GitHub Pages — Vue externe
 
-Une page statique publique affiche les résultats speedtest des 7 derniers jours :
+Page statique publique avec les résultats speedtest des 30 derniers jours :
 
 **https://yoyonel.github.io/rpi-internet-monitoring/**
 
-- Graphiques interactifs (Chart.js) : débit descendant, montant, ping
-- Statistiques : valeur actuelle, moyenne, max
-- Mise à jour automatique toutes les 10 min via cron
-- Thème sombre, responsive (mobile-friendly)
+- **Bandwidth** : graphique combiné download (bleu) + upload (violet) avec fill gradient
+- **Ping** : graphique dédié (orange/jaune)
+- **Stats** : 3 panneaux Ping / Download / Upload avec moy, min, max
+- **Time range picker** : presets 6h/12h/24h/2j/7j/30j, navigation « », zoom +/-, raccourcis clavier
+- Downsampling LTTB (800 points max) pour des performances fluides
+- Thème sombre Grafana-like, responsive (mobile-friendly)
+- Auto-refresh toutes les 11 min
 
 ```bash
-just publish       # Publication manuelle (7 jours)
-just publish 30    # 30 jours d'historique
+just preview       # Prévisualiser en local (http://localhost:8080)
+just publish       # Publication sur GitHub Pages (30 jours)
+just publish 7     # 7 jours d'historique seulement
 ```
 
 Pour automatiser via cron :

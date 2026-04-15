@@ -11,7 +11,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #0d1117;
+            background: #111217;
             color: #c9d1d9;
             padding: 20px;
             max-width: 1200px;
@@ -21,155 +21,105 @@
             text-align: center;
             margin-bottom: 16px;
             padding: 20px;
-            background: #161b22;
-            border-radius: 12px;
-            border: 1px solid #30363d;
-        }
-        h1 { font-size: 1.8em; color: #58a6ff; margin-bottom: 8px; }
-        .subtitle { color: #8b949e; font-size: 0.95em; }
-        .updated { color: #8b949e; font-size: 0.85em; margin-top: 8px; }
-        .updated time { color: #58a6ff; font-weight: 500; }
-
-        /* ── Time Range Picker (Grafana-style) ── */
-        .time-picker {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        .time-picker .nav-btn {
-            background: #161b22;
-            border: 1px solid #30363d;
-            color: #8b949e;
-            width: 32px; height: 32px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.15s;
-        }
-        .time-picker .nav-btn:hover { background: #21262d; color: #c9d1d9; }
-        .time-picker .range-group {
-            display: flex;
-            align-items: center;
-            gap: 2px;
-            background: #161b22;
-            border: 1px solid #30363d;
+            background: #181b1f;
             border-radius: 8px;
-            padding: 3px;
+            border: 1px solid #2a2e35;
+        }
+        h1 { font-size: 1.6em; color: #c9d1d9; margin-bottom: 4px; font-weight: 600; }
+        .subtitle { color: #6e7681; font-size: 0.9em; }
+        .updated { color: #6e7681; font-size: 0.82em; margin-top: 6px; }
+        .updated time { color: #6e9fff; font-weight: 500; }
+
+        /* ── Time Range Picker ── */
+        .time-picker {
+            display: flex; align-items: center; justify-content: flex-end;
+            gap: 4px; margin-bottom: 16px; flex-wrap: wrap;
+        }
+        .time-picker .nav-btn, .time-picker .zoom-btn {
+            background: #181b1f; border: 1px solid #2a2e35; color: #6e7681;
+            width: 30px; height: 30px; border-radius: 4px; cursor: pointer;
+            font-size: 13px; display: flex; align-items: center; justify-content: center;
+            transition: all 0.12s;
+        }
+        .time-picker .nav-btn:hover, .time-picker .zoom-btn:hover { background: #22262d; color: #c9d1d9; }
+        .time-picker .range-group {
+            display: flex; align-items: center; gap: 1px;
+            background: #181b1f; border: 1px solid #2a2e35; border-radius: 4px; padding: 2px;
         }
         .time-picker .range-btn {
-            background: transparent;
-            border: none;
-            color: #8b949e;
-            padding: 5px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85em;
-            font-weight: 500;
-            transition: all 0.15s;
-            white-space: nowrap;
+            background: transparent; border: none; color: #6e7681;
+            padding: 4px 10px; border-radius: 3px; cursor: pointer;
+            font-size: 0.82em; font-weight: 500; transition: all 0.12s; white-space: nowrap;
         }
-        .time-picker .range-btn:hover { color: #c9d1d9; background: #21262d; }
-        .time-picker .range-btn.active {
-            background: #1f6feb;
-            color: #fff;
-        }
-        .time-picker .zoom-btn {
-            background: #161b22;
-            border: 1px solid #30363d;
-            color: #8b949e;
-            width: 32px; height: 32px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.15s;
-        }
-        .time-picker .zoom-btn:hover { background: #21262d; color: #c9d1d9; }
+        .time-picker .range-btn:hover { color: #c9d1d9; background: #22262d; }
+        .time-picker .range-btn.active { background: #3871d4; color: #fff; }
         .time-picker .range-label {
-            color: #58a6ff;
-            font-size: 0.82em;
-            font-weight: 500;
-            margin-left: 8px;
-            min-width: 190px;
-            text-align: center;
+            color: #6e9fff; font-size: 0.8em; font-weight: 500;
+            margin-left: 8px; min-width: 180px; text-align: center;
         }
 
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 12px;
-            margin-bottom: 24px;
+        /* ── Stat Cards (Grafana-style) ── */
+        .stats-row {
+            display: grid; grid-template-columns: repeat(3, 1fr);
+            gap: 8px; margin-bottom: 12px;
         }
-        .stat-card {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 10px;
-            padding: 16px;
-            text-align: center;
+        .stat-panel {
+            background: #181b1f; border: 1px solid #2a2e35; border-radius: 8px;
+            padding: 16px 20px; text-align: center;
         }
-        .stat-card .label {
-            color: #8b949e; font-size: 0.75em;
-            text-transform: uppercase; letter-spacing: 1px;
-        }
-        .stat-card .value { font-size: 1.8em; font-weight: 700; margin: 4px 0; }
-        .stat-card .unit { color: #8b949e; font-size: 0.75em; }
-        .stat-card.download .value { color: #58a6ff; }
-        .stat-card.upload .value { color: #3fb950; }
-        .stat-card.ping .value { color: #d29922; }
+        .stat-panel .stat-title { color: #6e7681; font-size: 0.8em; margin-bottom: 4px; }
+        .stat-panel .stat-value { font-size: 2.8em; font-weight: 300; line-height: 1.1; }
+        .stat-panel .stat-unit { font-size: 0.55em; font-weight: 400; color: #6e7681; vertical-align: baseline; margin-left: 2px; }
+        .stat-panel .stat-sub { color: #6e7681; font-size: 0.72em; margin-top: 4px; }
+        .stat-panel.ping .stat-value { color: #ff9830; }
+        .stat-panel.download .stat-value { color: #7eb6f6; }
+        .stat-panel.upload .stat-value { color: #c982e0; }
 
-        .chart-container {
-            background: #161b22;
-            border: 1px solid #30363d;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 16px;
+        /* ── Chart Panels ── */
+        .chart-panel {
+            background: #181b1f; border: 1px solid #2a2e35; border-radius: 8px;
+            padding: 16px 16px 12px; margin-bottom: 12px;
         }
-        .chart-container h2 {
-            font-size: 1em; color: #8b949e;
-            margin-bottom: 12px; font-weight: 500;
+        .chart-panel .panel-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px;
+        }
+        .chart-panel h2 { font-size: 0.9em; color: #c9d1d9; font-weight: 500; }
+        .chart-legend {
+            display: flex; gap: 16px; font-size: 0.72em; color: #6e7681;
+        }
+        .chart-legend .leg-item { display: flex; align-items: center; gap: 4px; }
+        .chart-legend .leg-color {
+            width: 14px; height: 3px; border-radius: 2px; display: inline-block;
         }
 
-        .no-data {
-            text-align: center; padding: 40px;
-            color: #484f58; font-size: 1.1em;
-        }
+        .no-data { text-align: center; padding: 40px; color: #484f58; font-size: 1.1em; }
 
         footer {
-            text-align: center; color: #484f58;
-            font-size: 0.8em; margin-top: 24px; padding: 16px;
+            text-align: center; color: #3d424a; font-size: 0.75em; margin-top: 20px; padding: 12px;
         }
-        footer a { color: #58a6ff; text-decoration: none; }
+        footer a { color: #6e9fff; text-decoration: none; }
 
         @media (max-width: 600px) {
-            body { padding: 12px; }
-            h1 { font-size: 1.3em; }
-            .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-            .stat-card { padding: 10px; }
-            .stat-card .value { font-size: 1.3em; }
-            .time-picker .range-btn { padding: 4px 8px; font-size: 0.78em; }
-            .time-picker .range-label { font-size: 0.75em; min-width: 150px; }
+            body { padding: 10px; }
+            .stats-row { grid-template-columns: 1fr; }
+            .stat-panel .stat-value { font-size: 2em; }
+            .time-picker .range-btn { padding: 3px 7px; font-size: 0.75em; }
+            .time-picker .range-label { min-width: 140px; font-size: 0.72em; }
+            .chart-legend { flex-wrap: wrap; gap: 8px; }
         }
     </style>
 </head>
 <body>
     <header>
-        <h1>&#x1F310; Internet Speed Monitor</h1>
+        <h1>Internet Speed Monitor</h1>
         <p class="subtitle">Raspberry Pi 4 &mdash; Speedtest toutes les 10 min</p>
         <p class="updated">Derni&egrave;re mise &agrave; jour : <time>__LAST_UPDATE__</time></p>
     </header>
 
-    <!-- Time Range Picker -->
     <div class="time-picker" id="timePicker">
         <button class="nav-btn" id="btnBack" title="Reculer">&laquo;</button>
-        <div class="range-group" id="rangeGroup">
+        <div class="range-group">
             <button class="range-btn" data-hours="6">6h</button>
             <button class="range-btn" data-hours="12">12h</button>
             <button class="range-btn" data-hours="24">24h</button>
@@ -178,313 +128,317 @@
             <button class="range-btn" data-hours="720">30j</button>
         </div>
         <button class="nav-btn" id="btnForward" title="Avancer">&raquo;</button>
-        <button class="zoom-btn" id="btnZoomOut" title="Zoom out">&#x1F50D;&#x2212;</button>
-        <button class="zoom-btn" id="btnZoomIn" title="Zoom in">&#x1F50D;+</button>
+        <button class="zoom-btn" id="btnZoomOut" title="Zoom out">&#x2212;</button>
+        <button class="zoom-btn" id="btnZoomIn" title="Zoom in">+</button>
         <span class="range-label" id="rangeLabel"></span>
     </div>
 
-    <div class="stats-grid" id="statsGrid"></div>
+    <div class="stats-row" id="statsRow"></div>
 
-    <div class="chart-container">
-        <h2>&#x1F4E5; D&eacute;bit descendant (Mbps)</h2>
-        <canvas id="downloadChart"></canvas>
+    <div class="chart-panel">
+        <div class="panel-header">
+            <h2>Bandwidth</h2>
+            <div class="chart-legend" id="bwLegend"></div>
+        </div>
+        <canvas id="bandwidthChart"></canvas>
     </div>
 
-    <div class="chart-container">
-        <h2>&#x1F4E4; D&eacute;bit montant (Mbps)</h2>
-        <canvas id="uploadChart"></canvas>
-    </div>
-
-    <div class="chart-container">
-        <h2>&#x1F3D3; Latence (ms)</h2>
+    <div class="chart-panel">
+        <div class="panel-header">
+            <h2>Ping</h2>
+            <div class="chart-legend" id="pingLegend"></div>
+        </div>
         <canvas id="pingChart"></canvas>
     </div>
 
     <footer>
-        Donn&eacute;es collect&eacute;es via
-        <a href="https://www.speedtest.net/apps/cli" rel="noopener">Ookla Speedtest CLI</a>
-        sur Raspberry Pi 4<br>
-        Mise &agrave; jour automatique toutes les 10 min &mdash;
+        <a href="https://www.speedtest.net/apps/cli" rel="noopener">Ookla Speedtest CLI</a> sur Raspberry Pi 4 &mdash;
         Page g&eacute;n&eacute;r&eacute;e le __GENERATED_AT__
     </footer>
 
     <script>
-    // Data injected by publish script
     var RAW_DATA = "__SPEEDTEST_DATA__";
 
     (function() {
         if (!RAW_DATA || !RAW_DATA.results) {
-            document.getElementById('statsGrid').innerHTML =
-                '<div class="no-data">Aucune donn&eacute;e disponible</div>';
+            document.getElementById('statsRow').innerHTML = '<div class="no-data">Aucune donn\u00e9e disponible</div>';
             return;
         }
-
         var series = RAW_DATA.results[0].series;
         if (!series || !series[0] || !series[0].values || series[0].values.length === 0) {
-            document.getElementById('statsGrid').innerHTML =
-                '<div class="no-data">Aucune donn&eacute;e disponible</div>';
+            document.getElementById('statsRow').innerHTML = '<div class="no-data">Aucune donn\u00e9e disponible</div>';
             return;
         }
 
         var cols = series[0].columns;
-        var iTime = cols.indexOf('time');
-        var iDl   = cols.indexOf('download_bandwidth');
-        var iUl   = cols.indexOf('upload_bandwidth');
-        var iPing  = cols.indexOf('ping_latency');
+        var iTime = cols.indexOf('time'), iDl = cols.indexOf('download_bandwidth');
+        var iUl = cols.indexOf('upload_bandwidth'), iPing = cols.indexOf('ping_latency');
 
-        // Parse all data once — pre-compute timestamps for fast filtering
-        var allData = series[0].values.map(function(row) {
-            var t = new Date(row[iTime]);
-            return {
-                time:     t,
-                ts:       t.getTime(),
-                download: row[iDl] / 125000,
-                upload:   row[iUl] / 125000,
-                ping:     row[iPing]
-            };
+        var allData = series[0].values.map(function(r) {
+            var t = new Date(r[iTime]);
+            return { ts: t.getTime(), dl: r[iDl] / 125000, ul: r[iUl] / 125000, pi: r[iPing] };
         });
 
-        // Pre-build typed {x,y} arrays for each metric (avoids re-mapping on every render)
         var allXY = {
-            download: allData.map(function(d) { return { x: d.ts, y: d.download }; }),
-            upload:   allData.map(function(d) { return { x: d.ts, y: d.upload }; }),
-            ping:     allData.map(function(d) { return { x: d.ts, y: d.ping }; })
+            dl: allData.map(function(d) { return { x: d.ts, y: d.dl }; }),
+            ul: allData.map(function(d) { return { x: d.ts, y: d.ul }; }),
+            pi: allData.map(function(d) { return { x: d.ts, y: d.pi }; })
         };
 
-        var dataStart = allData[0].time;
-        var dataEnd = allData[allData.length - 1].time;
+        // LTTB downsampling
+        var MAX_PTS = 800;
+        function lttb(data, n) {
+            var len = data.length;
+            if (len <= n) return data;
+            var out = [data[0]], bs = (len - 2) / (n - 2), a = 0;
+            for (var i = 0; i < n - 2; i++) {
+                var s = Math.floor((i + 1) * bs) + 1, e = Math.min(Math.floor((i + 2) * bs) + 1, len);
+                var ns = Math.min(Math.floor((i + 2) * bs) + 1, len - 1);
+                var ne = Math.min(Math.floor((i + 3) * bs) + 1, len);
+                var ax = 0, ay = 0, c = 0;
+                for (var j = ns; j < ne; j++) { ax += data[j].x; ay += data[j].y; c++; }
+                if (c) { ax /= c; ay /= c; }
+                var ma = -1, bi = s, px = data[a].x, py = data[a].y;
+                for (var j = s; j < e; j++) {
+                    var ar = Math.abs((px - ax) * (data[j].y - py) - (px - data[j].x) * (ay - py));
+                    if (ar > ma) { ma = ar; bi = j; }
+                }
+                out.push(data[bi]); a = bi;
+            }
+            out.push(data[len - 1]);
+            return out;
+        }
 
-        // ── Time range state ──
+        var dataEnd = allData[allData.length - 1].ts;
         var HOUR = 3600000;
-        var rangePresets = [6, 12, 24, 48, 168, 720]; // hours
+        var rangePresets = [6, 12, 24, 48, 168, 720];
         var currentHours = 48;
-        var rangeEnd = new Date(dataEnd.getTime() + 600000); // +10min padding
-        var rangeStart = new Date(rangeEnd.getTime() - currentHours * HOUR);
-        var isLive = true; // anchored to "now" (latest data)
+        var rangeEnd = dataEnd + 600000;
+        var rangeStart = rangeEnd - currentHours * HOUR;
+        var isLive = true;
 
-        // ── Charts ──
-        Chart.defaults.color = '#8b949e';
-        Chart.defaults.borderColor = '#30363d';
+        // Colors matching Grafana
+        var COL_DL = '#7eb6f6';  // blue
+        var COL_UL = '#c982e0';  // purple/pink
+        var COL_PI = '#f2a93b';  // yellow/orange
 
-        var charts = {};
+        Chart.defaults.color = '#6e7681';
+        Chart.defaults.borderColor = '#2a2e35';
 
-        function makeChart(id, label, color, fill) {
-            var ctx = document.getElementById(id);
-            return new Chart(ctx, {
-                type: 'line',
-                data: {
-                    datasets: [{
-                        label: label,
-                        data: [],
-                        borderColor: color,
-                        backgroundColor: fill,
-                        fill: true,
-                        tension: 0,
-                        pointRadius: 0,
-                        pointHitRadius: 8,
-                        pointHoverRadius: 4,
-                        pointHoverBorderWidth: 2,
-                        borderWidth: 1.5
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    aspectRatio: window.innerWidth < 600 ? 1.5 : 3,
-                    animation: false,
-                    parsing: false,
-                    normalized: true,
-                    interaction: { mode: 'index', intersect: false },
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                tooltipFormat: 'dd/MM HH:mm',
-                                displayFormats: { hour: 'HH:mm', day: 'dd/MM' }
-                            },
-                            grid: { color: '#21262d' },
-                            min: null,
-                            max: null
-                        },
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: '#21262d' }
-                        }
+        function makeGradient(ctx, hex, h) {
+            var m = hex.replace('#','').match(/.{2}/g).map(function(x) { return parseInt(x,16); });
+            var g = ctx.createLinearGradient(0, 0, 0, h);
+            g.addColorStop(0, 'rgba(' + m + ',0.35)');
+            g.addColorStop(1, 'rgba(' + m + ',0.03)');
+            return g;
+        }
+
+        // Bandwidth chart (2 datasets: download + upload overlaid)
+        var bwCtx = document.getElementById('bandwidthChart').getContext('2d');
+        var bwH = document.getElementById('bandwidthChart').parentElement.clientHeight || 300;
+        var bwChart = new Chart(bwCtx, {
+            type: 'line',
+            data: {
+                datasets: [
+                    {
+                        label: 'download', data: [], order: 2,
+                        borderColor: COL_DL, backgroundColor: makeGradient(bwCtx, COL_DL, bwH),
+                        fill: true, tension: 0.2, pointRadius: 0,
+                        pointHitRadius: 6, pointHoverRadius: 3, borderWidth: 1.5
                     },
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            backgroundColor: '#161b22',
-                            borderColor: '#30363d',
-                            borderWidth: 1
-                        },
-                        decimation: {
-                            enabled: true,
-                            algorithm: 'lttb',
-                            samples: 400
-                        }
+                    {
+                        label: 'upload', data: [], order: 1,
+                        borderColor: COL_UL, backgroundColor: makeGradient(bwCtx, COL_UL, bwH),
+                        fill: true, tension: 0.2, pointRadius: 0,
+                        pointHitRadius: 6, pointHoverRadius: 3, borderWidth: 1.5
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: true,
+                aspectRatio: window.innerWidth < 600 ? 1.5 : 2.8,
+                animation: false, parsing: false, normalized: true,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { tooltipFormat: 'dd/MM HH:mm', displayFormats: { hour: 'HH:mm', day: 'dd/MM' } },
+                        grid: { color: '#1e2228' }
+                    },
+                    y: {
+                        beginAtZero: true, grid: { color: '#1e2228' },
+                        ticks: { callback: function(v) { return v >= 1000 ? (v/1000).toFixed(1) + ' Gb/s' : v + ' Mb/s'; } }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { backgroundColor: '#181b1f', borderColor: '#2a2e35', borderWidth: 1,
+                        callbacks: { label: function(c) { return c.dataset.label + ': ' + c.parsed.y.toFixed(1) + ' Mb/s'; } }
                     }
                 }
-            });
-        }
+            }
+        });
 
-        charts.download = makeChart('downloadChart', 'Download (Mbps)', '#58a6ff', 'rgba(88,166,255,0.1)');
-        charts.upload   = makeChart('uploadChart',   'Upload (Mbps)',   '#3fb950', 'rgba(63,185,80,0.1)');
-        charts.ping     = makeChart('pingChart',     'Ping (ms)',       '#d29922', 'rgba(210,153,34,0.1)');
-
-        // ── Helpers ──
-        function avg(a) { return a.length ? a.reduce(function(s, v) { return s + v; }, 0) / a.length : 0; }
-
-        function pad2(n) { return n < 10 ? '0' + n : '' + n; }
-
-        function fmtDate(d) {
-            return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
-        }
-
-        // Binary search for fast range filtering (data is sorted by time)
-        function bsearch(arr, ts, findFirst) {
-            var lo = 0, hi = arr.length - 1, mid, result = findFirst ? arr.length : -1;
-            while (lo <= hi) {
-                mid = (lo + hi) >> 1;
-                if (findFirst) {
-                    if (arr[mid].ts >= ts) { result = mid; hi = mid - 1; }
-                    else lo = mid + 1;
-                } else {
-                    if (arr[mid].ts <= ts) { result = mid; lo = mid + 1; }
-                    else hi = mid - 1;
+        // Ping chart
+        var piCtx = document.getElementById('pingChart').getContext('2d');
+        var piH = document.getElementById('pingChart').parentElement.clientHeight || 200;
+        var piChart = new Chart(piCtx, {
+            type: 'line',
+            data: {
+                datasets: [{
+                    label: 'latency', data: [],
+                    borderColor: COL_PI, backgroundColor: makeGradient(piCtx, COL_PI, piH),
+                    fill: true, tension: 0.2, pointRadius: 0,
+                    pointHitRadius: 6, pointHoverRadius: 3, borderWidth: 1.5
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: true,
+                aspectRatio: window.innerWidth < 600 ? 1.5 : 4,
+                animation: false, parsing: false, normalized: true,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: { tooltipFormat: 'dd/MM HH:mm', displayFormats: { hour: 'HH:mm', day: 'dd/MM' } },
+                        grid: { color: '#1e2228' }
+                    },
+                    y: {
+                        beginAtZero: true, grid: { color: '#1e2228' },
+                        ticks: { callback: function(v) { return v + ' ms'; } }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { backgroundColor: '#181b1f', borderColor: '#2a2e35', borderWidth: 1,
+                        callbacks: { label: function(c) { return c.parsed.y.toFixed(1) + ' ms'; } }
+                    }
                 }
             }
-            return result;
+        });
+
+        // Helpers
+        function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+        function fmtDate(ts) {
+            var d = new Date(ts);
+            return pad2(d.getDate()) + '/' + pad2(d.getMonth()+1) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+        }
+        function bsearch(arr, ts, first) {
+            var lo = 0, hi = arr.length - 1, r = first ? arr.length : -1;
+            while (lo <= hi) {
+                var m = (lo + hi) >> 1;
+                if (first) { if (arr[m].ts >= ts) { r = m; hi = m-1; } else lo = m+1; }
+                else { if (arr[m].ts <= ts) { r = m; lo = m+1; } else hi = m-1; }
+            }
+            return r;
+        }
+        function filterRange(s, e) {
+            var i0 = bsearch(allData, s, true), i1 = bsearch(allData, e, false);
+            return (i0 <= i1 && i0 < allData.length) ? [i0, i1+1] : null;
         }
 
-        function filterIndices(startTs, endTs) {
-            var i0 = bsearch(allData, startTs, true);
-            var i1 = bsearch(allData, endTs, false);
-            return (i0 <= i1 && i0 < allData.length) ? [i0, i1 + 1] : null;
-        }
-
-        // ── Render ──
         function render() {
-            var startTs = rangeStart.getTime();
-            var endTs = rangeEnd.getTime();
-            var range = filterIndices(startTs, endTs);
+            var rng = filterRange(rangeStart, rangeEnd);
 
-            // Stats (based on visible range)
-            if (!range) {
-                document.getElementById('statsGrid').innerHTML =
-                    '<div class="no-data" style="grid-column:1/-1">Aucune donn&eacute;e sur cette p&eacute;riode</div>';
+            if (!rng) {
+                document.getElementById('statsRow').innerHTML =
+                    '<div class="no-data" style="grid-column:1/-1">Aucune donn\u00e9e sur cette p\u00e9riode</div>';
+                document.getElementById('bwLegend').innerHTML = '';
+                document.getElementById('pingLegend').innerHTML = '';
             } else {
-                var i0 = range[0], i1 = range[1];
-                var dlSum = 0, ulSum = 0, piSum = 0, dlMax = 0, n = i1 - i0;
-                var lastDl = 0, lastUl = 0;
+                var i0 = rng[0], i1 = rng[1], n = i1 - i0;
+                var dlS=0, ulS=0, piS=0, dlMx=0, dlMn=1e9, ulMx=0, ulMn=1e9, piMn=1e9, piMx=0;
+                var lastDl=0, lastUl=0;
                 for (var i = i0; i < i1; i++) {
                     var d = allData[i];
-                    dlSum += d.download; ulSum += d.upload; piSum += d.ping;
-                    if (d.download > dlMax) dlMax = d.download;
-                    lastDl = d.download; lastUl = d.upload;
+                    dlS += d.dl; ulS += d.ul; piS += d.pi;
+                    if (d.dl > dlMx) dlMx = d.dl; if (d.dl < dlMn) dlMn = d.dl;
+                    if (d.ul > ulMx) ulMx = d.ul; if (d.ul < ulMn) ulMn = d.ul;
+                    if (d.pi > piMx) piMx = d.pi; if (d.pi < piMn) piMn = d.pi;
+                    lastDl = d.dl; lastUl = d.ul;
                 }
+                var dlAvg = dlS/n, ulAvg = ulS/n, piAvg = piS/n;
 
-                var stats = [
-                    { label: 'DL actuel',  value: lastDl.toFixed(1),            unit: 'Mbps', cls: 'download' },
-                    { label: 'DL moyen',   value: (dlSum / n).toFixed(1),       unit: 'Mbps', cls: 'download' },
-                    { label: 'DL max',     value: dlMax.toFixed(1),             unit: 'Mbps', cls: 'download' },
-                    { label: 'UL actuel',  value: lastUl.toFixed(1),            unit: 'Mbps', cls: 'upload' },
-                    { label: 'UL moyen',   value: (ulSum / n).toFixed(1),       unit: 'Mbps', cls: 'upload' },
-                    { label: 'Ping moyen', value: (piSum / n).toFixed(1),       unit: 'ms',   cls: 'ping' },
-                ];
+                document.getElementById('statsRow').innerHTML =
+                    '<div class="stat-panel ping"><div class="stat-title">Ping</div>'
+                    + '<div class="stat-value">' + piAvg.toFixed(1) + '<span class="stat-unit">ms</span></div>'
+                    + '<div class="stat-sub">min ' + piMn.toFixed(1) + ' &middot; max ' + piMx.toFixed(1) + '</div></div>'
+                    + '<div class="stat-panel download"><div class="stat-title">Download</div>'
+                    + '<div class="stat-value">' + lastDl.toFixed(0) + '<span class="stat-unit">Mb/s</span></div>'
+                    + '<div class="stat-sub">moy ' + dlAvg.toFixed(0) + ' &middot; max ' + dlMx.toFixed(0) + '</div></div>'
+                    + '<div class="stat-panel upload"><div class="stat-title">Upload</div>'
+                    + '<div class="stat-value">' + lastUl.toFixed(0) + '<span class="stat-unit">Mb/s</span></div>'
+                    + '<div class="stat-sub">moy ' + ulAvg.toFixed(0) + ' &middot; max ' + ulMx.toFixed(0) + '</div></div>';
 
-                document.getElementById('statsGrid').innerHTML = stats.map(function(s) {
-                    return '<div class="stat-card ' + s.cls + '">' 
-                        + '<div class="label">' + s.label + '</div>'
-                        + '<div class="value">' + s.value + '</div>'
-                        + '<div class="unit">' + s.unit + '</div>'
-                        + '</div>';
-                }).join('');
+                document.getElementById('bwLegend').innerHTML =
+                    '<span class="leg-item"><span class="leg-color" style="background:' + COL_DL + '"></span> download'
+                    + '  Max: ' + dlMx.toFixed(0) + '  Min: ' + dlMn.toFixed(1) + '</span>'
+                    + '<span class="leg-item"><span class="leg-color" style="background:' + COL_UL + '"></span> upload'
+                    + '  Max: ' + ulMx.toFixed(0) + '  Min: ' + ulMn.toFixed(0) + '</span>';
+
+                document.getElementById('pingLegend').innerHTML =
+                    '<span class="leg-item"><span class="leg-color" style="background:' + COL_PI + '"></span> latency'
+                    + '  Avg: ' + piAvg.toFixed(1) + ' ms  Max: ' + piMx.toFixed(1) + ' ms</span>';
             }
 
-            // Charts: use slices of pre-built arrays (zero allocation)
-            var sl = range || [0, 0];
-            charts.download.data.datasets[0].data = allXY.download.slice(sl[0], sl[1]);
-            charts.upload.data.datasets[0].data   = allXY.upload.slice(sl[0], sl[1]);
-            charts.ping.data.datasets[0].data     = allXY.ping.slice(sl[0], sl[1]);
+            var sl = rng || [0, 0];
+            bwChart.data.datasets[0].data = lttb(allXY.dl.slice(sl[0], sl[1]), MAX_PTS);
+            bwChart.data.datasets[1].data = lttb(allXY.ul.slice(sl[0], sl[1]), MAX_PTS);
+            bwChart.options.scales.x.min = rangeStart;
+            bwChart.options.scales.x.max = rangeEnd;
+            bwChart.update('none');
 
-            [charts.download, charts.upload, charts.ping].forEach(function(c) {
-                c.options.scales.x.min = startTs;
-                c.options.scales.x.max = endTs;
-                c.update('none');
-            });
+            piChart.data.datasets[0].data = lttb(allXY.pi.slice(sl[0], sl[1]), MAX_PTS);
+            piChart.options.scales.x.min = rangeStart;
+            piChart.options.scales.x.max = rangeEnd;
+            piChart.update('none');
 
-            // Range label
             document.getElementById('rangeLabel').textContent =
                 fmtDate(rangeStart) + '  \u2192  ' + fmtDate(rangeEnd);
-
-            // Update active preset button
-            var btns = document.querySelectorAll('.range-btn');
-            btns.forEach(function(b) {
+            document.querySelectorAll('.range-btn').forEach(function(b) {
                 b.classList.toggle('active', parseInt(b.dataset.hours) === currentHours);
             });
         }
 
-        // ── Time Picker Controls ──
-        function setRange(hours) {
-            currentHours = hours;
-            if (isLive) {
-                rangeEnd = new Date(dataEnd.getTime() + 600000);
-            }
-            rangeStart = new Date(rangeEnd.getTime() - currentHours * HOUR);
+        function setRange(h) {
+            currentHours = h;
+            if (isLive) rangeEnd = dataEnd + 600000;
+            rangeStart = rangeEnd - currentHours * HOUR;
+            render();
+        }
+        function shift(dir) {
+            var s = currentHours * HOUR * 0.5 * dir;
+            rangeStart += s; rangeEnd += s;
+            isLive = rangeEnd >= dataEnd;
             render();
         }
 
-        function shiftRange(direction) {
-            var shift = currentHours * HOUR * 0.5 * direction;
-            rangeStart = new Date(rangeStart.getTime() + shift);
-            rangeEnd = new Date(rangeEnd.getTime() + shift);
-            isLive = rangeEnd.getTime() >= dataEnd.getTime();
-            render();
-        }
-
-        // Preset buttons
-        document.querySelectorAll('.range-btn').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                isLive = true;
-                setRange(parseInt(this.dataset.hours));
-            });
+        document.querySelectorAll('.range-btn').forEach(function(b) {
+            b.addEventListener('click', function() { isLive = true; setRange(parseInt(this.dataset.hours)); });
         });
-
-        // Navigation arrows
-        document.getElementById('btnBack').addEventListener('click', function() { shiftRange(-1); });
-        document.getElementById('btnForward').addEventListener('click', function() { shiftRange(1); });
-
-        // Zoom buttons
+        document.getElementById('btnBack').addEventListener('click', function() { shift(-1); });
+        document.getElementById('btnForward').addEventListener('click', function() { shift(1); });
         document.getElementById('btnZoomIn').addEventListener('click', function() {
             var idx = rangePresets.indexOf(currentHours);
-            if (idx > 0) {
-                setRange(rangePresets[idx - 1]);
-            } else if (currentHours > rangePresets[0]) {
-                setRange(rangePresets[0]);
-            }
+            if (idx > 0) setRange(rangePresets[idx-1]);
+            else if (currentHours > rangePresets[0]) setRange(rangePresets[0]);
         });
         document.getElementById('btnZoomOut').addEventListener('click', function() {
             var idx = rangePresets.indexOf(currentHours);
-            if (idx >= 0 && idx < rangePresets.length - 1) {
-                setRange(rangePresets[idx + 1]);
-            } else if (idx < 0) {
-                // Find next larger preset
+            if (idx >= 0 && idx < rangePresets.length - 1) setRange(rangePresets[idx+1]);
+            else if (idx < 0) {
                 for (var i = 0; i < rangePresets.length; i++) {
                     if (rangePresets[i] > currentHours) { setRange(rangePresets[i]); break; }
                 }
             }
         });
-
-        // Keyboard shortcuts
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'ArrowLeft') shiftRange(-1);
-            else if (e.key === 'ArrowRight') shiftRange(1);
+            if (e.key === 'ArrowLeft') shift(-1);
+            else if (e.key === 'ArrowRight') shift(1);
             else if (e.key === '+' || e.key === '=') document.getElementById('btnZoomIn').click();
             else if (e.key === '-') document.getElementById('btnZoomOut').click();
         });
 
-        // Initial render with default range (Last 2 days)
         render();
     })();
     </script>
