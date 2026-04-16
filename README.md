@@ -112,11 +112,13 @@ just install-timers
 
 ### Publication & Preview
 
-| Commande | Description |
-|---|---|
-| `just publish [N]` | Publier la page de monitoring sur GitHub Pages (N jours d'historique, défaut: 30) |
-| `just preview [N]` | Prévisualiser avec données InfluxDB locales sur `http://localhost:8080` |
-| `just preview-dev [port]` | Prévisualiser avec données live GitHub Pages (sans RPi, défaut: 8080) |
+| Commande | RPi requis | Description |
+|---|---|---|
+| `just publish [N]` | **oui** | Publier avec données fraîches InfluxDB (N jours, défaut: 30) |
+| `just publish-template` | non | Publier le template mis à jour (réutilise les données de la page live) |
+| `just preview [N]` | **oui** | Prévisualiser avec données InfluxDB locales (`http://localhost:8080`) |
+| `just preview-template` | non | Prévisualiser le template mis à jour avant publish |
+| `just preview-dev [port]` | non | Prévisualiser avec données live GitHub Pages (défaut: 8080) |
 
 ### Scheduling (systemd timers)
 
@@ -221,18 +223,35 @@ Le mode band chart est inspiré des boxplots : au lieu de tracer des milliers de
 
 ### Commandes
 
+**Depuis le RPi** (données fraîches InfluxDB) :
 ```bash
-just preview         # Prévisualiser avec données InfluxDB locales (http://localhost:8080)
-just preview-dev     # Prévisualiser avec données live GitHub Pages (pas besoin du RPi)
-just publish         # Publication sur GitHub Pages (30 jours)
+just publish         # Publication complète (30 jours de données InfluxDB → GH Pages)
 just publish 7       # 7 jours d'historique seulement
+just preview         # Prévisualiser avant de publier (http://localhost:8080)
 ```
+
+**Depuis n'importe quel poste** (réutilise les données de la page live) :
+```bash
+just publish-template   # Met à jour le template HTML/CSS/JS sur GH Pages
+just preview-template   # Prévisualiser le template avant de publier
+just preview-dev        # Prévisualiser avec les données live (http://localhost:8080)
+```
+
+`publish-template` est utile quand on modifie le design, les stats, ou les graphiques sans avoir accès au RPi : il récupère les données actuelles de la page live, les injecte dans le template local, et pousse le résultat sur GitHub Pages.
 
 ### Développement
 
-`just preview-dev` permet de travailler sur le template sans accès au RPi : il récupère les données de la page live, les injecte dans le template local, et sert le résultat sur `http://localhost:8080`.
+Le workflow de développement du template ne nécessite pas le RPi :
 
-La publication est automatisée via les timers systemd (`just install-timers`). Les timers relancent speedtest et publish toutes les 10 minutes avec un délai aléatoire pour éviter la contention.
+```bash
+# 1. Modifier gh-pages/index.template.html
+# 2. Prévisualiser localement
+just preview-template    # ou just preview-dev
+# 3. Quand c'est prêt, publier
+just publish-template
+```
+
+La publication des **données fraîches** est automatisée via les timers systemd sur le RPi (`just install-timers`). Les timers relancent speedtest et publish toutes les 10 minutes avec un délai aléatoire pour éviter la contention.
 
 ## Références
 
