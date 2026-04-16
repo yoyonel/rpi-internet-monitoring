@@ -4,6 +4,13 @@ backups/
 # Environment (contains secrets)
 .env
 
+# Node
+node_modules/
+
+# Playwright
+test-results/
+playwright-report/
+
 # Editor
 *.swp
 *~
