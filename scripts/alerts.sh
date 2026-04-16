@@ -10,5 +10,5 @@ _pass=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$PROJECT_DIR/.env" | cut -d= -f2- |
 CREDS="${_user:-admin}:${_pass}"
 
 echo "── Alert Rules ──"
-curl -sf -u "$CREDS" "http://localhost:3000/api/prometheus/grafana/api/v1/rules" |
+curl -sf -K <(printf 'user = "%s"\n' "$CREDS") "http://localhost:3000/api/prometheus/grafana/api/v1/rules" |
     jq -r '.data.groups[].rules[] | "  \(if .state == "inactive" then "✅" elif .state == "firing" then "🔴" else "⚠️ " end) \(.name) [\(.state)] (\(.health))"'

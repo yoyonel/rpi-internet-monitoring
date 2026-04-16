@@ -2,6 +2,10 @@
 # Quick health check of the 4 monitoring services.
 set -eo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
+_influx_admin=$(grep '^INFLUXDB_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+_influx_admin_pass=$(grep '^INFLUXDB_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+
 PASS=0
 FAIL=0
 
@@ -17,7 +21,7 @@ for svc in "Grafana:http://localhost:3000/api/health" "Chronograf:http://localho
     fi
 done
 
-if docker exec influxdb influx -execute "SHOW DATABASES" >/dev/null 2>&1; then
+if docker exec influxdb influx -username "${_influx_admin:-admin}" -password "${_influx_admin_pass}" -execute "SHOW DATABASES" >/dev/null 2>&1; then
     printf "  ✅ InfluxDB\n"
     PASS=$((PASS + 1))
 else

@@ -14,6 +14,8 @@ if [[ -f "$SCRIPT_DIR/.env" ]]; then
 fi
 GRAFANA_CREDS="${GF_SECURITY_ADMIN_USER:-admin}:${GF_SECURITY_ADMIN_PASSWORD:?GF_SECURITY_ADMIN_PASSWORD not set in .env}"
 GRAFANA_URL="http://localhost:3000"
+# Helper: pass creds via process substitution (not visible in /proc cmdline)
+_gcurl() { curl -sf -K <(printf 'user = "%s"\n' "$GRAFANA_CREDS") "$@"; }
 
 echo "╔══════════════════════════════════════════╗"
 echo "║         Backup — $(date -Iseconds)       "
@@ -22,18 +24,18 @@ echo ""
 
 # ── Grafana dashboards ──
 echo "── Grafana dashboards ──"
-UIDS=$(curl -sf -u "$GRAFANA_CREDS" "$GRAFANA_URL/api/search?type=dash-db" | jq -r '.[].uid')
+UIDS=$(_gcurl "$GRAFANA_URL/api/search?type=dash-db" | jq -r '.[].uid')
 for uid in $UIDS; do
-    TITLE=$(curl -sf -u "$GRAFANA_CREDS" "$GRAFANA_URL/api/dashboards/uid/$uid" | jq -r '.dashboard.title // "unknown"')
+    TITLE=$(_gcurl "$GRAFANA_URL/api/dashboards/uid/$uid" | jq -r '.dashboard.title // "unknown"')
     SAFE_TITLE=$(echo "$TITLE" | tr ' /' '_-')
-    curl -sf -u "$GRAFANA_CREDS" "$GRAFANA_URL/api/dashboards/uid/$uid" | jq . >"$BACKUP_DIR/dashboard-${SAFE_TITLE}.json"
+    _gcurl "$GRAFANA_URL/api/dashboards/uid/$uid" | jq . >"$BACKUP_DIR/dashboard-${SAFE_TITLE}.json"
     echo "  → dashboard-${SAFE_TITLE}.json ($(wc -c <"$BACKUP_DIR/dashboard-${SAFE_TITLE}.json") bytes)"
 done
 
 # ── Grafana datasources ──
 echo ""
 echo "── Grafana datasources ──"
-curl -sf -u "$GRAFANA_CREDS" "$GRAFANA_URL/api/datasources" | jq . >"$BACKUP_DIR/datasources.json"
+_gcurl "$GRAFANA_URL/api/datasources" | jq . >"$BACKUP_DIR/datasources.json"
 echo "  → datasources.json ($(wc -c <"$BACKUP_DIR/datasources.json") bytes)"
 
 # ── InfluxDB ──

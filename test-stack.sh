@@ -7,8 +7,12 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _user=$(grep '^GF_SECURITY_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
 _pass=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+_influx_admin=$(grep '^INFLUXDB_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+_influx_admin_pass=$(grep '^INFLUXDB_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
 GRAFANA_URL="http://localhost:3000"
 GRAFANA_CREDS="${_user:-admin}:${_pass}"
+# Helper: pass creds via process substitution (not visible in /proc cmdline)
+_gcurl() { curl -sf -K <(printf 'user = "%s"\n' "$GRAFANA_CREDS") "$@"; }
 CHRONOGRAF_URL="http://localhost:8888"
 INFLUXDB_CONTAINER="influxdb"
 
@@ -30,7 +34,7 @@ warn() {
 }
 
 influx_query() {
-    docker exec "$INFLUXDB_CONTAINER" influx -execute "$1" -database "${2:-}" 2>/dev/null
+    docker exec "$INFLUXDB_CONTAINER" influx -username "${_influx_admin:-admin}" -password "${_influx_admin_pass}" -execute "$1" -database "${2:-}" 2>/dev/null
 }
 
 echo "╔══════════════════════════════════════════════════════════╗"
@@ -65,7 +69,7 @@ echo ""
 # ── 2. Grafana Configuration ─────────────────────────────────
 echo "── 2. Grafana Configuration ──"
 
-DS_JSON=$(curl -sf -u "$GRAFANA_CREDS" "$GRAFANA_URL/api/datasources" 2>/dev/null || echo "[]")
+DS_JSON=$(_gcurl "$GRAFANA_URL/api/datasources" 2>/dev/null || echo "[]")
 DS_COUNT=$(echo "$DS_JSON" | jq length 2>/dev/null || echo 0)
 if [[ "$DS_COUNT" -eq 2 ]]; then
     pass "Grafana has 2 datasources"
@@ -85,13 +89,13 @@ else
     fail "Datasource 'Telegraf' missing"
 fi
 
-if curl -sf -u "$GRAFANA_CREDS" "$GRAFANA_URL/api/dashboards/uid/Ha9ke1iRk" 2>/dev/null | jq -e '.dashboard' >/dev/null 2>&1; then
+if _gcurl "$GRAFANA_URL/api/dashboards/uid/Ha9ke1iRk" 2>/dev/null | jq -e '.dashboard' >/dev/null 2>&1; then
     pass "Dashboard 'SpeedTest' exists (uid=Ha9ke1iRk)"
 else
     fail "Dashboard 'SpeedTest' missing"
 fi
 
-if curl -sf -u "$GRAFANA_CREDS" "$GRAFANA_URL/api/dashboards/uid/000000128" 2>/dev/null | jq -e '.dashboard' >/dev/null 2>&1; then
+if _gcurl "$GRAFANA_URL/api/dashboards/uid/000000128" 2>/dev/null | jq -e '.dashboard' >/dev/null 2>&1; then
     pass "Dashboard 'System' exists (uid=000000128)"
 else
     fail "Dashboard 'System' missing"

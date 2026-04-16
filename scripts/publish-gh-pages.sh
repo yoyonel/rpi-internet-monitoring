@@ -22,6 +22,10 @@ done
 NOW=$(date -Iseconds)
 REPO_URL=$(git -C "$SCRIPT_DIR" remote get-url origin 2>/dev/null || echo "https://github.com/yoyonel/rpi-internet-monitoring.git")
 
+# Load InfluxDB credentials
+_influx_admin=$(grep '^INFLUXDB_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+_influx_admin_pass=$(grep '^INFLUXDB_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+
 echo "╔══════════════════════════════════════════╗"
 echo "║  Publish GitHub Pages — $NOW"
 echo "╚══════════════════════════════════════════╝"
@@ -33,6 +37,7 @@ echo "── Exporting last ${DAYS}d of speedtest data from InfluxDB ──"
 QUERY="SELECT download_bandwidth, upload_bandwidth, ping_latency FROM speedtest WHERE time > now() - ${DAYS}d ORDER BY time ASC"
 
 JSON_DATA=$(docker exec influxdb influx \
+    -username "${_influx_admin:-admin}" -password "${_influx_admin_pass}" \
     -execute "$QUERY" \
     -database speedtest \
     -precision rfc3339 \
@@ -62,7 +67,7 @@ if [[ -f "$SCRIPT_DIR/.env" ]]; then
 fi
 GF_CREDS="${_gf_user:-admin}:${_gf_pass:?GF_SECURITY_ADMIN_PASSWORD not set}"
 
-ALERTS_JSON=$(curl -sf -u "$GF_CREDS" "http://localhost:3000/api/prometheus/grafana/api/v1/rules" 2>/dev/null || echo '{}')
+ALERTS_JSON=$(curl -sf -K <(printf 'user = "%s"\n' "$GF_CREDS") "http://localhost:3000/api/prometheus/grafana/api/v1/rules" 2>/dev/null || echo '{}')
 
 ALERTS_DATA=$(echo "$ALERTS_JSON" | python3 -c "
 import json, sys
@@ -128,7 +133,7 @@ else
     git add index.html style.css app.js
     git commit -q -m "Update monitoring data — $NOW"
     git remote add origin "$REPO_URL"
-    git push -f -q origin gh-pages
+    git push --force-with-lease -q origin gh-pages
 
     echo "  → Pushed to gh-pages branch"
     echo ""
