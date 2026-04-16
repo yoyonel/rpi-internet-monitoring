@@ -101,22 +101,22 @@ toutes les **20 secondes** et les flush vers InfluxDB toutes les **10 secondes**
 
 ### Sources de données
 
-| Input | Description |
-|---|---|
-| `cpu` | Utilisation CPU par cœur et total |
-| `mem` | RAM utilisée, disponible, cache |
-| `disk` | Espace disque par partition |
-| `diskio` | I/O disque (reads/writes) |
-| `net` | Trafic réseau (eth0, wlan0) |
-| `netstat` | Connexions TCP/UDP |
-| `swap` | Utilisation swap |
-| `system` | Load average, uptime |
-| `processes` | Nombre de processus par état |
-| `kernel` | Statistiques noyau |
-| `interrupts` | Interruptions matérielles |
-| `linux_sysctl_fs` | Limites filesystem |
-| `file` (cpu_temperature) | Température CPU via `/sys/class/thermal/` |
-| `docker` | Métriques containers via docker-socket-proxy |
+| Input                    | Description                                  |
+| ------------------------ | -------------------------------------------- |
+| `cpu`                    | Utilisation CPU par cœur et total            |
+| `mem`                    | RAM utilisée, disponible, cache              |
+| `disk`                   | Espace disque par partition                  |
+| `diskio`                 | I/O disque (reads/writes)                    |
+| `net`                    | Trafic réseau (eth0, wlan0)                  |
+| `netstat`                | Connexions TCP/UDP                           |
+| `swap`                   | Utilisation swap                             |
+| `system`                 | Load average, uptime                         |
+| `processes`              | Nombre de processus par état                 |
+| `kernel`                 | Statistiques noyau                           |
+| `interrupts`             | Interruptions matérielles                    |
+| `linux_sysctl_fs`        | Limites filesystem                           |
+| `file` (cpu_temperature) | Température CPU via `/sys/class/thermal/`    |
+| `docker`                 | Métriques containers via docker-socket-proxy |
 
 ### Docker Socket Proxy
 
@@ -262,14 +262,14 @@ Après le push, GitHub :
 
 ## Persistance et fiabilité
 
-| Mécanisme | Rôle |
-|---|---|
-| `Persistent=true` (timers) | Si le RPi était éteint à l'heure prévue, le run est rattrapé au redémarrage |
-| `RandomizedDelaySec` | Évite que speedtest et publish démarrent exactement en même temps |
-| `loginctl enable-linger` | Les timers continuent de tourner même sans session SSH active |
-| `ExecCondition` (speedtest) | Empêche les runs parallèles si un test prend plus de 10 min |
-| `TimeoutStartSec=300` | Kill le speedtest après 5 min s'il est bloqué |
-| `--force-with-lease` (git) | Protège contre les pushes concurrents sur gh-pages |
+| Mécanisme                   | Rôle                                                                        |
+| --------------------------- | --------------------------------------------------------------------------- |
+| `Persistent=true` (timers)  | Si le RPi était éteint à l'heure prévue, le run est rattrapé au redémarrage |
+| `RandomizedDelaySec`        | Évite que speedtest et publish démarrent exactement en même temps           |
+| `loginctl enable-linger`    | Les timers continuent de tourner même sans session SSH active               |
+| `ExecCondition` (speedtest) | Empêche les runs parallèles si un test prend plus de 10 min                 |
+| `TimeoutStartSec=300`       | Kill le speedtest après 5 min s'il est bloqué                               |
+| `--force-with-lease` (git)  | Protège contre les pushes concurrents sur gh-pages                          |
 
 ---
 
