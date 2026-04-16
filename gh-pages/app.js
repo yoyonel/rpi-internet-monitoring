@@ -699,6 +699,8 @@
 
     let pickerOpen = false;
     let calYear, calMonth; // currently displayed month
+    let selFrom = null,
+      selTo = null; // calendar selection state (timestamps)
     const dataStart = ts[0];
 
     // Relative presets (label, hours)
@@ -752,6 +754,8 @@
       return local.toISOString().slice(0, 16);
     };
     const syncPickerToRange = () => {
+      selFrom = rangeStart;
+      selTo = rangeEnd;
       fromIn.value = toLocalISO(rangeStart);
       toIn.value = toLocalISO(rangeEnd);
       const d = new Date(rangeStart);
@@ -775,6 +779,20 @@
       togglePicker();
     };
     document.getElementById('trApply').addEventListener('click', applyAbsolute);
+
+    // Sync calendar highlight when inputs change manually
+    fromIn.addEventListener('change', () => {
+      const t = new Date(fromIn.value).getTime();
+      if (t) selFrom = t;
+      if (toIn.value) selTo = new Date(toIn.value).getTime();
+      renderCal();
+    });
+    toIn.addEventListener('change', () => {
+      if (fromIn.value) selFrom = new Date(fromIn.value).getTime();
+      const t = new Date(toIn.value).getTime();
+      if (t) selTo = t;
+      renderCal();
+    });
 
     // ── Relative presets ──
     relPresets.forEach(([label, h]) => {
@@ -822,6 +840,10 @@
       const today = new Date();
       const todayStr = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
 
+      // Use picker selection (from inputs) for calendar highlighting
+      const hFrom = selFrom || 0;
+      const hTo = selTo || 0;
+
       let html = `<div class="tr-cal-hd">
         <button id="trCalPrev">&lsaquo;</button>
         <span>${MONTHS[calMonth]} ${calYear}</span>
@@ -832,7 +854,7 @@
       // Previous month padding
       for (let i = startDay - 1; i >= 0; i--) {
         const day = prevDays - i;
-        html += `<td><button class="other" data-date="${calYear}-${calMonth - 1}-${day}">${day}</button></td>`;
+        html += `<td><button class="other">${day}</button></td>`;
         cell++;
       }
       // Current month
@@ -845,13 +867,12 @@
         const cls = [];
         if (str === todayStr) cls.push('today');
         if (dayEnd < dataStart || dayStart > dataEnd + 600_000) cls.push('no-data');
-        else {
-          if (dayStart >= rangeStart && dayEnd <= rangeEnd) cls.push('in-range');
-          if (
-            (dayStart <= rangeStart && dayEnd > rangeStart) ||
-            (dayStart < rangeEnd && dayEnd >= rangeEnd)
-          )
-            cls.push('sel');
+        else if (hFrom && hTo) {
+          // Highlight based on picker From/To selection
+          const rS = Math.min(hFrom, hTo);
+          const rE = Math.max(hFrom, hTo);
+          if (dayStart >= rS && dayEnd <= rE) cls.push('in-range');
+          if ((dayStart <= rS && dayEnd > rS) || (dayStart < rE && dayEnd >= rE)) cls.push('sel');
         }
         html += `<td><button class="${cls.join(' ')}" data-ts="${dayStart}">${d}</button></td>`;
         cell++;
@@ -866,7 +887,8 @@
       calEl.innerHTML = html;
 
       // Calendar nav
-      document.getElementById('trCalPrev').addEventListener('click', () => {
+      document.getElementById('trCalPrev').addEventListener('click', (e) => {
+        e.stopPropagation();
         calMonth--;
         if (calMonth < 0) {
           calMonth = 11;
@@ -874,7 +896,8 @@
         }
         renderCal();
       });
-      document.getElementById('trCalNext').addEventListener('click', () => {
+      document.getElementById('trCalNext').addEventListener('click', (e) => {
+        e.stopPropagation();
         calMonth++;
         if (calMonth > 11) {
           calMonth = 0;
@@ -883,13 +906,27 @@
         renderCal();
       });
 
-      // Day click → set From input to start of day
+      // Day click: first click → set From, second click → set To
       calEl.querySelectorAll('td button[data-ts]').forEach((b) => {
         if (b.classList.contains('no-data')) return;
-        b.addEventListener('click', () => {
+        b.addEventListener('click', (e) => {
+          e.stopPropagation();
           const t = parseInt(b.dataset.ts);
-          fromIn.value = toLocalISO(t);
-          toIn.value = toLocalISO(t + 86400000);
+          if (!selFrom || selTo) {
+            // First click or reset: set From
+            selFrom = t;
+            selTo = null;
+            fromIn.value = toLocalISO(t);
+            toIn.value = '';
+          } else {
+            // Second click: set To (ensure From < To)
+            const a = Math.min(selFrom, t);
+            const z = Math.max(selFrom, t) + 86400000; // end of the later day
+            selFrom = a;
+            selTo = z;
+            fromIn.value = toLocalISO(a);
+            toIn.value = toLocalISO(z);
+          }
           renderCal();
         });
       });
