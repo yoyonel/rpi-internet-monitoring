@@ -5,6 +5,7 @@
 # List:  just --list
 
 set shell := ["bash", "-eo", "pipefail", "-c"]
+set dotenv-load
 
 compose := "docker compose"
 project_dir := justfile_directory()
@@ -88,6 +89,7 @@ speedtest:
 # Show last N speedtest results (default: 5)
 last-results n="5":
     @docker exec influxdb influx \
+        -username "${INFLUXDB_ADMIN_USER:-admin}" -password "${INFLUXDB_ADMIN_PASSWORD}" \
         -execute "SELECT download_bandwidth/1000000 AS dl_mbps, upload_bandwidth/1000000 AS ul_mbps, ping_latency FROM speedtest ORDER BY time DESC LIMIT {{ n }}" \
         -database speedtest -precision rfc3339
 
