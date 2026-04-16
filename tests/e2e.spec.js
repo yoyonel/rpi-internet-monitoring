@@ -98,7 +98,42 @@ test('data contains a reasonable number of points', async ({ page }) => {
   expect(count).toBeGreaterThan(100);
 });
 
-// ── 8. Capture screenshot for PR comment ────────────────────
+// ── 8. Drag-to-zoom plugin is loaded and configured ─────────
+test('drag-to-zoom plugin is configured on charts', async ({ page }) => {
+  const config = await page.evaluate(() => {
+    const bw = Chart.getChart('bwChart');
+    const pi = Chart.getChart('piChart');
+    return {
+      bwDrag: bw?.options?.plugins?.zoom?.zoom?.drag?.enabled,
+      piDrag: pi?.options?.plugins?.zoom?.zoom?.drag?.enabled,
+      bwMode: bw?.options?.plugins?.zoom?.zoom?.mode,
+      piMode: pi?.options?.plugins?.zoom?.zoom?.mode,
+      hasZoomFn: typeof bw?.zoom === 'function',
+      hasResetFn: typeof bw?.resetZoom === 'function',
+    };
+  });
+  expect(config.bwDrag).toBe(true);
+  expect(config.piDrag).toBe(true);
+  expect(config.bwMode).toBe('x');
+  expect(config.piMode).toBe('x');
+  expect(config.hasZoomFn).toBe(true);
+  expect(config.hasResetFn).toBe(true);
+});
+
+// ── 9. Double-click on chart resets to default 48 h view ────
+test('double-click on chart resets to live view', async ({ page }) => {
+  // Switch to 6h to change the current range
+  await page.click('.rb[data-hours="6"]');
+  await expect(page.locator('.rb[data-hours="6"]')).toHaveClass(/on/);
+
+  // Double-click on bandwidth chart to reset
+  await page.locator('#bwChart').dblclick();
+
+  // The "2j" (48h) button should be active again
+  await expect(page.locator('.rb[data-hours="48"]')).toHaveClass(/on/, { timeout: 5000 });
+});
+
+// ── 10. Capture screenshot for PR comment ───────────────────
 test('capture preview screenshot', async ({ page }) => {
   // Give charts a moment to finish animating
   await page.waitForTimeout(500);
