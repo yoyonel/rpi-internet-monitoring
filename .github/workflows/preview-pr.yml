@@ -1,0 +1,82 @@
+name: Preview PR — Surge
+
+on:
+  pull_request:
+    paths:
+      - 'gh-pages/**'
+      - 'scripts/publish-gh-pages.sh'
+      - 'scripts/preview-dev.sh'
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch live data and build page
+        run: |
+          set -euo pipefail
+          TEMPLATE="gh-pages/index.template.html"
+          BUILD_DIR=$(mktemp -d)
+
+          echo "── Fetching data from live GitHub Pages ──"
+          curl -sf "https://yoyonel.github.io/rpi-internet-monitoring/" -o "$BUILD_DIR/live.html"
+
+          python3 << 'PYEOF'
+          import re, json, os
+
+          build = os.environ.get("BUILD_DIR", "/tmp")
+          with open(f"{build}/live.html") as f:
+              html = f.read()
+
+          m = re.search(r'(?:var|const)\s+RAW_DATA\s*=\s*({.*?});', html, re.DOTALL)
+          with open(f"{build}/data.json", "w") as f:
+              f.write(m.group(1))
+
+          m2 = re.search(r'(?:var|const)\s+ALERTS\s*=\s*(\[.*?\]);', html, re.DOTALL)
+          with open(f"{build}/alerts.json", "w") as f:
+              f.write(m2.group(1))
+
+          pts = len(json.loads(m.group(1)).get('results', [{}])[0].get('series', [{}])[0].get('values', []))
+          print(f"  → {pts} data points extracted")
+          PYEOF
+
+          echo "── Building page from template ──"
+          python3 << PYEOF
+          from datetime import datetime
+          import os
+
+          build = os.environ.get("BUILD_DIR", "/tmp")
+          with open("$TEMPLATE") as f:
+              html = f.read()
+          with open(f"{build}/data.json") as f:
+              data = f.read()
+          with open(f"{build}/alerts.json") as f:
+              alerts = f.read()
+
+          now = datetime.now().strftime('%d/%m/%Y %H:%M')
+          gen = datetime.now().strftime('%d/%m/%Y à %H:%M:%S')
+
+          html = html.replace('"__SPEEDTEST_DATA__"', data)
+          html = html.replace('"__ALERTS_DATA__"', alerts)
+          html = html.replace('__LAST_UPDATE__', now)
+          html = html.replace('__GENERATED_AT__', gen + ' (PR preview)')
+
+          with open(f"{build}/index.html", "w") as f:
+              f.write(html)
+          print(f"  → index.html ({len(html):,} bytes)")
+          PYEOF
+
+          mkdir -p _surge_deploy
+          cp "$BUILD_DIR/index.html" _surge_deploy/
+        env:
+          BUILD_DIR: /tmp/surge-build
+
+      - name: Deploy to Surge
+        uses: afc163/surge-preview@v1
+        with:
+          surge_token: ${{ secrets.SURGE_TOKEN }}
+          dist: _surge_deploy
+          build: echo "already built"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
