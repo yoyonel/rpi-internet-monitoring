@@ -293,6 +293,7 @@ Page statique publique avec les résultats speedtest des 30 derniers jours :
 - **Stats détaillées** : chaque carte affiche la **médiane** comme valeur principale + sous-métriques (min / avg / max / last pour bandwidth, min / med / p95 / max pour ping), nombre de points et plage temporelle active
 - **Alertes RPi** : état des 6 alertes Grafana avec badges ok/firing/pending, températures converties en °C
 - **Drag-to-zoom** : sélection au clic-glissé sur les graphiques pour zoomer sur une plage temporelle (style Grafana). Les deux charts se synchronisent automatiquement. Double-clic pour revenir à la vue 48 h live
+- **Sélecteur de plage temporelle** (style Grafana) : clic sur la plage affichée ouvre un panneau avec calendrier, entrées From/To absolues, présets relatifs (5 min → 30 jours), et historique des plages récentes
 
 ### Rendu dual-mode adaptatif
 
