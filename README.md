@@ -195,29 +195,73 @@ just check     # Health check rapide des 4 services (RPi)
 
 ### Tests E2E (Playwright)
 
-Tests fonctionnels de la page GitHub Pages dans un navigateur headless (Chromium). Vérifient que :
+Tests fonctionnels de la page GitHub Pages exécutés dans un **navigateur headless Chromium** via [Playwright](https://playwright.dev/). Contrairement à des smoke tests HTTP (curl), ces tests valident le **comportement métier réel** : exécution du JavaScript, parsing des données, rendu des charts, interactivité.
 
-- Aucune erreur JavaScript dans la console
-- Les 3 cartes de stats (Download, Upload, Ping) affichent des valeurs numériques
-- Les charts Bandwidth et Ping contiennent des données
-- Les alertes RPi sont rendues avec noms et badges
-- Les boutons de plage temporelle changent effectivement la vue
-- Aucun placeholder template n'est resté dans le HTML
-- Le nombre de data points est cohérent (> 100)
+#### Prérequis
 
 ```bash
-# 1. Lancer une preview locale
-just preview-dev
-
-# 2. Dans un autre terminal, lancer les tests
-just e2e                          # contre http://localhost:8080
-just e2e http://localhost:9090    # port alternatif
-
-# Contre une URL distante (ex: preview Surge)
-just e2e https://yoyonel-rpi-internet-monitoring-preview-pr-2.surge.sh
+npm ci                             # installe @playwright/test
+npx playwright install chromium    # télécharge Chromium headless (~112 Mo)
 ```
 
-Les tests E2E tournent aussi automatiquement en CI sur chaque PR (après déploiement Surge).
+#### Usage
+
+```bash
+# 1. Lancer une preview locale (terminal 1)
+just preview-dev
+
+# 2. Lancer les tests (terminal 2)
+just e2e                          # contre http://localhost:8080 (défaut)
+just e2e http://localhost:9090    # port alternatif
+
+# Contre une URL distante (preview Surge, production…)
+just e2e https://yoyonel-rpi-internet-monitoring-preview-pr-2.surge.sh
+just e2e https://yoyonel.github.io/rpi-internet-monitoring/
+```
+
+#### Couverture des tests
+
+8 tests dans [tests/e2e.spec.js](tests/e2e.spec.js) couvrant 5 domaines :
+
+| #   | Test                                          | Domaine        | Ce qu'il valide                                                                                   |
+| --- | --------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------- |
+| 1   | `no JavaScript errors in console`             | Runtime JS     | Aucune exception non catchée dans `window.onerror` / `console.error`                              |
+| 2   | `stats cards display values`                  | Rendu stats    | 3 cartes (Download, Upload, Ping) présentes, chacune avec une valeur numérique dans `.v`          |
+| 3   | `bandwidth chart has data`                    | Chart.js       | `Chart.getChart('bwChart')` a ≥ 1 dataset avec des data points                                    |
+| 4   | `ping chart has data`                         | Chart.js       | `Chart.getChart('piChart')` a ≥ 1 dataset avec des data points                                    |
+| 5   | `alerts are displayed`                        | Alertes        | Section `#alertsSec` visible, ≥ 1 `.al-row` avec `.al-name` et `.al-badge` non vides              |
+| 6   | `time range buttons update the view`          | Interactivité  | Clic sur le bouton "7j" change le texte de `#rangeLabel`                                          |
+| 7   | `no unreplaced template placeholders`         | Build pipeline | Aucun `__SPEEDTEST_DATA__`, `__ALERTS_DATA__`, `__LAST_UPDATE__`, `__GENERATED_AT__` dans le HTML |
+| 8   | `data contains a reasonable number of points` | Données        | `RAW_DATA.results[0].series[0].values.length > 100` (≈ 144 pts/jour à 10 min)                     |
+
+#### Ce qui n'est PAS couvert
+
+- **Rendu visuel pixel-perfect** (pas de screenshot comparison) — trop fragile pour ce projet
+- **Responsive / mobile** — un seul viewport (desktop Chromium par défaut)
+- **Performance / temps de chargement** — pas de budget perf
+- **Navigation entre pages** — single page, pas de routing
+
+#### Architecture technique
+
+```
+playwright.config.js     → Config : testDir, baseURL via E2E_BASE_URL, Chromium only
+tests/e2e.spec.js        → 8 tests, ~100 lignes
+Justfile (just e2e)      → Point d'entrée local : E2E_BASE_URL=<url> npx playwright test
+```
+
+Le `baseURL` est configurable via la variable d'environnement `E2E_BASE_URL` (défaut: `http://localhost:8080`). Cela permet d'exécuter les mêmes tests contre n'importe quel déploiement : local, Surge preview, ou production.
+
+#### Pipeline CI
+
+Les tests E2E s'exécutent automatiquement dans le workflow **Preview PR — Surge** (`.github/workflows/preview-pr.yml`) :
+
+1. Build de la page avec les données live
+2. Déploiement sur Surge.sh
+3. `npm ci` + installation de Chromium headless
+4. Exécution des 8 tests Playwright contre l'URL Surge déployée
+5. Retry automatique (1 retry par test en cas de flakiness réseau Surge)
+
+Déclenché sur chaque PR modifiant : `gh-pages/**`, `scripts/*.py`, `tests/**`, `playwright.config.js`.
 
 ### Code Quality
 
