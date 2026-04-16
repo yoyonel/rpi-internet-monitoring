@@ -16,7 +16,8 @@ permissions:
   pull-requests: write
 
 jobs:
-  preview:
+  deploy-and-test:
+    name: Deploy preview & E2E tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
