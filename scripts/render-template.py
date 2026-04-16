@@ -42,8 +42,8 @@ def main():
     if suffix:
         gen = f"{gen} {suffix}"
 
-    html = html.replace('"__SPEEDTEST_DATA__"', data)
-    html = html.replace('"__ALERTS_DATA__"', alerts)
+    html = html.replace("'__SPEEDTEST_DATA__'", data)
+    html = html.replace("'__ALERTS_DATA__'", alerts)
     html = html.replace("__LAST_UPDATE__", now)
     html = html.replace("__GENERATED_AT__", gen)
 
