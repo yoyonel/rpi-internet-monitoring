@@ -1,0 +1,10 @@
+[Unit]
+Description=Run internet speedtest and store result in InfluxDB
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/rpi-internet-monitoring
+ExecStart=/usr/bin/docker compose run --rm speedtest
+TimeoutStartSec=300
+# Avoid overlapping runs
+ExecCondition=/bin/sh -c '! docker ps --format "{{.Names}}" | grep -q speedtest'
