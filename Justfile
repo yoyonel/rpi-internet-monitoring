@@ -187,3 +187,22 @@ shell svc:
 # Show the active crontab entry
 cron:
     @crontab -l 2>/dev/null | grep -v "^#" | grep . || echo "(no cron entries)"
+
+# ── Code Quality ────────────────────────────────────────
+
+# Lint all source files
+lint:
+    shellcheck scripts/*.sh docker-entrypoint.sh test-stack.sh
+    hadolint Dockerfile
+    yamllint docker-compose.yml .github/workflows/*.yml grafana/provisioning/alerting/alerts.yml
+    npx prettier --check 'gh-pages/*.{html,css,js}' 'docker-compose.yml' '.github/workflows/*.yml'
+    ruff check scripts/*.py
+    ruff format --check scripts/*.py
+    @echo "All linters passed ✅"
+
+# Auto-format all source files
+fmt:
+    shfmt -w -i 4 -ci scripts/*.sh docker-entrypoint.sh test-stack.sh
+    npx prettier --write 'gh-pages/*.{html,css,js}' 'docker-compose.yml' '.github/workflows/*.yml'
+    ruff format scripts/*.py
+    @echo "All files formatted ✅"
