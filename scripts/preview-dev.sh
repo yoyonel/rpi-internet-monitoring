@@ -74,6 +74,9 @@ assert '__SPEEDTEST_DATA__' not in html, "Data injection failed"
 assert '__ALERTS_DATA__' not in html, "Alerts injection failed"
 PYEOF
 
+# Copy static assets
+cp "$SCRIPT_DIR/gh-pages/style.css" "$SCRIPT_DIR/gh-pages/app.js" "$BUILD_DIR/"
+
 # ── 3. Serve ─────────────────────────────────────────────
 echo ""
 echo "── Serving on http://localhost:${PORT} ──"

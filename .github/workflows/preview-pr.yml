@@ -70,6 +70,7 @@ jobs:
 
           mkdir -p _surge_deploy
           cp "$BUILD_DIR/index.html" _surge_deploy/
+          cp gh-pages/style.css gh-pages/app.js _surge_deploy/
 
       - name: Deploy to Surge
         uses: afc163/surge-preview@v1

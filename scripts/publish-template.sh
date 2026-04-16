@@ -85,6 +85,9 @@ assert '__ALERTS_DATA__' not in html, "Alerts injection failed"
 print("  → index.html ({:,} bytes)".format(len(html)))
 PYEOF
 
+# Copy static assets
+cp "$SCRIPT_DIR/gh-pages/style.css" "$SCRIPT_DIR/gh-pages/app.js" "$BUILD_DIR/"
+
 # ── 3. Preview or Push ────────────────────────────────────
 if [[ "$PREVIEW" == "true" ]]; then
     echo ""
@@ -103,7 +106,7 @@ else
     git config user.email "gh-pages-bot@users.noreply.github.com"
     git config user.name "GitHub Pages Bot"
     git checkout -q -b gh-pages
-    git add index.html
+    git add index.html style.css app.js
     git commit -q -m "Update template — $NOW (data from live page)"
     git remote add origin "$REPO_URL"
     git push -f -q origin gh-pages

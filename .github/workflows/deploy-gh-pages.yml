@@ -71,6 +71,9 @@ jobs:
           print(f"  → index.html ({len(html):,} bytes)")
           PYEOF
 
+          # Copy static assets alongside the rendered HTML
+          cp gh-pages/style.css gh-pages/app.js /tmp/gh-pages-build/
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
