@@ -13,7 +13,6 @@ permissions:
 jobs:
   preview:
     runs-on: ubuntu-latest
-    if: ${{ secrets.SURGE_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
 
