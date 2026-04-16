@@ -4,8 +4,13 @@ on:
   pull_request:
     paths:
       - 'gh-pages/**'
+      - 'scripts/extract-live-data.py'
+      - 'scripts/render-template.py'
       - 'scripts/publish-gh-pages.sh'
       - 'scripts/preview-dev.sh'
+      - 'tests/**'
+      - 'playwright.config.js'
+      - '.github/workflows/preview-pr.yml'
 
 permissions:
   pull-requests: write
@@ -38,9 +43,18 @@ jobs:
           cp gh-pages/style.css gh-pages/app.js _surge_deploy/
 
       - name: Deploy to Surge
+        id: surge
         uses: afc163/surge-preview@v1
         with:
           surge_token: ${{ secrets.SURGE_TOKEN }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           dist: _surge_deploy
           build: echo "already built"
+
+      - name: Install Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E smoke tests
+        env:
+          E2E_BASE_URL: ${{ steps.surge.outputs.preview_url }}
+        run: npx playwright test
