@@ -64,3 +64,26 @@ jobs:
           [[ "$URL" == http* ]] || URL="https://$URL"
           echo "Testing $URL"
           E2E_BASE_URL="$URL" npx playwright test
+
+      - name: Publish screenshot to preview
+        if: success()
+        env:
+          SURGE_TOKEN: ${{ secrets.SURGE_TOKEN }}
+        run: |
+          URL="${{ steps.surge.outputs.preview_url }}"
+          [[ "$URL" == http* ]] || URL="https://$URL"
+          DOMAIN="${URL#https://}"
+          cp test-results/preview.png _surge_deploy/
+          npx surge _surge_deploy "$DOMAIN" --token "$SURGE_TOKEN"
+
+      - name: Comment PR with screenshot
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          URL="${{ steps.surge.outputs.preview_url }}"
+          [[ "$URL" == http* ]] || URL="https://$URL"
+          bash scripts/pr-comment-screenshot.sh \
+            "$URL" \
+            "${{ github.event.pull_request.number }}" \
+            "${{ github.sha }}"
