@@ -26,12 +26,12 @@ BODY="${MARKER}
 
 # Find existing comment with our marker (update instead of spam)
 COMMENT_ID=$(gh api "repos/${REPO}/issues/${PR}/comments" \
-    --jq ".[] | select(.body | contains(\"${MARKER}\")) | .id" \
-    | head -1)
+    --jq ".[] | select(.body | contains(\"${MARKER}\")) | .id" |
+    head -1)
 
 if [[ -n "$COMMENT_ID" ]]; then
     gh api "repos/${REPO}/issues/comments/${COMMENT_ID}" \
-        -X PATCH -f body="${BODY}" > /dev/null
+        -X PATCH -f body="${BODY}" >/dev/null
     echo "Updated comment #${COMMENT_ID}"
 else
     gh pr comment "${PR}" --body "${BODY}"
