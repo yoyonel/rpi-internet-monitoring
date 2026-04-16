@@ -69,8 +69,8 @@ test('time range buttons update the view', async ({ page }) => {
   const rangeLabel = page.locator('#rangeLabel');
   const initialText = await rangeLabel.textContent();
 
-  // Click "7j" button
-  await page.click('.rb[data-hours="168"]');
+  // Click "6h" — guaranteed to differ from default 48h range
+  await page.click('.rb[data-hours="6"]');
   const newText = await rangeLabel.textContent();
 
   expect(newText).not.toBe(initialText);
