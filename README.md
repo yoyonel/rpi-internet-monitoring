@@ -292,6 +292,7 @@ Page statique publique avec les résultats speedtest des 30 derniers jours :
 - **Thème sombre** inspiré de [tsbench](https://mibayy.github.io/tsbench/) : CSS variables, police Geist + Geist Mono (Google Fonts), `backdrop-filter` nav, panels `border-radius:8px`
 - **Stats détaillées** : chaque carte affiche la **médiane** comme valeur principale + sous-métriques (min / avg / max / last pour bandwidth, min / med / p95 / max pour ping), nombre de points et plage temporelle active
 - **Alertes RPi** : état des 6 alertes Grafana avec badges ok/firing/pending, températures converties en °C
+- **Drag-to-zoom** : sélection au clic-glissé sur les graphiques pour zoomer sur une plage temporelle (style Grafana). Les deux charts se synchronisent automatiquement. Double-clic pour revenir à la vue 48 h live
 
 ### Rendu dual-mode adaptatif
 
@@ -307,6 +308,7 @@ Le mode band chart est inspiré des boxplots : au lieu de tracer des milliers de
 | Technologie                                                                                                              | Usage                                              |
 | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------- |
 | [Chart.js 4](https://www.chartjs.org/) + [chartjs-adapter-date-fns](https://github.com/chartjs/chartjs-adapter-date-fns) | Graphiques temps-réel                              |
+| [chartjs-plugin-zoom](https://www.chartjs.org/chartjs-plugin-zoom/) + [Hammer.js](https://hammerjs.github.io/)           | Drag-to-zoom sur l'axe X (sélection brush)         |
 | [LTTB](https://skemman.is/bitstream/1946/15343/3/SS_MSthesis.pdf)                                                        | Downsampling préservant les pics                   |
 | Float64Array                                                                                                             | Stockage mémoire compact, itération cache-friendly |
 | requestAnimationFrame                                                                                                    | Debounce du rendering                              |
