@@ -51,10 +51,15 @@ jobs:
           dist: _surge_deploy
           build: echo "already built"
 
-      - name: Install Playwright
-        run: npx playwright install --with-deps chromium
+      - name: Install dependencies and Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
 
       - name: E2E smoke tests
-        env:
-          E2E_BASE_URL: ${{ steps.surge.outputs.preview_url }}
-        run: npx playwright test
+        run: |
+          URL="${{ steps.surge.outputs.preview_url }}"
+          # Ensure URL has https:// prefix
+          [[ "$URL" == http* ]] || URL="https://$URL"
+          echo "Testing $URL"
+          E2E_BASE_URL="$URL" npx playwright test
