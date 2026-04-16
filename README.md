@@ -5,10 +5,10 @@ Stack Docker pour monitorer le débit internet (download, upload, ping) via [Ook
 ## Architecture
 
 ```
-┌──────────┐  cron */10  ┌───────────┐   write    ┌──────────┐
-│  crontab │────────────▶│ speedtest │───────────▶│ InfluxDB │
-└──────────┘             └───────────┘            │  1.8.10  │
-                                                  └────┬─────┘
+┌────────────┐  */10 min  ┌───────────┐   write    ┌──────────┐
+│  systemd   │───────────▶│ speedtest │───────────▶│ InfluxDB │
+│  timer     │            └───────────┘            │  1.8.10  │
+└────────────┘                                     └────┬─────┘
 ┌──────────┐   collect   ┌───────────┐   write         │
 │  System  │────────────▶│ Telegraf  │─────────────────▶│
 │  metrics │             │  1.38.2   │                  │
@@ -23,11 +23,11 @@ Stack Docker pour monitorer le débit internet (download, upload, ping) via [Ook
                          │   1.9.4    │
                          └────────────┘
 
-┌──────────┐  cron */10  ┌──────────────┐  push   ┌──────────────┐
-│  crontab │────────────▶│ publish      │────────▶│ GitHub Pages │
-└──────────┘             │ (InfluxDB →  │         │ (static HTML │
-                         │  Chart.js)   │         │  + Chart.js) │
-                         └──────────────┘         └──────────────┘
+┌────────────┐  */10 min  ┌──────────────┐  push   ┌──────────────┐
+│  systemd   │───────────▶│ publish      │────────▶│ GitHub Pages │
+│  timer     │            │ (InfluxDB →  │         │ (static HTML │
+└────────────┘            │  Chart.js)   │         │  + Chart.js) │
+                          └──────────────┘         └──────────────┘
 ```
 
 ## Services
@@ -54,9 +54,8 @@ docker compose up -d
 docker compose build speedtest
 docker compose run --rm speedtest
 
-# 4. Configurer le cron (toutes les 10 min)
-crontab -e
-# Ajouter: */10 * * * * cd /path/to/project && /usr/bin/docker compose run --rm speedtest >/dev/null 2>&1
+# 4. Installer les timers systemd (remplace crontab)
+just install-timers
 ```
 
 ## Maintenance (`just`)
@@ -119,6 +118,16 @@ crontab -e
 | `just preview [N]` | Prévisualiser avec données InfluxDB locales sur `http://localhost:8080` |
 | `just preview-dev [port]` | Prévisualiser avec données live GitHub Pages (sans RPi, défaut: 8080) |
 
+### Scheduling (systemd timers)
+
+| Commande | Description |
+|---|---|
+| `just install-timers` | Installer les timers systemd user (speedtest + publish) |
+| `just uninstall-timers` | Désinstaller les timers |
+| `just timer-status` | État des timers + logs récents |
+
+Les timers remplacent le crontab : la configuration est versionnée dans `systemd/`, installée via `just install-timers`, et visible via `systemctl --user list-timers`. Logs consultables avec `journalctl --user -u speedtest` / `-u publish-gh-pages`.
+
 ### Utilitaires
 
 | Commande | Description |
@@ -126,7 +135,6 @@ crontab -e
 | `just alerts` | État des alertes (✅/🔴) |
 | `just influx-shell` | Shell InfluxDB interactif |
 | `just shell <svc>` | Shell bash dans un container |
-| `just cron` | Afficher le crontab actif |
 
 ## Configuration
 
@@ -224,11 +232,7 @@ just publish 7       # 7 jours d'historique seulement
 
 `just preview-dev` permet de travailler sur le template sans accès au RPi : il récupère les données de la page live, les injecte dans le template local, et sert le résultat sur `http://localhost:8080`.
 
-Pour automatiser la publication via cron :
-```bash
-crontab -e
-# Ajouter : */10 * * * * cd /path/to/project && just publish >/dev/null 2>&1
-```
+La publication est automatisée via les timers systemd (`just install-timers`). Les timers relancent speedtest et publish toutes les 10 minutes avec un délai aléatoire pour éviter la contention.
 
 ## Références
 
