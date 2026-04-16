@@ -111,12 +111,13 @@ crontab -e
 | `just test` | Suite de régression complète (17 checks) |
 | `just check` | Health check rapide des 4 services |
 
-### Publication
+### Publication & Preview
 
 | Commande | Description |
 |---|---|
 | `just publish [N]` | Publier la page de monitoring sur GitHub Pages (N jours d'historique, défaut: 30) |
-| `just preview [N]` | Prévisualiser en local sur `http://localhost:8080` avant publication |
+| `just preview [N]` | Prévisualiser avec données InfluxDB locales sur `http://localhost:8080` |
+| `just preview-dev [port]` | Prévisualiser avec données live GitHub Pages (sans RPi, défaut: 8080) |
 
 ### Utilitaires
 
@@ -185,21 +186,45 @@ Page statique publique avec les résultats speedtest des 30 derniers jours :
 
 **https://yoyonel.github.io/rpi-internet-monitoring/**
 
-- **Bandwidth** : graphique combiné download (bleu) + upload (violet) avec fill gradient
-- **Ping** : graphique dédié (orange/jaune)
-- **Stats** : 3 panneaux Ping / Download / Upload avec moy, min, max
-- **Time range picker** : presets 6h/12h/24h/2j/7j/30j, navigation « », zoom +/-, raccourcis clavier
-- Downsampling LTTB (800 points max) pour des performances fluides
-- Thème sombre Grafana-like, responsive (mobile-friendly)
-- Auto-refresh toutes les 11 min
+### Design & rendu
+
+- **Thème sombre** inspiré de [tsbench](https://mibayy.github.io/tsbench/) : CSS variables, police Geist + Geist Mono (Google Fonts), `backdrop-filter` nav, panels `border-radius:8px`
+- **Stats détaillées** : chaque carte affiche la **médiane** comme valeur principale + sous-métriques (min / avg / max / last pour bandwidth, min / med / p95 / max pour ping), nombre de points et plage temporelle active
+- **Alertes RPi** : état des 6 alertes Grafana avec badges ok/firing/pending, températures converties en °C
+
+### Rendu dual-mode adaptatif
+
+| Fenêtre | Mode | Détail |
+|---|---|---|
+| ≤ 48h (6h, 12h, 24h, 2j) | **Line chart** | Courbes LTTB (600 pts max) avec gradient fill |
+| > 48h (7j, 30j) | **Band chart IQR** | Bandes Q1↔Q3 + ligne médiane + whiskers min/max par bucket temporel (2h pour 7j, 6h pour 30j) |
+
+Le mode band chart est inspiré des boxplots : au lieu de tracer des milliers de points illisibles, les données sont agrégées en buckets temporels et chaque bucket affiche sa distribution statistique. Résultat : rendu instantané même sur 30 jours, et visualisation immédiate de la dispersion et des anomalies.
+
+### Stack technique (pages)
+
+| Technologie | Usage |
+|---|---|
+| [Chart.js 4](https://www.chartjs.org/) + [chartjs-adapter-date-fns](https://github.com/chartjs/chartjs-adapter-date-fns) | Graphiques temps-réel |
+| [LTTB](https://skemman.is/bitstream/1946/15343/3/SS_MSthesis.pdf) | Downsampling préservant les pics |
+| Float64Array | Stockage mémoire compact, itération cache-friendly |
+| requestAnimationFrame | Debounce du rendering |
+| Geist / Geist Mono | Typographie (Google Fonts) |
+
+### Commandes
 
 ```bash
-just preview       # Prévisualiser en local (http://localhost:8080)
-just publish       # Publication sur GitHub Pages (30 jours)
-just publish 7     # 7 jours d'historique seulement
+just preview         # Prévisualiser avec données InfluxDB locales (http://localhost:8080)
+just preview-dev     # Prévisualiser avec données live GitHub Pages (pas besoin du RPi)
+just publish         # Publication sur GitHub Pages (30 jours)
+just publish 7       # 7 jours d'historique seulement
 ```
 
-Pour automatiser via cron :
+### Développement
+
+`just preview-dev` permet de travailler sur le template sans accès au RPi : il récupère les données de la page live, les injecte dans le template local, et sert le résultat sur `http://localhost:8080`.
+
+Pour automatiser la publication via cron :
 ```bash
 crontab -e
 # Ajouter : */10 * * * * cd /path/to/project && just publish >/dev/null 2>&1
