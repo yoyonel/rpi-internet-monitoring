@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Render the monitoring page template by injecting data and alerts.
 
-Usage: python3 scripts/render-template.py <template> <data_json> <alerts_json> <output_html> [suffix]
+Usage:
+  python3 scripts/render-template.py <template> <data> <alerts> <output> [suffix]
 
 Arguments:
   template     Path to gh-pages/index.template.html
@@ -10,6 +11,7 @@ Arguments:
   output_html  Path to write the rendered index.html
   suffix       Optional suffix appended to __GENERATED_AT__ (e.g. "(PR preview)")
 """
+
 import sys
 from datetime import datetime
 
@@ -17,7 +19,7 @@ from datetime import datetime
 def main():
     if len(sys.argv) < 5:
         print(
-            f"Usage: {sys.argv[0]} <template> <data_json> <alerts_json> <output_html> [suffix]",
+            f"Usage: {sys.argv[0]} <template> <data> <alerts> <output> [suffix]",
             file=sys.stderr,
         )
         sys.exit(1)

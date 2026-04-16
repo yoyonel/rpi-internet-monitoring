@@ -7,6 +7,7 @@ Writes:
   <output_dir>/data.json   — speedtest data (RAW_DATA object)
   <output_dir>/alerts.json — alerts array (ALERTS)
 """
+
 import json
 import re
 import sys
@@ -38,9 +39,7 @@ def main():
         f.write(m2.group(1))
 
     data = json.loads(m.group(1))
-    pts = len(
-        data.get("results", [{}])[0].get("series", [{}])[0].get("values", [])
-    )
+    pts = len(data.get("results", [{}])[0].get("series", [{}])[0].get("values", []))
     alerts = json.loads(m2.group(1))
     print(f"  → {pts} data points, {len(alerts)} alerts extracted")
 
