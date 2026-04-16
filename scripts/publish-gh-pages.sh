@@ -126,13 +126,15 @@ else
     echo "── Pushing to gh-pages branch ──"
 
     cd "$BUILD_DIR"
+    touch .nojekyll
     git init -q
     git config user.email "gh-pages-bot@users.noreply.github.com"
     git config user.name "GitHub Pages Bot"
     git checkout -q -b gh-pages
-    git add index.html style.css app.js
+    git add index.html style.css app.js .nojekyll
     git commit -q -m "Update monitoring data — $NOW"
     git remote add origin "$REPO_URL"
+    git fetch origin gh-pages --depth=1 2>/dev/null || true
     git push --force-with-lease -q origin gh-pages
 
     echo "  → Pushed to gh-pages branch"

@@ -89,6 +89,15 @@ else
     fail "Datasource 'Telegraf' missing"
 fi
 
+for ds_uid in $(echo "$DS_JSON" | jq -r '.[].uid' 2>/dev/null); do
+    ds_name=$(echo "$DS_JSON" | jq -r --arg uid "$ds_uid" '.[] | select(.uid == $uid) | .name')
+    if _gcurl -X POST "$GRAFANA_URL/api/datasources/uid/$ds_uid/health" 2>/dev/null | jq -e '.status == "OK"' >/dev/null 2>&1; then
+        pass "Datasource '$ds_name' connectivity OK"
+    else
+        fail "Datasource '$ds_name' cannot connect to InfluxDB (check credentials)"
+    fi
+done
+
 if _gcurl "$GRAFANA_URL/api/dashboards/uid/Ha9ke1iRk" 2>/dev/null | jq -e '.dashboard' >/dev/null 2>&1; then
     pass "Dashboard 'SpeedTest' exists (uid=Ha9ke1iRk)"
 else

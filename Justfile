@@ -146,7 +146,7 @@ install-hooks:
 
 # Show alert rules and their current state
 alerts:
-    bash scripts/alerts.sh {{ project_dir }}
+    bash scripts/alerts.sh '{{ project_dir }}'
 
 # Publish monitoring page to GitHub Pages (last 30 days by default)
 publish days="30":
@@ -172,7 +172,7 @@ preview-template:
 
 # Install systemd user timers for speedtest + GH Pages publish
 install-timers:
-    bash scripts/install-timers.sh {{ project_dir }}
+    bash scripts/install-timers.sh '{{ project_dir }}'
 
 # Uninstall systemd user timers
 uninstall-timers:
