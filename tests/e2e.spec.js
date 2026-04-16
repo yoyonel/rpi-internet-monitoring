@@ -98,7 +98,71 @@ test('data contains a reasonable number of points', async ({ page }) => {
   expect(count).toBeGreaterThan(100);
 });
 
-// ── 8. Capture screenshot for PR comment ────────────────────
+// ── 8. Drag-to-zoom plugin is loaded and configured ─────────
+test('drag-to-zoom plugin is configured on charts', async ({ page }) => {
+  const config = await page.evaluate(() => {
+    const bw = Chart.getChart('bwChart');
+    const pi = Chart.getChart('piChart');
+    return {
+      bwDrag: bw?.options?.plugins?.zoom?.zoom?.drag?.enabled,
+      piDrag: pi?.options?.plugins?.zoom?.zoom?.drag?.enabled,
+      bwMode: bw?.options?.plugins?.zoom?.zoom?.mode,
+      piMode: pi?.options?.plugins?.zoom?.zoom?.mode,
+      hasZoomFn: typeof bw?.zoom === 'function',
+      hasResetFn: typeof bw?.resetZoom === 'function',
+    };
+  });
+  expect(config.bwDrag).toBe(true);
+  expect(config.piDrag).toBe(true);
+  expect(config.bwMode).toBe('x');
+  expect(config.piMode).toBe('x');
+  expect(config.hasZoomFn).toBe(true);
+  expect(config.hasResetFn).toBe(true);
+});
+
+// ── 9. Double-click on chart resets to default 48 h view ────
+test('double-click on chart resets to live view', async ({ page }) => {
+  // Switch to 6h to change the current range
+  await page.click('.rb[data-hours="6"]');
+  await expect(page.locator('.rb[data-hours="6"]')).toHaveClass(/on/);
+
+  // Double-click on bandwidth chart to reset
+  await page.locator('#bwChart').dblclick();
+
+  // The "2j" (48h) button should be active again
+  await expect(page.locator('.rb[data-hours="48"]')).toHaveClass(/on/, { timeout: 5000 });
+});
+
+// ── 10. Time range picker opens and has content ─────────────
+test('time range picker opens with calendar and presets', async ({ page }) => {
+  const picker = page.locator('#trPicker');
+  await expect(picker).toBeHidden();
+
+  // Click the range label button to open
+  await page.click('#rangeLabelBtn');
+  await expect(picker).toBeVisible();
+
+  // Calendar is rendered with day buttons
+  const calDays = picker.locator('.tr-cal td button');
+  expect(await calDays.count()).toBeGreaterThan(20);
+
+  // Relative presets are rendered
+  const relBtns = picker.locator('.tr-rel button');
+  expect(await relBtns.count()).toBeGreaterThanOrEqual(10);
+
+  // Absolute inputs exist
+  await expect(page.locator('#trFrom')).toBeVisible();
+  await expect(page.locator('#trTo')).toBeVisible();
+
+  // Selecting a relative preset closes the picker and updates the view
+  const rangeLabel = page.locator('#rangeLabel');
+  const initialText = await rangeLabel.textContent();
+  await relBtns.filter({ hasText: '6 heures' }).click();
+  await expect(picker).toBeHidden();
+  await expect(rangeLabel).not.toHaveText(initialText, { timeout: 3000 });
+});
+
+// ── 11. Capture screenshot for PR comment ───────────────────
 test('capture preview screenshot', async ({ page }) => {
   // Give charts a moment to finish animating
   await page.waitForTimeout(500);

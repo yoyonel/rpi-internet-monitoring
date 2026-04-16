@@ -1,23 +1,43 @@
 // ── Alerts ───────────────────────────────────────────────────
 (() => {
-  if (!Array.isArray(ALERTS) || !ALERTS.length) return;
+  // Support both legacy array format and new {alerts, lastEvaluation} format
+  const alertsArr = Array.isArray(ALERTS) ? ALERTS : ALERTS?.alerts;
+  const lastEval = Array.isArray(ALERTS) ? null : ALERTS?.lastEvaluation;
+  if (!Array.isArray(alertsArr) || !alertsArr.length) return;
   document.getElementById('alertsSec').style.display = '';
   // Convert m°C to °C in alert summaries
   const fixTemp = (s) =>
     s ? s.replace(/(\d+)\s*m°C/g, (_, v) => (parseInt(v) / 1000).toFixed(2) + ' °C') : '';
 
-  document.getElementById('alertsList').innerHTML = ALERTS.map((a) => {
-    const icon =
-      a.state === 'firing' ? '\uD83D\uDD34' : a.state === 'pending' ? '\u26A0\uFE0F' : '\u2705';
-    const badge = a.state === 'firing' ? 'firing' : a.state === 'pending' ? 'pending' : 'ok';
-    const label = a.state === 'inactive' ? 'ok' : a.state;
-    return `<div class="al-row">
+  // Format lastEvaluation timestamp
+  const fmtEval = (iso) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d)) return null;
+    const p = (n) => (n < 10 ? '0' + n : '' + n);
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  };
+  const evalStr = fmtEval(lastEval);
+  const evalHtml = evalStr
+    ? `<div class="al-eval">Derni\u00e8re \u00e9valuation\u00a0: <time>${evalStr}</time></div>`
+    : '';
+
+  document.getElementById('alertsList').innerHTML =
+    evalHtml +
+    alertsArr
+      .map((a) => {
+        const icon =
+          a.state === 'firing' ? '\uD83D\uDD34' : a.state === 'pending' ? '\u26A0\uFE0F' : '\u2705';
+        const badge = a.state === 'firing' ? 'firing' : a.state === 'pending' ? 'pending' : 'ok';
+        const label = a.state === 'inactive' ? 'ok' : a.state;
+        return `<div class="al-row">
       <span class="al-icon">${icon}</span>
       <span class="al-name">${a.name}</span>
       <span class="al-sum">${fixTemp(a.summary)}</span>
       <span class="al-badge ${badge}">${label}</span>
     </div>`;
-  }).join('');
+      })
+      .join('');
 })();
 
 // ── Charts & Data ────────────────────────────────────────────
@@ -261,6 +281,28 @@
     cornerRadius: 4,
   };
 
+  // ── Drag-to-zoom (chartjs-plugin-zoom) ──────────────────────
+  const onZoomOrPan = ({ chart }) => {
+    const { min, max } = chart.scales.x;
+    rangeStart = min;
+    rangeEnd = max;
+    currentH = (rangeEnd - rangeStart) / HOUR;
+    isLive = rangeEnd >= dataEnd;
+    render();
+  };
+  const zoomOpts = {
+    zoom: {
+      drag: {
+        enabled: true,
+        backgroundColor: 'rgba(127,127,127,0.15)',
+        borderColor: 'rgba(127,127,127,0.4)',
+        borderWidth: 1,
+      },
+      mode: 'x',
+      onZoomComplete: onZoomOrPan,
+    },
+  };
+
   // Charts created once, datasets swapped per mode
   const bwCtx = document.getElementById('bwChart').getContext('2d');
   const bwH = document.getElementById('bwChart').parentElement.clientHeight || 300;
@@ -282,6 +324,7 @@
       },
       plugins: {
         legend: { display: false },
+        zoom: zoomOpts,
         tooltip: {
           ...tipStyle,
           callbacks: {
@@ -317,6 +360,7 @@
       },
       plugins: {
         legend: { display: false },
+        zoom: zoomOpts,
         tooltip: {
           ...tipStyle,
           callbacks: {
@@ -458,6 +502,10 @@
       const [i0, i1] = rng;
       const n = i1 - i0;
 
+      // Padded range: include one sample before/after for continuous curves
+      const p0 = Math.max(0, i0 - 1);
+      const p1 = Math.min(LEN, i1 + 1);
+
       // ── Stats ──────────────────────────────────────────────
       let dlS = 0,
         ulS = 0,
@@ -545,12 +593,12 @@
       document.getElementById('piLeg').innerHTML = `
         <span><i style="background:${COL.pi}"></i>latency${bandLabel}</span>`;
 
-      // ── Datasets ───────────────────────────────────────────
+      // ── Datasets (padded range for edge continuity) ────────
       if (mode === 'band') {
         const bMs = bucketSize();
-        const dlB = bucketize(ts, dl, i0, i1, bMs);
-        const ulB = bucketize(ts, ul, i0, i1, bMs);
-        const piB = bucketize(ts, pi, i0, i1, bMs);
+        const dlB = bucketize(ts, dl, p0, p1, bMs);
+        const ulB = bucketize(ts, ul, p0, p1, bMs);
+        const piB = bucketize(ts, pi, p0, p1, bMs);
 
         bwChart.data.datasets = [
           ...makeBandDs(dlB, COL.dl, 'download'),
@@ -562,8 +610,8 @@
         piChart.options.plugins.tooltip = bandTooltipPi;
       } else {
         bwChart.data.datasets = [
-          ...makeLineDs(ts, dl, i0, i1, COL.dl, 'download', bwCtx, bwH),
-          ...makeLineDs(ts, ul, i0, i1, COL.ul, 'upload', bwCtx, bwH),
+          ...makeLineDs(ts, dl, p0, p1, COL.dl, 'download', bwCtx, bwH),
+          ...makeLineDs(ts, ul, p0, p1, COL.ul, 'upload', bwCtx, bwH),
         ];
         bwChart.options.plugins.tooltip = {
           ...tipStyle,
@@ -572,7 +620,7 @@
           },
         };
 
-        piChart.data.datasets = makeLineDs(ts, pi, i0, i1, COL.pi, 'latency', piCtx, piH);
+        piChart.data.datasets = makeLineDs(ts, pi, p0, p1, COL.pi, 'latency', piCtx, piH);
         piChart.options.plugins.tooltip = {
           ...tipStyle,
           callbacks: {
@@ -650,6 +698,327 @@
     else if (e.key === '+' || e.key === '=') document.getElementById('btnZoomIn').click();
     else if (e.key === '-') document.getElementById('btnZoomOut').click();
   });
+
+  // Double-click on chart → reset to default 48 h live view
+  const resetToLive = () => {
+    isLive = true;
+    setRange(48);
+  };
+  document.getElementById('bwChart').addEventListener('dblclick', resetToLive);
+  document.getElementById('piChart').addEventListener('dblclick', resetToLive);
+
+  // ── Middle-click drag to pan ───────────────────────────────
+  ['bwChart', 'piChart'].forEach((id) => {
+    const canvas = document.getElementById(id);
+    let panning = false,
+      startX = 0,
+      startRange = 0;
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button !== 1) return; // middle button only
+      e.preventDefault();
+      panning = true;
+      startX = e.clientX;
+      startRange = rangeStart;
+      canvas.style.cursor = 'grabbing';
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!panning) return;
+      const chart = Chart.getChart(id);
+      const xScale = chart.scales.x;
+      const pxRange = xScale.right - xScale.left;
+      const msPerPx = (rangeEnd - rangeStart) / pxRange;
+      const dx = startX - e.clientX; // drag left → move range forward
+      const shift = dx * msPerPx;
+      rangeStart = startRange + shift;
+      rangeEnd = rangeStart + currentH * HOUR;
+      isLive = rangeEnd >= dataEnd;
+      render();
+    });
+    const stopPan = () => {
+      if (!panning) return;
+      panning = false;
+      canvas.style.cursor = 'crosshair';
+    };
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 1) stopPan();
+    });
+    // Prevent default middle-click scroll behavior
+    canvas.addEventListener('auxclick', (e) => {
+      if (e.button === 1) e.preventDefault();
+    });
+  });
+
+  // ── Grafana-style time range picker ────────────────────────
+  (() => {
+    const picker = document.getElementById('trPicker');
+    const btn = document.getElementById('rangeLabelBtn');
+    const calEl = document.getElementById('trCal');
+    const fromIn = document.getElementById('trFrom');
+    const toIn = document.getElementById('trTo');
+    const recentSec = document.getElementById('trRecentSec');
+    const recentEl = document.getElementById('trRecent');
+    const relEl = document.getElementById('trRel');
+
+    let pickerOpen = false;
+    let calYear, calMonth; // currently displayed month
+    let selFrom = null,
+      selTo = null; // calendar selection state (timestamps)
+    const dataStart = ts[0];
+
+    // Relative presets (label, hours)
+    const relPresets = [
+      ['5 min', 5 / 60],
+      ['15 min', 0.25],
+      ['30 min', 0.5],
+      ['1 heure', 1],
+      ['3 heures', 3],
+      ['6 heures', 6],
+      ['12 heures', 12],
+      ['24 heures', 24],
+      ['2 jours', 48],
+      ['7 jours', 168],
+      ['30 jours', 720],
+    ];
+
+    // Recent ranges (stored in memory, max 5)
+    let recentRanges = [];
+    const addRecent = (s, e) => {
+      const key = `${s}|${e}`;
+      recentRanges = recentRanges.filter((r) => `${r[0]}|${r[1]}` !== key);
+      recentRanges.unshift([s, e]);
+      if (recentRanges.length > 5) recentRanges.length = 5;
+      renderRecent();
+    };
+
+    // ── Toggle ──
+    const togglePicker = () => {
+      pickerOpen = !pickerOpen;
+      picker.style.display = pickerOpen ? '' : 'none';
+      btn.classList.toggle('open', pickerOpen);
+      if (pickerOpen) syncPickerToRange();
+    };
+    btn.addEventListener('click', togglePicker);
+
+    // Close on outside click
+    document.addEventListener('click', (e) => {
+      if (pickerOpen && !picker.contains(e.target) && !btn.contains(e.target)) {
+        pickerOpen = false;
+        picker.style.display = 'none';
+        btn.classList.remove('open');
+      }
+    });
+
+    // ── Sync picker inputs to current range ──
+    const toLocalISO = (t) => {
+      const d = new Date(t);
+      const off = d.getTimezoneOffset();
+      const local = new Date(d.getTime() - off * 60000);
+      return local.toISOString().slice(0, 16);
+    };
+    const syncPickerToRange = () => {
+      selFrom = rangeStart;
+      selTo = rangeEnd;
+      fromIn.value = toLocalISO(rangeStart);
+      toIn.value = toLocalISO(rangeEnd);
+      const d = new Date(rangeStart);
+      calYear = d.getFullYear();
+      calMonth = d.getMonth();
+      renderCal();
+      renderRelActive();
+    };
+
+    // ── Apply absolute range ──
+    const applyAbsolute = () => {
+      const s = new Date(fromIn.value).getTime();
+      const e = new Date(toIn.value).getTime();
+      if (!s || !e || s >= e) return;
+      rangeStart = s;
+      rangeEnd = e;
+      currentH = (rangeEnd - rangeStart) / HOUR;
+      isLive = rangeEnd >= dataEnd;
+      addRecent(s, e);
+      render();
+      togglePicker();
+    };
+    document.getElementById('trApply').addEventListener('click', applyAbsolute);
+
+    // Sync calendar highlight when inputs change manually
+    fromIn.addEventListener('change', () => {
+      const t = new Date(fromIn.value).getTime();
+      if (t) selFrom = t;
+      if (toIn.value) selTo = new Date(toIn.value).getTime();
+      renderCal();
+    });
+    toIn.addEventListener('change', () => {
+      if (fromIn.value) selFrom = new Date(fromIn.value).getTime();
+      const t = new Date(toIn.value).getTime();
+      if (t) selTo = t;
+      renderCal();
+    });
+
+    // ── Relative presets ──
+    relPresets.forEach(([label, h]) => {
+      const b = document.createElement('button');
+      b.textContent = label;
+      b.dataset.hours = h;
+      b.addEventListener('click', () => {
+        isLive = true;
+        currentH = h;
+        rangeEnd = dataEnd + 600_000;
+        rangeStart = rangeEnd - currentH * HOUR;
+        render();
+        togglePicker();
+      });
+      relEl.appendChild(b);
+    });
+    const renderRelActive = () => {
+      relEl.querySelectorAll('button').forEach((b) => {
+        const h = parseFloat(b.dataset.hours);
+        b.classList.toggle('active', Math.abs(h - currentH) < 0.01 && isLive);
+      });
+    };
+
+    // ── Calendar ──
+    const DAYS = ['Lu', 'Ma', 'Me', 'Je', 'Ve', 'Sa', 'Di'];
+    const MONTHS = [
+      'Janvier',
+      'F\u00e9vrier',
+      'Mars',
+      'Avril',
+      'Mai',
+      'Juin',
+      'Juillet',
+      'Ao\u00fbt',
+      'Septembre',
+      'Octobre',
+      'Novembre',
+      'D\u00e9cembre',
+    ];
+    const renderCal = () => {
+      const first = new Date(calYear, calMonth, 1);
+      const startDay = (first.getDay() + 6) % 7; // Mon=0
+      const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+      const prevDays = new Date(calYear, calMonth, 0).getDate();
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+
+      // Use picker selection (from inputs) for calendar highlighting
+      const hFrom = selFrom || 0;
+      const hTo = selTo || 0;
+
+      let html = `<div class="tr-cal-hd">
+        <button id="trCalPrev">&lsaquo;</button>
+        <span>${MONTHS[calMonth]} ${calYear}</span>
+        <button id="trCalNext">&rsaquo;</button>
+      </div><table><tr>${DAYS.map((d) => `<th>${d}</th>`).join('')}</tr><tr>`;
+
+      let cell = 0;
+      // Previous month padding
+      for (let i = startDay - 1; i >= 0; i--) {
+        const day = prevDays - i;
+        html += `<td><button class="other">${day}</button></td>`;
+        cell++;
+      }
+      // Current month
+      for (let d = 1; d <= daysInMonth; d++) {
+        if (cell && cell % 7 === 0) html += '</tr><tr>';
+        const dt = new Date(calYear, calMonth, d);
+        const dayStart = dt.getTime();
+        const dayEnd = dayStart + 86400000;
+        const str = `${calYear}-${calMonth}-${d}`;
+        const cls = [];
+        if (str === todayStr) cls.push('today');
+        if (dayEnd < dataStart || dayStart > dataEnd + 600_000) cls.push('no-data');
+        else if (hFrom && hTo) {
+          // Highlight based on picker From/To selection
+          const rS = Math.min(hFrom, hTo);
+          const rE = Math.max(hFrom, hTo);
+          if (dayStart >= rS && dayEnd <= rE) cls.push('in-range');
+          if ((dayStart <= rS && dayEnd > rS) || (dayStart < rE && dayEnd >= rE)) cls.push('sel');
+        }
+        html += `<td><button class="${cls.join(' ')}" data-ts="${dayStart}">${d}</button></td>`;
+        cell++;
+      }
+      // Next month padding
+      let nd = 1;
+      while (cell % 7 !== 0) {
+        html += `<td><button class="other">${nd++}</button></td>`;
+        cell++;
+      }
+      html += '</tr></table>';
+      calEl.innerHTML = html;
+
+      // Calendar nav
+      document.getElementById('trCalPrev').addEventListener('click', (e) => {
+        e.stopPropagation();
+        calMonth--;
+        if (calMonth < 0) {
+          calMonth = 11;
+          calYear--;
+        }
+        renderCal();
+      });
+      document.getElementById('trCalNext').addEventListener('click', (e) => {
+        e.stopPropagation();
+        calMonth++;
+        if (calMonth > 11) {
+          calMonth = 0;
+          calYear++;
+        }
+        renderCal();
+      });
+
+      // Day click: first click → set From, second click → set To
+      calEl.querySelectorAll('td button[data-ts]').forEach((b) => {
+        if (b.classList.contains('no-data')) return;
+        b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const t = parseInt(b.dataset.ts);
+          if (!selFrom || selTo) {
+            // First click or reset: set From
+            selFrom = t;
+            selTo = null;
+            fromIn.value = toLocalISO(t);
+            toIn.value = '';
+          } else {
+            // Second click: set To (ensure From < To)
+            const a = Math.min(selFrom, t);
+            const z = Math.max(selFrom, t) + 86400000; // end of the later day
+            selFrom = a;
+            selTo = z;
+            fromIn.value = toLocalISO(a);
+            toIn.value = toLocalISO(z);
+          }
+          renderCal();
+        });
+      });
+    };
+
+    // ── Recent ranges ──
+    const renderRecent = () => {
+      if (!recentRanges.length) {
+        recentSec.style.display = 'none';
+        return;
+      }
+      recentSec.style.display = '';
+      recentEl.innerHTML = recentRanges
+        .map(
+          ([s, e]) =>
+            `<button data-s="${s}" data-e="${e}">${fmtDate(s)} \u2192 ${fmtDate(e)}</button>`,
+        )
+        .join('');
+      recentEl.querySelectorAll('button').forEach((b) =>
+        b.addEventListener('click', () => {
+          rangeStart = parseInt(b.dataset.s);
+          rangeEnd = parseInt(b.dataset.e);
+          currentH = (rangeEnd - rangeStart) / HOUR;
+          isLive = rangeEnd >= dataEnd;
+          render();
+          togglePicker();
+        }),
+      );
+    };
+  })();
 
   doRender();
 })();

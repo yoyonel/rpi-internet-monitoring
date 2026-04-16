@@ -68,9 +68,13 @@ ALERTS_DATA=$(echo "$ALERTS_JSON" | python3 -c "
 import json, sys
 d = json.load(sys.stdin)
 alerts = []
+last_eval = ''
 for g in d.get('data', {}).get('groups', []):
+    ge = g.get('lastEvaluation', '')
+    if ge > last_eval: last_eval = ge
     for r in g.get('rules', []):
         val = ''
+        re_val = r.get('lastEvaluation', ge)
         for a in r.get('alerts', []):
             s = a.get('annotations', {}).get('summary', '')
             if s: val = s
@@ -79,11 +83,12 @@ for g in d.get('data', {}).get('groups', []):
             'state': r['state'],
             'health': r.get('health', ''),
             'severity': r.get('labels', {}).get('severity', ''),
-            'summary': val
+            'summary': val,
+            'lastEvaluation': re_val
         })
-print(json.dumps(alerts))
+print(json.dumps({'alerts': alerts, 'lastEvaluation': last_eval}))
 ")
-ALERT_COUNT=$(echo "$ALERTS_DATA" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
+ALERT_COUNT=$(echo "$ALERTS_DATA" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('alerts', d) if isinstance(d, dict) else d))")
 echo "  → $ALERT_COUNT alert rules exported"
 
 # ── 2. Build the static page ─────────────────────────────

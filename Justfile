@@ -138,6 +138,10 @@ check:
 
 # ── Utilities ───────────────────────────────────────────
 
+# Install git hooks (pre-commit: lint, pre-push: E2E tests)
+install-hooks:
+    bash scripts/install-hooks.sh
+
 # Show alert rules and their current state
 alerts:
     bash scripts/alerts.sh {{ project_dir }}
