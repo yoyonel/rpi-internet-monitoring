@@ -261,7 +261,15 @@
     cornerRadius: 4,
   };
 
-  // ── Drag-to-zoom (chartjs-plugin-zoom) ─────────────────────
+  // ── Drag-to-zoom (chartjs-plugin-zoom) ──────────────────────
+  const onZoomOrPan = ({ chart }) => {
+    const { min, max } = chart.scales.x;
+    rangeStart = min;
+    rangeEnd = max;
+    currentH = (rangeEnd - rangeStart) / HOUR;
+    isLive = rangeEnd >= dataEnd;
+    render();
+  };
   const zoomOpts = {
     zoom: {
       drag: {
@@ -271,14 +279,7 @@
         borderWidth: 1,
       },
       mode: 'x',
-      onZoomComplete: ({ chart }) => {
-        const { min, max } = chart.scales.x;
-        rangeStart = min;
-        rangeEnd = max;
-        currentH = (rangeEnd - rangeStart) / HOUR;
-        isLive = rangeEnd >= dataEnd;
-        render();
-      },
+      onZoomComplete: onZoomOrPan,
     },
   };
 
@@ -685,6 +686,47 @@
   };
   document.getElementById('bwChart').addEventListener('dblclick', resetToLive);
   document.getElementById('piChart').addEventListener('dblclick', resetToLive);
+
+  // ── Middle-click drag to pan ───────────────────────────────
+  ['bwChart', 'piChart'].forEach((id) => {
+    const canvas = document.getElementById(id);
+    let panning = false,
+      startX = 0,
+      startRange = 0;
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button !== 1) return; // middle button only
+      e.preventDefault();
+      panning = true;
+      startX = e.clientX;
+      startRange = rangeStart;
+      canvas.style.cursor = 'grabbing';
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!panning) return;
+      const chart = Chart.getChart(id);
+      const xScale = chart.scales.x;
+      const pxRange = xScale.right - xScale.left;
+      const msPerPx = (rangeEnd - rangeStart) / pxRange;
+      const dx = startX - e.clientX; // drag left → move range forward
+      const shift = dx * msPerPx;
+      rangeStart = startRange + shift;
+      rangeEnd = rangeStart + currentH * HOUR;
+      isLive = rangeEnd >= dataEnd;
+      render();
+    });
+    const stopPan = () => {
+      if (!panning) return;
+      panning = false;
+      canvas.style.cursor = 'crosshair';
+    };
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 1) stopPan();
+    });
+    // Prevent default middle-click scroll behavior
+    canvas.addEventListener('auxclick', (e) => {
+      if (e.button === 1) e.preventDefault();
+    });
+  });
 
   // ── Grafana-style time range picker ────────────────────────
   (() => {
