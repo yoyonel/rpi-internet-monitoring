@@ -1,23 +1,43 @@
 // ── Alerts ───────────────────────────────────────────────────
 (() => {
-  if (!Array.isArray(ALERTS) || !ALERTS.length) return;
+  // Support both legacy array format and new {alerts, lastEvaluation} format
+  const alertsArr = Array.isArray(ALERTS) ? ALERTS : ALERTS?.alerts;
+  const lastEval = Array.isArray(ALERTS) ? null : ALERTS?.lastEvaluation;
+  if (!Array.isArray(alertsArr) || !alertsArr.length) return;
   document.getElementById('alertsSec').style.display = '';
   // Convert m°C to °C in alert summaries
   const fixTemp = (s) =>
     s ? s.replace(/(\d+)\s*m°C/g, (_, v) => (parseInt(v) / 1000).toFixed(2) + ' °C') : '';
 
-  document.getElementById('alertsList').innerHTML = ALERTS.map((a) => {
-    const icon =
-      a.state === 'firing' ? '\uD83D\uDD34' : a.state === 'pending' ? '\u26A0\uFE0F' : '\u2705';
-    const badge = a.state === 'firing' ? 'firing' : a.state === 'pending' ? 'pending' : 'ok';
-    const label = a.state === 'inactive' ? 'ok' : a.state;
-    return `<div class="al-row">
+  // Format lastEvaluation timestamp
+  const fmtEval = (iso) => {
+    if (!iso) return null;
+    const d = new Date(iso);
+    if (isNaN(d)) return null;
+    const p = (n) => (n < 10 ? '0' + n : '' + n);
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  };
+  const evalStr = fmtEval(lastEval);
+  const evalHtml = evalStr
+    ? `<div class="al-eval">Derni\u00e8re \u00e9valuation\u00a0: <time>${evalStr}</time></div>`
+    : '';
+
+  document.getElementById('alertsList').innerHTML =
+    evalHtml +
+    alertsArr
+      .map((a) => {
+        const icon =
+          a.state === 'firing' ? '\uD83D\uDD34' : a.state === 'pending' ? '\u26A0\uFE0F' : '\u2705';
+        const badge = a.state === 'firing' ? 'firing' : a.state === 'pending' ? 'pending' : 'ok';
+        const label = a.state === 'inactive' ? 'ok' : a.state;
+        return `<div class="al-row">
       <span class="al-icon">${icon}</span>
       <span class="al-name">${a.name}</span>
       <span class="al-sum">${fixTemp(a.summary)}</span>
       <span class="al-badge ${badge}">${label}</span>
     </div>`;
-  }).join('');
+      })
+      .join('');
 })();
 
 // ── Charts & Data ────────────────────────────────────────────

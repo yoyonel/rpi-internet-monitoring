@@ -181,6 +181,15 @@ nav .meta time {
   margin-bottom: 10px;
   font-weight: 500;
 }
+.al-eval {
+  font-size: 0.68rem;
+  color: var(--text3);
+  font-family: 'Geist Mono', monospace;
+  margin-bottom: 10px;
+}
+.al-eval time {
+  color: var(--blue);
+}
 .al-row {
   display: flex;
   align-items: center;
