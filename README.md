@@ -105,10 +105,13 @@ just install-timers
 
 ### Testing
 
-| Commande     | Description                              |
-| ------------ | ---------------------------------------- |
-| `just test`  | Suite de régression complète (17 checks) |
-| `just check` | Health check rapide des 4 services       |
+| Commande         | RPi requis | Description                                             |
+| ---------------- | ---------- | ------------------------------------------------------- |
+| `just test`      | **oui**    | Suite de régression complète (17 checks)                |
+| `just check`     | **oui**    | Health check rapide des 4 services                      |
+| `just e2e [url]` | non        | Tests E2E Playwright contre une preview (défaut: :8080) |
+| `just lint`      | non        | Vérifier le formatage et le linting de tous les sources |
+| `just fmt`       | non        | Auto-formater tous les fichiers sources                 |
 
 ### Publication & Preview
 
@@ -186,9 +189,53 @@ just backup    # Crée un dossier horodaté dans backups/ avec dashboards + Infl
 ## Tests
 
 ```bash
-just test      # 17 checks: services, dashboards, pipeline, data integrity
-just check     # Health check rapide (4 services)
+just test      # 17 checks: services, dashboards, pipeline, data integrity (RPi)
+just check     # Health check rapide des 4 services (RPi)
 ```
+
+### Tests E2E (Playwright)
+
+Tests fonctionnels de la page GitHub Pages dans un navigateur headless (Chromium). Vérifient que :
+
+- Aucune erreur JavaScript dans la console
+- Les 3 cartes de stats (Download, Upload, Ping) affichent des valeurs numériques
+- Les charts Bandwidth et Ping contiennent des données
+- Les alertes RPi sont rendues avec noms et badges
+- Les boutons de plage temporelle changent effectivement la vue
+- Aucun placeholder template n'est resté dans le HTML
+- Le nombre de data points est cohérent (> 100)
+
+```bash
+# 1. Lancer une preview locale
+just preview-dev
+
+# 2. Dans un autre terminal, lancer les tests
+just e2e                          # contre http://localhost:8080
+just e2e http://localhost:9090    # port alternatif
+
+# Contre une URL distante (ex: preview Surge)
+just e2e https://yoyonel-rpi-internet-monitoring-preview-pr-2.surge.sh
+```
+
+Les tests E2E tournent aussi automatiquement en CI sur chaque PR (après déploiement Surge).
+
+### Code Quality
+
+```bash
+just lint      # Vérifier tous les fichiers
+just fmt       # Auto-formater tous les fichiers
+```
+
+| Outil      | Fichiers ciblés                     |
+| ---------- | ----------------------------------- |
+| shellcheck | `.sh`                               |
+| shfmt      | `.sh` (indent 4, case indent)       |
+| hadolint   | `Dockerfile`                        |
+| yamllint   | `.yml`                              |
+| prettier   | HTML, CSS, JS, JSON, YAML, Markdown |
+| ruff       | Python (lint + format)              |
+
+La CI exécute `just lint` sur chaque push et PR via `.github/workflows/lint.yml`.
 
 ## GitHub Pages — Vue externe
 
