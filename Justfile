@@ -194,6 +194,10 @@ publish days="30":
 preview days="30":
     bash scripts/publish-gh-pages.sh --preview {{ days }}
 
+# Preview monitoring page using live GitHub Pages data (no RPi needed)
+preview-dev port="8080":
+    bash scripts/preview-dev.sh {{ port }}
+
 # Open an InfluxDB CLI shell
 influx-shell:
     docker exec -it influxdb influx
