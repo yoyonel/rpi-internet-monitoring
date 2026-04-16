@@ -198,6 +198,14 @@ preview days="30":
 preview-dev port="8080":
     bash scripts/preview-dev.sh {{ port }}
 
+# Publish updated template to GitHub Pages using live data (no RPi needed)
+publish-template:
+    bash scripts/publish-template.sh
+
+# Preview updated template locally before publishing (no RPi needed)
+preview-template:
+    bash scripts/publish-template.sh --preview
+
 # ── Systemd Timers (replaces crontab) ──────────────────
 
 # Install systemd user timers for speedtest + GH Pages publish

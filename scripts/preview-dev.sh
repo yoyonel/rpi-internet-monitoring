@@ -18,7 +18,7 @@ echo ""
 # ── 1. Fetch live data ────────────────────────────────────
 echo "── Fetching data from live GitHub Pages ──"
 
-curl -sf "https://yoyonel.github.io/rpi-internet-monitoring/" -o "$BUILD_DIR/live.html" \
+curl -sfL "https://yoyonel.github.io/rpi-internet-monitoring/" -o "$BUILD_DIR/live.html" \
     || { echo "ERROR: Could not fetch live page. Check your connection."; exit 1; }
 
 python3 << PYEOF
