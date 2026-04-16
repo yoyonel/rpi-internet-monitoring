@@ -194,6 +194,55 @@ publish days="30":
 preview days="30":
     bash scripts/publish-gh-pages.sh --preview {{ days }}
 
+# Preview monitoring page using live GitHub Pages data (no RPi needed)
+preview-dev port="8080":
+    bash scripts/preview-dev.sh {{ port }}
+
+# ── Systemd Timers (replaces crontab) ──────────────────
+
+# Install systemd user timers for speedtest + GH Pages publish
+install-timers:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    dir="$HOME/.config/systemd/user"
+    mkdir -p "$dir"
+    for unit in speedtest.service speedtest.timer publish-gh-pages.service publish-gh-pages.timer; do
+        cp "{{ project_dir }}/systemd/$unit" "$dir/$unit"
+        echo "  → $dir/$unit"
+    done
+    # Patch WorkingDirectory to actual project path
+    sed -i "s|WorkingDirectory=.*|WorkingDirectory={{ project_dir }}|" "$dir/speedtest.service" "$dir/publish-gh-pages.service"
+    systemctl --user daemon-reload
+    systemctl --user enable --now speedtest.timer publish-gh-pages.timer
+    echo ""
+    echo "✅ Timers installed and started:"
+    systemctl --user list-timers speedtest.timer publish-gh-pages.timer --no-pager
+
+# Uninstall systemd user timers
+uninstall-timers:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    systemctl --user disable --now speedtest.timer publish-gh-pages.timer 2>/dev/null || true
+    dir="$HOME/.config/systemd/user"
+    for unit in speedtest.service speedtest.timer publish-gh-pages.service publish-gh-pages.timer; do
+        rm -f "$dir/$unit"
+    done
+    systemctl --user daemon-reload
+    echo "✅ Timers uninstalled"
+
+# Show systemd timer status and recent logs
+timer-status:
+    #!/usr/bin/env bash
+    set -eo pipefail
+    echo "── Timers ──"
+    systemctl --user list-timers speedtest.timer publish-gh-pages.timer --no-pager 2>/dev/null || echo "  (no timers installed)"
+    echo ""
+    echo "── Recent speedtest runs ──"
+    journalctl --user -u speedtest.service --no-pager -n 5 2>/dev/null || echo "  (no logs)"
+    echo ""
+    echo "── Recent publish runs ──"
+    journalctl --user -u publish-gh-pages.service --no-pager -n 5 2>/dev/null || echo "  (no logs)"
+
 # Open an InfluxDB CLI shell
 influx-shell:
     docker exec -it influxdb influx

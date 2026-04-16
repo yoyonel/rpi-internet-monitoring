@@ -1,0 +1,9 @@
+[Unit]
+Description=Publish monitoring page to GitHub Pages
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/rpi-internet-monitoring
+ExecStart=/usr/bin/bash scripts/publish-gh-pages.sh 30
+TimeoutStartSec=120
+Environment=HOME=%h
