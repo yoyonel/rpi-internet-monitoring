@@ -97,3 +97,13 @@ test('data contains a reasonable number of points', async ({ page }) => {
   // Expect at least 100 data points (10 min intervals × 24h = 144/day)
   expect(count).toBeGreaterThan(100);
 });
+
+// ── 8. Capture screenshot for PR comment ────────────────────
+test('capture preview screenshot', async ({ page }) => {
+  // Give charts a moment to finish animating
+  await page.waitForTimeout(500);
+  await page.screenshot({
+    path: 'test-results/preview.png',
+    fullPage: true,
+  });
+});
