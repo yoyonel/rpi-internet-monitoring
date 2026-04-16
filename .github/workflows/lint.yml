@@ -33,10 +33,16 @@ jobs:
         run: hadolint Dockerfile
 
       - name: yamllint
-        run: yamllint docker-compose.yml .github/workflows/*.yml grafana/provisioning/alerting/alerts.yml
+        run: >
+          yamllint docker-compose.yml .github/workflows/*.yml
+          grafana/provisioning/alerting/alerts.yml
+          .yamllint.yml .hadolint.yaml
 
       - name: prettier
-        run: npx prettier --check 'gh-pages/*.{html,css,js}' 'docker-compose.yml' '.github/workflows/*.yml'
+        run: >
+          npx prettier --check
+          'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md'
+          'docker-compose.yml' '.github/workflows/*.yml'
 
       - name: ruff
         run: |
