@@ -27,7 +27,10 @@ groups:
               datasource:
                 uid: 2QPKy_O4k
                 type: influxdb
-              query: "SELECT 100 - mean(\"usage_idle\") FROM \"cpu\" WHERE (\"cpu\" = 'cpu-total') AND $timeFilter GROUP BY time(1m) fill(none)"
+              query: >-
+                SELECT 100 - mean("usage_idle") FROM "cpu"
+                WHERE ("cpu" = 'cpu-total') AND $timeFilter
+                GROUP BY time(1m) fill(none)
               rawQuery: true
               resultFormat: time_series
           - refId: reduce
@@ -250,7 +253,10 @@ groups:
               datasource:
                 uid: 2QPKy_O4k
                 type: influxdb
-              query: "SELECT mean(\"used_percent\") FROM \"disk\" WHERE (\"path\" = '/') AND $timeFilter GROUP BY time(5m) fill(none)"
+              query: >-
+                SELECT mean("used_percent") FROM "disk"
+                WHERE ("path" = '/') AND $timeFilter
+                GROUP BY time(5m) fill(none)
               rawQuery: true
               resultFormat: time_series
           - refId: reduce

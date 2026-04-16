@@ -94,8 +94,8 @@ BUILD_DIR=$(mktemp -d)
 trap 'rm -rf "$BUILD_DIR"' EXIT
 
 # Write data to temp files, then inject into template
-echo "$JSON_DATA" > "$BUILD_DIR/data.json"
-echo "$ALERTS_DATA" > "$BUILD_DIR/alerts.json"
+echo "$JSON_DATA" >"$BUILD_DIR/data.json"
+echo "$ALERTS_DATA" >"$BUILD_DIR/alerts.json"
 
 python3 "$SCRIPT_DIR/scripts/render-template.py" "$TEMPLATE" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "$BUILD_DIR/index.html"
 

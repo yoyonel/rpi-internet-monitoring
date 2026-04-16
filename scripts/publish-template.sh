@@ -30,8 +30,11 @@ trap 'rm -rf "$BUILD_DIR"' EXIT
 # ── 1. Fetch live data from GitHub Pages ──────────────────
 echo "── Fetching data from live GitHub Pages ──"
 
-curl -sfL "$LIVE_URL" -o "$BUILD_DIR/live.html" \
-    || { echo "ERROR: Could not fetch $LIVE_URL"; exit 1; }
+curl -sfL "$LIVE_URL" -o "$BUILD_DIR/live.html" ||
+    {
+        echo "ERROR: Could not fetch $LIVE_URL"
+        exit 1
+    }
 
 python3 "$SCRIPT_DIR/scripts/extract-live-data.py" "$BUILD_DIR/live.html" "$BUILD_DIR"
 

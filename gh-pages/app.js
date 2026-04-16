@@ -1,34 +1,28 @@
 // ── Alerts ───────────────────────────────────────────────────
 (() => {
   if (!Array.isArray(ALERTS) || !ALERTS.length) return;
-  document.getElementById("alertsSec").style.display = "";
+  document.getElementById('alertsSec').style.display = '';
   // Convert m°C to °C in alert summaries
   const fixTemp = (s) =>
-    s
-      ? s.replace(
-          /(\d+)\s*m°C/g,
-          (_, v) => (parseInt(v) / 1000).toFixed(2) + " °C",
-        )
-      : "";
+    s ? s.replace(/(\d+)\s*m°C/g, (_, v) => (parseInt(v) / 1000).toFixed(2) + ' °C') : '';
 
-  document.getElementById("alertsList").innerHTML = ALERTS.map((a) => {
+  document.getElementById('alertsList').innerHTML = ALERTS.map((a) => {
     const icon =
-      a.state === "firing" ? "\uD83D\uDD34" : a.state === "pending" ? "\u26A0\uFE0F" : "\u2705";
-    const badge =
-      a.state === "firing" ? "firing" : a.state === "pending" ? "pending" : "ok";
-    const label = a.state === "inactive" ? "ok" : a.state;
+      a.state === 'firing' ? '\uD83D\uDD34' : a.state === 'pending' ? '\u26A0\uFE0F' : '\u2705';
+    const badge = a.state === 'firing' ? 'firing' : a.state === 'pending' ? 'pending' : 'ok';
+    const label = a.state === 'inactive' ? 'ok' : a.state;
     return `<div class="al-row">
       <span class="al-icon">${icon}</span>
       <span class="al-name">${a.name}</span>
       <span class="al-sum">${fixTemp(a.summary)}</span>
       <span class="al-badge ${badge}">${label}</span>
     </div>`;
-  }).join("");
+  }).join('');
 })();
 
 // ── Charts & Data ────────────────────────────────────────────
 (() => {
-  const statsEl = document.getElementById("statsRow");
+  const statsEl = document.getElementById('statsRow');
 
   if (!RAW_DATA?.results?.[0]?.series?.[0]?.values?.length) {
     statsEl.innerHTML =
@@ -37,10 +31,10 @@
   }
 
   const { columns: cols, values } = RAW_DATA.results[0].series[0];
-  const iT = cols.indexOf("time"),
-    iDl = cols.indexOf("download_bandwidth");
-  const iUl = cols.indexOf("upload_bandwidth"),
-    iPi = cols.indexOf("ping_latency");
+  const iT = cols.indexOf('time'),
+    iDl = cols.indexOf('download_bandwidth');
+  const iUl = cols.indexOf('upload_bandwidth'),
+    iPi = cols.indexOf('ping_latency');
   const LEN = values.length;
 
   // ── Typed arrays ───────────────────────────────────────────
@@ -63,8 +57,7 @@
     const len = i1 - i0;
     if (len <= n) {
       const out = new Array(len);
-      for (let i = 0; i < len; i++)
-        out[i] = { x: xArr[i0 + i], y: yArr[i0 + i] };
+      for (let i = 0; i < len; i++) out[i] = { x: xArr[i0 + i], y: yArr[i0 + i] };
       return out;
     }
     const out = [{ x: xArr[i0], y: yArr[i0] }];
@@ -92,10 +85,7 @@
       const px = xArr[i0 + a],
         py = yArr[i0 + a];
       for (let j = s; j < e; j++) {
-        const ar = Math.abs(
-          (px - ax) * (yArr[i0 + j] - py) -
-            (px - xArr[i0 + j]) * (ay - py),
-        );
+        const ar = Math.abs((px - ax) * (yArr[i0 + j] - py) - (px - xArr[i0 + j]) * (ay - py));
         if (ar > ma) {
           ma = ar;
           bi = j;
@@ -168,16 +158,16 @@
   const HOUR = 3_600_000;
   const BAND_THRESHOLD = 48; // hours: above this → band mode
   const presets = [6, 12, 24, 48, 168, 720];
-  const COL = { dl: "#7eb6f6", ul: "#c982e0", pi: "#f2a93b" };
+  const COL = { dl: '#7eb6f6', ul: '#c982e0', pi: '#f2a93b' };
   const dataEnd = ts[LEN - 1];
   let currentH = 48,
     rangeEnd = dataEnd + 600_000;
   let rangeStart = rangeEnd - currentH * HOUR;
   let isLive = true,
     renderRAF = 0,
-    lastMode = "";
+    lastMode = '';
 
-  const pad2 = (n) => (n < 10 ? "0" + n : "" + n);
+  const pad2 = (n) => (n < 10 ? '0' + n : '' + n);
   const fmtDate = (t) => {
     const d = new Date(t);
     return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
@@ -186,8 +176,7 @@
     v >= 1000
       ? `${(v / 1000).toFixed(1)}<span class="u">Gb/s</span>`
       : `${v.toFixed(0)}<span class="u">Mb/s</span>`;
-  const fmtSpd0 = (v) =>
-    v >= 1000 ? (v / 1000).toFixed(1) + " G" : v.toFixed(0);
+  const fmtSpd0 = (v) => (v >= 1000 ? (v / 1000).toFixed(1) + ' G' : v.toFixed(0));
 
   const bsearch = (target, first) => {
     let lo = 0,
@@ -216,8 +205,7 @@
     return i0 <= i1 && i0 < LEN ? [i0, i1 + 1] : null;
   };
 
-  const bucketSize = () =>
-    currentH <= 168 ? 2 * HOUR : currentH <= 720 ? 6 * HOUR : 24 * HOUR;
+  const bucketSize = () => (currentH <= 168 ? 2 * HOUR : currentH <= 720 ? 6 * HOUR : 24 * HOUR);
 
   // ── Gradient ───────────────────────────────────────────────
   const mkGrad = (ctx, hex, h) => {
@@ -239,17 +227,17 @@
   };
 
   // ── Chart config ───────────────────────────────────────────
-  Chart.defaults.color = "#555";
-  Chart.defaults.borderColor = "#2a2a2d";
+  Chart.defaults.color = '#555';
+  Chart.defaults.borderColor = '#2a2a2d';
 
   const mono = "'Geist Mono',monospace";
   const scaleX = {
-    type: "time",
+    type: 'time',
     time: {
-      tooltipFormat: "dd/MM HH:mm",
-      displayFormats: { hour: "HH:mm", day: "dd/MM" },
+      tooltipFormat: 'dd/MM HH:mm',
+      displayFormats: { hour: 'HH:mm', day: 'dd/MM' },
     },
-    grid: { color: "#1e2228" },
+    grid: { color: '#1e2228' },
     ticks: { font: { family: mono, size: 10 }, maxTicksLimit: 12 },
   };
   const baseOpts = (ar) => ({
@@ -259,13 +247,13 @@
     animation: false,
     parsing: false,
     normalized: true,
-    interaction: { mode: "index", intersect: false },
+    interaction: { mode: 'index', intersect: false },
     scales: { x: { ...scaleX } },
     plugins: { legend: { display: false } },
   });
   const tipStyle = {
-    backgroundColor: "#141415",
-    borderColor: "#2a2a2d",
+    backgroundColor: '#141415',
+    borderColor: '#2a2a2d',
     borderWidth: 1,
     titleFont: { family: mono, size: 11 },
     bodyFont: { family: mono, size: 11 },
@@ -274,11 +262,10 @@
   };
 
   // Charts created once, datasets swapped per mode
-  const bwCtx = document.getElementById("bwChart").getContext("2d");
-  const bwH =
-    document.getElementById("bwChart").parentElement.clientHeight || 300;
+  const bwCtx = document.getElementById('bwChart').getContext('2d');
+  const bwH = document.getElementById('bwChart').parentElement.clientHeight || 300;
   const bwChart = new Chart(bwCtx, {
-    type: "line",
+    type: 'line',
     data: { datasets: [] },
     options: {
       ...baseOpts(2.8),
@@ -286,11 +273,10 @@
         x: { ...scaleX },
         y: {
           beginAtZero: true,
-          grid: { color: "#1e2228" },
+          grid: { color: '#1e2228' },
           ticks: {
             font: { family: mono, size: 10 },
-            callback: (v) =>
-              v >= 1000 ? (v / 1000).toFixed(1) + " Gb/s" : v + " Mb/s",
+            callback: (v) => (v >= 1000 ? (v / 1000).toFixed(1) + ' Gb/s' : v + ' Mb/s'),
           },
         },
       },
@@ -311,11 +297,10 @@
     },
   });
 
-  const piCtx = document.getElementById("piChart").getContext("2d");
-  const piH =
-    document.getElementById("piChart").parentElement.clientHeight || 200;
+  const piCtx = document.getElementById('piChart').getContext('2d');
+  const piH = document.getElementById('piChart').parentElement.clientHeight || 200;
   const piChart = new Chart(piCtx, {
-    type: "line",
+    type: 'line',
     data: { datasets: [] },
     options: {
       ...baseOpts(4),
@@ -323,10 +308,10 @@
         x: { ...scaleX },
         y: {
           beginAtZero: true,
-          grid: { color: "#1e2228" },
+          grid: { color: '#1e2228' },
           ticks: {
             font: { family: mono, size: 10 },
-            callback: (v) => v + " ms",
+            callback: (v) => v + ' ms',
           },
         },
       },
@@ -361,11 +346,11 @@
       // Q3 upper boundary → fills down to Q1
       ...dsLine,
       data: buckets.map((b) => ({ x: b.x, y: b.q3 })),
-      borderColor: "transparent",
+      borderColor: 'transparent',
       borderWidth: 0,
       pointRadius: 0,
       backgroundColor: rgba(color, 0.15),
-      fill: "+1",
+      fill: '+1',
       _isBand: true,
       tension: 0.3,
     },
@@ -433,7 +418,7 @@
     `<div class="stat ${cls}">
       <div class="v">${mainVal}</div>
       <div class="l">${label} <span style="font-size:.85em;opacity:.5">m\u00e9diane</span></div>
-      <dl class="sg">${items.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join("")}</dl>
+      <dl class="sg">${items.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
       <div class="pts">${timeRange} \u00b7 ${nPts} pts</div>
     </div>`;
 
@@ -453,21 +438,20 @@
     ...tipStyle,
     filter: (c) => !c.dataset._isBand,
     callbacks: {
-      label: (c) =>
-        c.dataset._isBand ? null : `med: ${c.parsed.y.toFixed(1)} ms`,
+      label: (c) => (c.dataset._isBand ? null : `med: ${c.parsed.y.toFixed(1)} ms`),
     },
   };
 
   // ── Render ─────────────────────────────────────────────────
   const doRender = () => {
     const rng = filterRange(rangeStart, rangeEnd);
-    const mode = currentH > BAND_THRESHOLD ? "band" : "line";
+    const mode = currentH > BAND_THRESHOLD ? 'band' : 'line';
 
     if (!rng) {
       statsEl.innerHTML =
         '<div class="no-data" style="grid-column:1/-1">Aucune donn\u00e9e sur cette p\u00e9riode</div>';
-      document.getElementById("bwLeg").innerHTML = "";
-      document.getElementById("piLeg").innerHTML = "";
+      document.getElementById('bwLeg').innerHTML = '';
+      document.getElementById('piLeg').innerHTML = '';
       bwChart.data.datasets = [];
       piChart.data.datasets = [];
     } else {
@@ -513,40 +497,40 @@
 
       statsEl.innerHTML =
         statCard(
-          "dl",
-          "Download",
+          'dl',
+          'Download',
           fmtSpd(dlMed),
           [
-            ["min", fmtSpd0(dlMn)],
-            ["avg", fmtSpd0(dlAvg)],
-            ["max", fmtSpd0(dlMx)],
-            ["last", fmtSpd0(dl[i1 - 1])],
+            ['min', fmtSpd0(dlMn)],
+            ['avg', fmtSpd0(dlAvg)],
+            ['max', fmtSpd0(dlMx)],
+            ['last', fmtSpd0(dl[i1 - 1])],
           ],
           n,
           trLabel,
         ) +
         statCard(
-          "ul",
-          "Upload",
+          'ul',
+          'Upload',
           fmtSpd(ulMed),
           [
-            ["min", fmtSpd0(ulMn)],
-            ["avg", fmtSpd0(ulAvg)],
-            ["max", fmtSpd0(ulMx)],
-            ["last", fmtSpd0(ul[i1 - 1])],
+            ['min', fmtSpd0(ulMn)],
+            ['avg', fmtSpd0(ulAvg)],
+            ['max', fmtSpd0(ulMx)],
+            ['last', fmtSpd0(ul[i1 - 1])],
           ],
           n,
           trLabel,
         ) +
         statCard(
-          "pi",
-          "Ping",
+          'pi',
+          'Ping',
           `${piMed.toFixed(1)}<span class="u">ms</span>`,
           [
-            ["min", piMn.toFixed(1)],
-            ["med", piMed.toFixed(1)],
-            ["p95", piP95.toFixed(1)],
-            ["max", piMx.toFixed(1)],
+            ['min', piMn.toFixed(1)],
+            ['med', piMed.toFixed(1)],
+            ['p95', piP95.toFixed(1)],
+            ['max', piMx.toFixed(1)],
           ],
           n,
           trLabel,
@@ -554,53 +538,41 @@
 
       // ── Legend ─────────────────────────────────────────────
       const bandLabel =
-        mode === "band"
-          ? ' <span style="color:var(--text3)">(m\u00e9diane + IQR)</span>'
-          : "";
-      document.getElementById("bwLeg").innerHTML = `
+        mode === 'band' ? ' <span style="color:var(--text3)">(m\u00e9diane + IQR)</span>' : '';
+      document.getElementById('bwLeg').innerHTML = `
         <span><i style="background:${COL.dl}"></i>download${bandLabel}</span>
         <span><i style="background:${COL.ul}"></i>upload</span>`;
-      document.getElementById("piLeg").innerHTML = `
+      document.getElementById('piLeg').innerHTML = `
         <span><i style="background:${COL.pi}"></i>latency${bandLabel}</span>`;
 
       // ── Datasets ───────────────────────────────────────────
-      if (mode === "band") {
+      if (mode === 'band') {
         const bMs = bucketSize();
         const dlB = bucketize(ts, dl, i0, i1, bMs);
         const ulB = bucketize(ts, ul, i0, i1, bMs);
         const piB = bucketize(ts, pi, i0, i1, bMs);
 
         bwChart.data.datasets = [
-          ...makeBandDs(dlB, COL.dl, "download"),
-          ...makeBandDs(ulB, COL.ul, "upload"),
+          ...makeBandDs(dlB, COL.dl, 'download'),
+          ...makeBandDs(ulB, COL.ul, 'upload'),
         ];
         bwChart.options.plugins.tooltip = bandTooltipBw;
 
-        piChart.data.datasets = makeBandDs(piB, COL.pi, "latency");
+        piChart.data.datasets = makeBandDs(piB, COL.pi, 'latency');
         piChart.options.plugins.tooltip = bandTooltipPi;
       } else {
         bwChart.data.datasets = [
-          ...makeLineDs(ts, dl, i0, i1, COL.dl, "download", bwCtx, bwH),
-          ...makeLineDs(ts, ul, i0, i1, COL.ul, "upload", bwCtx, bwH),
+          ...makeLineDs(ts, dl, i0, i1, COL.dl, 'download', bwCtx, bwH),
+          ...makeLineDs(ts, ul, i0, i1, COL.ul, 'upload', bwCtx, bwH),
         ];
         bwChart.options.plugins.tooltip = {
           ...tipStyle,
           callbacks: {
-            label: (c) =>
-              `${c.dataset.label}: ${c.parsed.y.toFixed(1)} Mb/s`,
+            label: (c) => `${c.dataset.label}: ${c.parsed.y.toFixed(1)} Mb/s`,
           },
         };
 
-        piChart.data.datasets = makeLineDs(
-          ts,
-          pi,
-          i0,
-          i1,
-          COL.pi,
-          "latency",
-          piCtx,
-          piH,
-        );
+        piChart.data.datasets = makeLineDs(ts, pi, i0, i1, COL.pi, 'latency', piCtx, piH);
         piChart.options.plugins.tooltip = {
           ...tipStyle,
           callbacks: {
@@ -612,19 +584,17 @@
 
     bwChart.options.scales.x.min = rangeStart;
     bwChart.options.scales.x.max = rangeEnd;
-    bwChart.update("none");
+    bwChart.update('none');
 
     piChart.options.scales.x.min = rangeStart;
     piChart.options.scales.x.max = rangeEnd;
-    piChart.update("none");
+    piChart.update('none');
 
-    document.getElementById("rangeLabel").textContent =
+    document.getElementById('rangeLabel').textContent =
       `${fmtDate(rangeStart)}  \u2192  ${fmtDate(rangeEnd)}`;
     document
-      .querySelectorAll(".rb")
-      .forEach((b) =>
-        b.classList.toggle("on", parseInt(b.dataset.hours) === currentH),
-      );
+      .querySelectorAll('.rb')
+      .forEach((b) => b.classList.toggle('on', parseInt(b.dataset.hours) === currentH));
     lastMode = mode;
   };
 
@@ -649,22 +619,20 @@
     render();
   };
 
-  document
-    .querySelectorAll(".rb")
-    .forEach((b) =>
-      b.addEventListener("click", () => {
-        isLive = true;
-        setRange(parseInt(b.dataset.hours));
-      }),
-    );
-  document.getElementById("btnBack").addEventListener("click", () => shift(-1));
-  document.getElementById("btnFwd").addEventListener("click", () => shift(1));
-  document.getElementById("btnZoomIn").addEventListener("click", () => {
+  document.querySelectorAll('.rb').forEach((b) =>
+    b.addEventListener('click', () => {
+      isLive = true;
+      setRange(parseInt(b.dataset.hours));
+    }),
+  );
+  document.getElementById('btnBack').addEventListener('click', () => shift(-1));
+  document.getElementById('btnFwd').addEventListener('click', () => shift(1));
+  document.getElementById('btnZoomIn').addEventListener('click', () => {
     const i = presets.indexOf(currentH);
     if (i > 0) setRange(presets[i - 1]);
     else if (currentH > presets[0]) setRange(presets[0]);
   });
-  document.getElementById("btnZoomOut").addEventListener("click", () => {
+  document.getElementById('btnZoomOut').addEventListener('click', () => {
     const i = presets.indexOf(currentH);
     if (i >= 0 && i < presets.length - 1) setRange(presets[i + 1]);
     else if (i < 0) {
@@ -676,12 +644,11 @@
       }
     }
   });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowLeft") shift(-1);
-    else if (e.key === "ArrowRight") shift(1);
-    else if (e.key === "+" || e.key === "=")
-      document.getElementById("btnZoomIn").click();
-    else if (e.key === "-") document.getElementById("btnZoomOut").click();
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowLeft') shift(-1);
+    else if (e.key === 'ArrowRight') shift(1);
+    else if (e.key === '+' || e.key === '=') document.getElementById('btnZoomIn').click();
+    else if (e.key === '-') document.getElementById('btnZoomOut').click();
   });
 
   doRender();

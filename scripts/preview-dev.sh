@@ -18,8 +18,11 @@ echo ""
 # ── 1. Fetch live data ────────────────────────────────────
 echo "── Fetching data from live GitHub Pages ──"
 
-curl -sfL "https://yoyonel.github.io/rpi-internet-monitoring/" -o "$BUILD_DIR/live.html" \
-    || { echo "ERROR: Could not fetch live page. Check your connection."; exit 1; }
+curl -sfL "https://yoyonel.github.io/rpi-internet-monitoring/" -o "$BUILD_DIR/live.html" ||
+    {
+        echo "ERROR: Could not fetch live page. Check your connection."
+        exit 1
+    }
 
 python3 "$SCRIPT_DIR/scripts/extract-live-data.py" "$BUILD_DIR/live.html" "$BUILD_DIR"
 
