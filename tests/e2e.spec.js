@@ -71,9 +71,9 @@ test('time range buttons update the view', async ({ page }) => {
 
   // Click "6h" — guaranteed to differ from default 48h range
   await page.click('.rb[data-hours="6"]');
-  const newText = await rangeLabel.textContent();
 
-  expect(newText).not.toBe(initialText);
+  // Wait for the range label to change (rendering uses requestAnimationFrame)
+  await expect(rangeLabel).not.toHaveText(initialText, { timeout: 5000 });
 });
 
 // ── 6. No template placeholders left ────────────────────────
