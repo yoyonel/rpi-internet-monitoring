@@ -133,7 +133,36 @@ test('double-click on chart resets to live view', async ({ page }) => {
   await expect(page.locator('.rb[data-hours="48"]')).toHaveClass(/on/, { timeout: 5000 });
 });
 
-// ── 10. Capture screenshot for PR comment ───────────────────
+// ── 10. Time range picker opens and has content ─────────────
+test('time range picker opens with calendar and presets', async ({ page }) => {
+  const picker = page.locator('#trPicker');
+  await expect(picker).toBeHidden();
+
+  // Click the range label button to open
+  await page.click('#rangeLabelBtn');
+  await expect(picker).toBeVisible();
+
+  // Calendar is rendered with day buttons
+  const calDays = picker.locator('.tr-cal td button');
+  expect(await calDays.count()).toBeGreaterThan(20);
+
+  // Relative presets are rendered
+  const relBtns = picker.locator('.tr-rel button');
+  expect(await relBtns.count()).toBeGreaterThanOrEqual(10);
+
+  // Absolute inputs exist
+  await expect(page.locator('#trFrom')).toBeVisible();
+  await expect(page.locator('#trTo')).toBeVisible();
+
+  // Selecting a relative preset closes the picker and updates the view
+  const rangeLabel = page.locator('#rangeLabel');
+  const initialText = await rangeLabel.textContent();
+  await relBtns.filter({ hasText: '6 heures' }).click();
+  await expect(picker).toBeHidden();
+  await expect(rangeLabel).not.toHaveText(initialText, { timeout: 3000 });
+});
+
+// ── 11. Capture screenshot for PR comment ───────────────────
 test('capture preview screenshot', async ({ page }) => {
   // Give charts a moment to finish animating
   await page.waitForTimeout(500);
