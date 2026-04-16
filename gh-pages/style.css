@@ -296,9 +296,258 @@ nav .meta time {
   font-size: 0.72rem;
   color: var(--text3);
   font-family: 'Geist Mono', monospace;
-  margin-left: 8px;
   min-width: 180px;
   text-align: center;
+}
+.tp .rl-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: all 0.15s;
+}
+.tp .rl-btn:hover,
+.tp .rl-btn.open {
+  background: var(--surface2);
+  color: var(--text);
+  border-color: var(--border2);
+}
+.tp .rl-btn svg {
+  transition: transform 0.15s;
+}
+.tp .rl-btn.open svg {
+  transform: rotate(180deg);
+}
+
+/* ── TIME RANGE PICKER PANEL ── */
+.tr-picker {
+  position: relative;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  gap: 0;
+  margin-bottom: 12px;
+  overflow: hidden;
+  animation: trSlide 0.15s ease-out;
+}
+@keyframes trSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.tr-left {
+  flex: 1;
+  padding: 16px;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+}
+.tr-right {
+  width: 180px;
+  padding: 16px;
+  flex-shrink: 0;
+}
+.tr-section-title {
+  font-size: 0.65rem;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+/* Calendar */
+.tr-cal {
+  margin-bottom: 14px;
+}
+.tr-cal-hd {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.tr-cal-hd span {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.tr-cal-hd button {
+  background: none;
+  border: none;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+.tr-cal-hd button:hover {
+  color: var(--text);
+  background: var(--surface2);
+}
+.tr-cal table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.68rem;
+}
+.tr-cal th {
+  color: var(--text3);
+  font-weight: 500;
+  padding: 3px;
+  text-align: center;
+  font-size: 0.6rem;
+}
+.tr-cal td {
+  text-align: center;
+  padding: 2px;
+}
+.tr-cal td button {
+  width: 28px;
+  height: 26px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: var(--text2);
+  cursor: pointer;
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.68rem;
+  transition: all 0.1s;
+}
+.tr-cal td button:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+.tr-cal td button.today {
+  border-color: var(--blue);
+  color: var(--blue);
+}
+.tr-cal td button.in-range {
+  background: rgba(126, 182, 246, 0.12);
+}
+.tr-cal td button.sel {
+  background: var(--blue);
+  color: #fff;
+}
+.tr-cal td button.other {
+  color: var(--text3);
+  opacity: 0.4;
+}
+.tr-cal td button.no-data {
+  color: var(--text3);
+  opacity: 0.2;
+  cursor: default;
+}
+
+/* Absolute inputs */
+.tr-abs {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.tr-abs label {
+  font-size: 0.65rem;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tr-abs input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.72rem;
+  padding: 5px 8px;
+  border-radius: 4px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.tr-abs input:focus {
+  border-color: var(--blue);
+}
+.tr-abs input::-webkit-calendar-picker-indicator {
+  filter: invert(0.6);
+}
+.tr-apply {
+  background: var(--blue);
+  border: none;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s;
+}
+.tr-apply:hover {
+  opacity: 0.85;
+}
+
+/* Recent ranges */
+.tr-recent-section {
+  margin-top: 14px;
+}
+.tr-recent {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tr-recent button {
+  background: none;
+  border: none;
+  color: var(--text2);
+  font-family: 'Geist Mono', monospace;
+  font-size: 0.68rem;
+  padding: 4px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.1s;
+}
+.tr-recent button:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+
+/* Relative presets */
+.tr-rel {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.tr-rel button {
+  background: none;
+  border: none;
+  color: var(--text2);
+  font-size: 0.72rem;
+  padding: 5px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.1s;
+}
+.tr-rel button:hover {
+  background: var(--surface2);
+  color: var(--text);
+}
+.tr-rel button.active {
+  background: rgba(126, 182, 246, 0.12);
+  color: var(--blue);
 }
 
 /* ── CHART PANELS ── */
@@ -408,6 +657,21 @@ footer a:hover {
   .tp .rl {
     min-width: 130px;
     font-size: 0.66rem;
+  }
+  .tr-picker {
+    flex-direction: column;
+  }
+  .tr-left {
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+  }
+  .tr-right {
+    width: auto;
+  }
+  .tr-rel {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 2px;
   }
   nav .meta {
     font-size: 0.65rem;

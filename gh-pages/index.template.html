@@ -52,7 +52,39 @@
         <button class="nb" id="btnFwd" title="Avancer">&raquo;</button>
         <button class="zb" id="btnZoomOut" title="Zoom −">&minus;</button>
         <button class="zb" id="btnZoomIn" title="Zoom +">+</button>
-        <span class="rl" id="rangeLabel"></span>
+        <button class="rl-btn" id="rangeLabelBtn">
+          <span class="rl" id="rangeLabel"></span>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path
+              d="M3 5l3 3 3-3"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Grafana-style time range picker -->
+      <div class="tr-picker" id="trPicker" style="display: none">
+        <div class="tr-left">
+          <div class="tr-section-title">Plage absolue</div>
+          <div class="tr-cal" id="trCal"></div>
+          <div class="tr-abs">
+            <label>De <input type="datetime-local" id="trFrom" step="60" /></label>
+            <label>&Agrave; <input type="datetime-local" id="trTo" step="60" /></label>
+            <button class="tr-apply" id="trApply">Appliquer</button>
+          </div>
+          <div class="tr-recent-section" id="trRecentSec" style="display: none">
+            <div class="tr-section-title">R&eacute;cents</div>
+            <div class="tr-recent" id="trRecent"></div>
+          </div>
+        </div>
+        <div class="tr-right">
+          <div class="tr-section-title">Plages relatives</div>
+          <div class="tr-rel" id="trRel"></div>
+        </div>
       </div>
 
       <div class="panel">
