@@ -13,11 +13,19 @@ permissions:
 jobs:
   preview:
     runs-on: ubuntu-latest
-    if: ${{ secrets.SURGE_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check Surge token
+        id: check
+        run: |
+          if [ -z "${{ secrets.SURGE_TOKEN }}" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "⚠️ SURGE_TOKEN not set — skipping preview deploy"
+          fi
+
       - name: Fetch live data and build page
+        if: steps.check.outputs.skip != 'true'
         run: |
           set -euo pipefail
           TEMPLATE="gh-pages/index.template.html"
@@ -73,6 +81,7 @@ jobs:
           cp "$BUILD_DIR/index.html" _surge_deploy/
 
       - name: Deploy to Surge
+        if: steps.check.outputs.skip != 'true'
         uses: afc163/surge-preview@v1
         with:
           surge_token: ${{ secrets.SURGE_TOKEN }}
