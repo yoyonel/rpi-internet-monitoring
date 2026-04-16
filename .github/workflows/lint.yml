@@ -1,0 +1,44 @@
+name: Lint
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          sudo wget -qO /usr/local/bin/hadolint \
+            https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64
+          sudo chmod +x /usr/local/bin/hadolint
+          pip install --quiet yamllint ruff
+          sudo wget -qO /usr/local/bin/shfmt \
+            https://github.com/mvdan/sh/releases/download/v3.10.0/shfmt_v3.10.0_linux_amd64
+          sudo chmod +x /usr/local/bin/shfmt
+
+      - name: shellcheck
+        run: shellcheck scripts/*.sh docker-entrypoint.sh test-stack.sh
+
+      - name: shfmt
+        run: shfmt -d -i 4 -ci scripts/*.sh docker-entrypoint.sh test-stack.sh
+
+      - name: hadolint
+        run: hadolint Dockerfile
+
+      - name: yamllint
+        run: yamllint docker-compose.yml .github/workflows/*.yml grafana/provisioning/alerting/alerts.yml
+
+      - name: prettier
+        run: npx prettier --check 'gh-pages/*.{html,css,js}' 'docker-compose.yml' '.github/workflows/*.yml'
+
+      - name: ruff
+        run: |
+          ruff check scripts/*.py
+          ruff format --check scripts/*.py
