@@ -1,505 +1,653 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="refresh" content="660">
-    <title>Internet Speed Monitor — RPi4</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #111217;
-            color: #c9d1d9;
-            padding: 20px;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        header {
-            text-align: center;
-            margin-bottom: 16px;
-            padding: 20px;
-            background: #181b1f;
-            border-radius: 8px;
-            border: 1px solid #2a2e35;
-        }
-        h1 { font-size: 1.6em; color: #c9d1d9; margin-bottom: 4px; font-weight: 600; }
-        .subtitle { color: #6e7681; font-size: 0.9em; }
-        .updated { color: #6e7681; font-size: 0.82em; margin-top: 6px; }
-        .updated time { color: #6e9fff; font-weight: 500; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="refresh" content="660">
+<title>Internet Speed Monitor — RPi4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0c0c0d;--bg2:#141415;--surface:#1a1a1c;--surface2:#222224;
+  --border:#2a2a2d;--border2:#333336;
+  --text:#ededed;--text2:#888;--text3:#555;
+  --blue:#7eb6f6;--purple:#c982e0;--orange:#f2a93b;
+  --green:#22c55e;--green2:#4ade80;--red:#ef4444;--red2:#f87171;--amber:#eab308;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:'Geist',system-ui,-apple-system,sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.w{max-width:960px;margin:0 auto;padding:0 20px}
 
-        /* ── Time Range Picker ── */
-        .time-picker {
-            display: flex; align-items: center; justify-content: flex-end;
-            gap: 4px; margin-bottom: 16px; flex-wrap: wrap;
-        }
-        .time-picker .nav-btn, .time-picker .zoom-btn {
-            background: #181b1f; border: 1px solid #2a2e35; color: #6e7681;
-            width: 30px; height: 30px; border-radius: 4px; cursor: pointer;
-            font-size: 13px; display: flex; align-items: center; justify-content: center;
-            transition: all 0.12s;
-        }
-        .time-picker .nav-btn:hover, .time-picker .zoom-btn:hover { background: #22262d; color: #c9d1d9; }
-        .time-picker .range-group {
-            display: flex; align-items: center; gap: 1px;
-            background: #181b1f; border: 1px solid #2a2e35; border-radius: 4px; padding: 2px;
-        }
-        .time-picker .range-btn {
-            background: transparent; border: none; color: #6e7681;
-            padding: 4px 10px; border-radius: 3px; cursor: pointer;
-            font-size: 0.82em; font-weight: 500; transition: all 0.12s; white-space: nowrap;
-        }
-        .time-picker .range-btn:hover { color: #c9d1d9; background: #22262d; }
-        .time-picker .range-btn.active { background: #3871d4; color: #fff; }
-        .time-picker .range-label {
-            color: #6e9fff; font-size: 0.8em; font-weight: 500;
-            margin-left: 8px; min-width: 180px; text-align: center;
-        }
+/* ── NAV ── */
+nav{position:sticky;top:0;z-index:50;background:rgba(12,12,13,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:0 20px}
+nav .inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:48px}
+nav .brand{font-weight:700;font-size:.875rem;letter-spacing:-.02em}
+nav .brand .hi{color:var(--blue)}
+nav .meta{font-size:.72rem;color:var(--text3);font-family:'Geist Mono',monospace}
+nav .meta time{color:var(--blue)}
 
-        /* ── Stat Cards (Grafana-style) ── */
-        .stats-row {
-            display: grid; grid-template-columns: repeat(3, 1fr);
-            gap: 8px; margin-bottom: 12px;
-        }
-        .stat-panel {
-            background: #181b1f; border: 1px solid #2a2e35; border-radius: 8px;
-            padding: 16px 20px; text-align: center;
-        }
-        .stat-panel .stat-title { color: #6e7681; font-size: 0.8em; margin-bottom: 4px; }
-        .stat-panel .stat-value { font-size: 2.8em; font-weight: 300; line-height: 1.1; }
-        .stat-panel .stat-unit { font-size: 0.55em; font-weight: 400; color: #6e7681; vertical-align: baseline; margin-left: 2px; }
-        .stat-panel .stat-sub { color: #6e7681; font-size: 0.72em; margin-top: 4px; }
-        .stat-panel.ping .stat-value { color: #ff9830; }
-        .stat-panel.download .stat-value { color: #7eb6f6; }
-        .stat-panel.upload .stat-value { color: #c982e0; }
+/* ── HERO ── */
+.hero{padding:40px 0 24px;border-bottom:1px solid var(--border)}
+.hero h1{font-size:clamp(1.4rem,4vw,2rem);font-weight:800;letter-spacing:-.03em;line-height:1.1;margin-bottom:6px}
+.hero .sub{color:var(--text2);font-size:.85rem}
 
-        /* ── Chart Panels ── */
-        .chart-panel {
-            background: #181b1f; border: 1px solid #2a2e35; border-radius: 8px;
-            padding: 16px 16px 12px; margin-bottom: 12px;
-        }
-        .chart-panel .panel-header {
-            display: flex; justify-content: space-between; align-items: center;
-            margin-bottom: 8px;
-        }
-        .chart-panel h2 { font-size: 0.9em; color: #c9d1d9; font-weight: 500; }
-        .chart-legend {
-            display: flex; gap: 16px; font-size: 0.72em; color: #6e7681;
-        }
-        .chart-legend .leg-item { display: flex; align-items: center; gap: 4px; }
-        .chart-legend .leg-color {
-            width: 14px; height: 3px; border-radius: 2px; display: inline-block;
-        }
+/* ── STATS ROW ── */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--border)}
+.stat{padding:20px 16px;text-align:center;border-right:1px solid var(--border)}
+.stat:last-child{border-right:none}
+.stat .v{font-size:clamp(1.8rem,4vw,2.6rem);font-weight:800;letter-spacing:-.03em;line-height:1}
+.stat .v .u{font-size:.4em;font-weight:400;color:var(--text3);margin-left:2px}
+.stat .l{font-size:.7rem;color:var(--text3);margin-top:6px;text-transform:uppercase;letter-spacing:.06em}
+.stat.pi .v{color:var(--orange)}
+.stat.dl .v{color:var(--blue)}
+.stat.ul .v{color:var(--purple)}
+/* stat detail grid */
+.stat .sg{display:grid;grid-template-columns:repeat(2,1fr);gap:2px 12px;margin-top:8px;text-align:left}
+.stat .sg dt{font-size:.6rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-family:'Geist Mono',monospace}
+.stat .sg dd{font-size:.78rem;font-weight:600;color:var(--text2);margin:0 0 2px;font-family:'Geist Mono',monospace}
+.stat .pts{font-size:.6rem;color:var(--text3);margin-top:6px;font-family:'Geist Mono',monospace}
 
-        .no-data { text-align: center; padding: 40px; color: #484f58; font-size: 1.1em; }
+/* ── ALERTS ── */
+.alerts{padding:20px 0;border-bottom:1px solid var(--border)}
+.stitle{font-size:.7rem;color:var(--text3);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;font-weight:500}
+.al-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:.8rem}
+.al-row:last-child{border-bottom:none}
+.al-icon{width:18px;text-align:center;flex-shrink:0;font-size:.9rem}
+.al-name{color:var(--text);font-weight:600;min-width:160px;font-size:.8rem}
+.al-sum{color:var(--text2);flex:1;font-family:'Geist Mono',monospace;font-size:.72rem}
+.al-badge{font-size:.6rem;font-weight:600;padding:2px 8px;border-radius:4px;text-transform:uppercase;letter-spacing:.04em;flex-shrink:0}
+.al-badge.ok{background:rgba(34,197,94,.08);color:var(--green2);border:1px solid rgba(34,197,94,.15)}
+.al-badge.firing{background:rgba(239,68,68,.08);color:var(--red2);border:1px solid rgba(239,68,68,.15)}
+.al-badge.pending{background:rgba(234,179,8,.08);color:var(--amber);border:1px solid rgba(234,179,8,.15)}
 
-        /* ── Alerts Panel ── */
-        .alerts-panel {
-            background: #181b1f; border: 1px solid #2a2e35; border-radius: 8px;
-            padding: 14px 16px; margin-bottom: 12px;
-        }
-        .alerts-panel h2 { font-size: 0.9em; color: #c9d1d9; font-weight: 500; margin-bottom: 10px; }
-        .alert-row {
-            display: flex; align-items: center; gap: 10px;
-            padding: 6px 0; border-bottom: 1px solid #1e2228;
-            font-size: 0.82em;
-        }
-        .alert-row:last-child { border-bottom: none; }
-        .alert-icon { font-size: 1.1em; flex-shrink: 0; width: 20px; text-align: center; }
-        .alert-name { color: #c9d1d9; font-weight: 500; min-width: 180px; }
-        .alert-summary { color: #6e7681; flex: 1; }
-        .alert-badge {
-            font-size: 0.7em; font-weight: 600; padding: 2px 8px;
-            border-radius: 3px; text-transform: uppercase; flex-shrink: 0;
-        }
-        .alert-badge.normal { background: #1a3a2a; color: #3fb950; }
-        .alert-badge.firing { background: #3d1a1a; color: #f85149; }
-        .alert-badge.pending { background: #3d2e1a; color: #d29922; }
-        .alert-badge.sev-critical { border: 1px solid #f85149; }
-        .alert-badge.sev-warning { border: 1px solid #d29922; }
+/* ── TIME PICKER ── */
+.tp{display:flex;align-items:center;justify-content:flex-end;gap:4px;padding:16px 0;flex-wrap:wrap}
+.tp .nb,.tp .zb{background:var(--surface);border:1px solid var(--border);color:var(--text3);width:30px;height:30px;border-radius:4px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.tp .nb:hover,.tp .zb:hover{background:var(--surface2);color:var(--text)}
+.tp .rg{display:flex;gap:1px;background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px}
+.tp .rb{background:transparent;border:none;color:var(--text3);padding:4px 10px;border-radius:3px;cursor:pointer;font-size:.76rem;font-weight:500;transition:all .15s;font-family:'Geist Mono',monospace}
+.tp .rb:hover{color:var(--text);background:var(--surface2)}
+.tp .rb.on{background:var(--blue);color:#fff}
+.tp .rl{font-size:.72rem;color:var(--text3);font-family:'Geist Mono',monospace;margin-left:8px;min-width:180px;text-align:center}
 
-        @media (max-width: 600px) {
-            .alert-row { flex-wrap: wrap; gap: 4px; }
-            .alert-name { min-width: auto; }
-            .alert-summary { display: none; }
-        }
+/* ── CHART PANELS ── */
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:12px}
+.panel .hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.panel .hd h2{font-size:.85rem;font-weight:600;letter-spacing:-.01em}
+.panel .lg{display:flex;gap:16px;font-size:.72rem;color:var(--text2)}
+.panel .lg span{display:flex;align-items:center;gap:5px}
+.panel .lg i{width:14px;height:3px;border-radius:2px;display:inline-block;font-style:normal}
+.no-data{text-align:center;padding:48px;color:var(--text3);font-size:.9rem}
 
-        footer {
-            text-align: center; color: #3d424a; font-size: 0.75em; margin-top: 20px; padding: 12px;
-        }
-        footer a { color: #6e9fff; text-decoration: none; }
+/* ── FOOTER ── */
+footer{border-top:1px solid var(--border);padding:24px 0;text-align:center}
+footer p{font-size:.7rem;color:var(--text3)}
+footer a{color:var(--blue);text-decoration:none}
+footer a:hover{text-decoration:underline}
 
-        @media (max-width: 600px) {
-            body { padding: 10px; }
-            .stats-row { grid-template-columns: 1fr; }
-            .stat-panel .stat-value { font-size: 2em; }
-            .time-picker .range-btn { padding: 3px 7px; font-size: 0.75em; }
-            .time-picker .range-label { min-width: 140px; font-size: 0.72em; }
-            .chart-legend { flex-wrap: wrap; gap: 8px; }
-        }
-    </style>
+/* ── RESPONSIVE ── */
+@media(max-width:640px){
+  .hero{padding:28px 0 16px}.hero h1{font-size:1.3rem}
+  .stat .v{font-size:1.6rem}.stat{padding:16px 10px}
+  .stat .sg{grid-template-columns:repeat(2,1fr);gap:1px 8px}
+  .stat .sg dd{font-size:.7rem}
+  .panel{padding:14px}
+  .al-row{flex-wrap:wrap;gap:4px}.al-name{min-width:auto}.al-sum{display:none}
+  .tp .rb{padding:3px 7px;font-size:.7rem}.tp .rl{min-width:130px;font-size:.66rem}
+  nav .meta{font-size:.65rem}
+}
+@media(max-width:380px){
+  .stats{grid-template-columns:1fr}
+  .stat{border-right:none;border-bottom:1px solid var(--border);padding:14px 10px}
+  .stat:last-child{border-bottom:none}
+  .stat .sg{grid-template-columns:repeat(4,1fr)}
+}
+</style>
 </head>
 <body>
-    <header>
-        <h1>Internet Speed Monitor</h1>
-        <p class="subtitle">Raspberry Pi 4 &mdash; Speedtest toutes les 10 min</p>
-        <p class="updated">Derni&egrave;re mise &agrave; jour : <time>__LAST_UPDATE__</time></p>
-    </header>
 
-    <div class="time-picker" id="timePicker">
-        <button class="nav-btn" id="btnBack" title="Reculer">&laquo;</button>
-        <div class="range-group">
-            <button class="range-btn" data-hours="6">6h</button>
-            <button class="range-btn" data-hours="12">12h</button>
-            <button class="range-btn" data-hours="24">24h</button>
-            <button class="range-btn active" data-hours="48">2j</button>
-            <button class="range-btn" data-hours="168">7j</button>
-            <button class="range-btn" data-hours="720">30j</button>
-        </div>
-        <button class="nav-btn" id="btnForward" title="Avancer">&raquo;</button>
-        <button class="zoom-btn" id="btnZoomOut" title="Zoom out">&#x2212;</button>
-        <button class="zoom-btn" id="btnZoomIn" title="Zoom in">+</button>
-        <span class="range-label" id="rangeLabel"></span>
-    </div>
+<nav>
+  <div class="inner">
+    <div class="brand">speed<span class="hi">monitor</span></div>
+    <div class="meta">Mise &agrave; jour : <time>__LAST_UPDATE__</time></div>
+  </div>
+</nav>
 
-    <div class="stats-row" id="statsRow"></div>
+<div class="w">
 
-    <div class="alerts-panel" id="alertsPanel" style="display:none">
-        <h2>Alertes RPi</h2>
-        <div id="alertsList"></div>
-    </div>
+<section class="hero">
+  <h1>Internet Speed Monitor</h1>
+  <p class="sub">Raspberry Pi 4 &mdash; Speedtest Ookla toutes les 10 min</p>
+</section>
 
-    <div class="chart-panel">
-        <div class="panel-header">
-            <h2>Bandwidth</h2>
-            <div class="chart-legend" id="bwLegend"></div>
-        </div>
-        <canvas id="bandwidthChart"></canvas>
-    </div>
+<div class="stats" id="statsRow"></div>
 
-    <div class="chart-panel">
-        <div class="panel-header">
-            <h2>Ping</h2>
-            <div class="chart-legend" id="pingLegend"></div>
-        </div>
-        <canvas id="pingChart"></canvas>
-    </div>
+<section class="alerts" id="alertsSec" style="display:none">
+  <div class="stitle">Alertes RPi</div>
+  <div id="alertsList"></div>
+</section>
 
-    <footer>
-        <a href="https://www.speedtest.net/apps/cli" rel="noopener">Ookla Speedtest CLI</a> sur Raspberry Pi 4 &mdash;
-        Page g&eacute;n&eacute;r&eacute;e le __GENERATED_AT__
-    </footer>
+<div class="tp">
+  <button class="nb" id="btnBack" title="Reculer">&laquo;</button>
+  <div class="rg">
+    <button class="rb" data-hours="6">6h</button>
+    <button class="rb" data-hours="12">12h</button>
+    <button class="rb" data-hours="24">24h</button>
+    <button class="rb on" data-hours="48">2j</button>
+    <button class="rb" data-hours="168">7j</button>
+    <button class="rb" data-hours="720">30j</button>
+  </div>
+  <button class="nb" id="btnFwd" title="Avancer">&raquo;</button>
+  <button class="zb" id="btnZoomOut" title="Zoom −">&minus;</button>
+  <button class="zb" id="btnZoomIn" title="Zoom +">+</button>
+  <span class="rl" id="rangeLabel"></span>
+</div>
 
-    <script>
-    var RAW_DATA = "__SPEEDTEST_DATA__";
-    var ALERTS = "__ALERTS_DATA__";
+<div class="panel">
+  <div class="hd">
+    <h2>Bandwidth</h2>
+    <div class="lg" id="bwLeg"></div>
+  </div>
+  <canvas id="bwChart"></canvas>
+</div>
 
-    // Render alerts
-    (function() {
-        if (!ALERTS || !ALERTS.length) return;
-        var panel = document.getElementById('alertsPanel');
-        var list = document.getElementById('alertsList');
-        panel.style.display = '';
+<div class="panel">
+  <div class="hd">
+    <h2>Latency</h2>
+    <div class="lg" id="piLeg"></div>
+  </div>
+  <canvas id="piChart"></canvas>
+</div>
 
-        var html = ALERTS.map(function(a) {
-            var icon = a.state === 'firing' ? '\uD83D\uDD34' : a.state === 'pending' ? '\u26A0\uFE0F' : '\u2705';
-            var badgeCls = a.state === 'firing' ? 'firing' : a.state === 'pending' ? 'pending' : 'normal';
-            var sevCls = a.severity === 'critical' ? ' sev-critical' : ' sev-warning';
-            var stateLabel = a.state === 'inactive' ? 'ok' : a.state;
-            return '<div class="alert-row">'
-                + '<span class="alert-icon">' + icon + '</span>'
-                + '<span class="alert-name">' + a.name + '</span>'
-                + '<span class="alert-summary">' + (a.summary || '') + '</span>'
-                + '<span class="alert-badge ' + badgeCls + sevCls + '">' + stateLabel + '</span>'
-                + '</div>';
-        }).join('');
-        list.innerHTML = html;
-    })();
+</div>
 
-    (function() {
-        if (!RAW_DATA || !RAW_DATA.results) {
-            document.getElementById('statsRow').innerHTML = '<div class="no-data">Aucune donn\u00e9e disponible</div>';
-            return;
+<footer><p>
+  <a href="https://www.speedtest.net/apps/cli">Ookla Speedtest CLI</a> sur Raspberry Pi 4 &mdash;
+  G&eacute;n&eacute;r&eacute; le __GENERATED_AT__
+</p></footer>
+
+<script>
+const RAW_DATA = "__SPEEDTEST_DATA__";
+const ALERTS = "__ALERTS_DATA__";
+
+// ── Alerts ───────────────────────────────────────────────────
+(() => {
+  if (!Array.isArray(ALERTS) || !ALERTS.length) return;
+  document.getElementById('alertsSec').style.display = '';
+  // Convert m°C to °C in alert summaries
+  const fixTemp = s => s ? s.replace(/(\d+)\s*m°C/g, (_, v) => (parseInt(v) / 1000).toFixed(2) + ' °C') : '';
+
+  document.getElementById('alertsList').innerHTML = ALERTS.map(a => {
+    const icon = a.state === 'firing' ? '\uD83D\uDD34' : a.state === 'pending' ? '\u26A0\uFE0F' : '\u2705';
+    const badge = a.state === 'firing' ? 'firing' : a.state === 'pending' ? 'pending' : 'ok';
+    const label = a.state === 'inactive' ? 'ok' : a.state;
+    return `<div class="al-row">
+      <span class="al-icon">${icon}</span>
+      <span class="al-name">${a.name}</span>
+      <span class="al-sum">${fixTemp(a.summary)}</span>
+      <span class="al-badge ${badge}">${label}</span>
+    </div>`;
+  }).join('');
+})();
+
+// ── Charts & Data ────────────────────────────────────────────
+(() => {
+  const statsEl = document.getElementById('statsRow');
+
+  if (!RAW_DATA?.results?.[0]?.series?.[0]?.values?.length) {
+    statsEl.innerHTML = '<div class="no-data" style="grid-column:1/-1">Aucune donn\u00e9e disponible</div>';
+    return;
+  }
+
+  const { columns: cols, values } = RAW_DATA.results[0].series[0];
+  const iT = cols.indexOf('time'), iDl = cols.indexOf('download_bandwidth');
+  const iUl = cols.indexOf('upload_bandwidth'), iPi = cols.indexOf('ping_latency');
+  const LEN = values.length;
+
+  // ── Typed arrays ───────────────────────────────────────────
+  const ts = new Float64Array(LEN);
+  const dl = new Float64Array(LEN);
+  const ul = new Float64Array(LEN);
+  const pi = new Float64Array(LEN);
+
+  for (let i = 0; i < LEN; i++) {
+    const r = values[i];
+    ts[i] = new Date(r[iT]).getTime();
+    dl[i] = r[iDl] / 125000;
+    ul[i] = r[iUl] / 125000;
+    pi[i] = r[iPi];
+  }
+
+  // ── LTTB (typed array → [{x,y}]) ──────────────────────────
+  const MAX_PTS = 600;
+  const lttb = (xArr, yArr, i0, i1, n) => {
+    const len = i1 - i0;
+    if (len <= n) {
+      const out = new Array(len);
+      for (let i = 0; i < len; i++) out[i] = { x: xArr[i0 + i], y: yArr[i0 + i] };
+      return out;
+    }
+    const out = [{ x: xArr[i0], y: yArr[i0] }];
+    const bs = (len - 2) / (n - 2);
+    let a = 0;
+    for (let i = 0; i < n - 2; i++) {
+      const s = Math.floor((i + 1) * bs) + 1;
+      const e = Math.min(Math.floor((i + 2) * bs) + 1, len);
+      const ns = Math.min(Math.floor((i + 2) * bs) + 1, len - 1);
+      const ne = Math.min(Math.floor((i + 3) * bs) + 1, len);
+      let ax = 0, ay = 0, c = 0;
+      for (let j = ns; j < ne; j++) { ax += xArr[i0 + j]; ay += yArr[i0 + j]; c++; }
+      if (c) { ax /= c; ay /= c; }
+      let ma = -1, bi = s;
+      const px = xArr[i0 + a], py = yArr[i0 + a];
+      for (let j = s; j < e; j++) {
+        const ar = Math.abs((px - ax) * (yArr[i0 + j] - py) - (px - xArr[i0 + j]) * (ay - py));
+        if (ar > ma) { ma = ar; bi = j; }
+      }
+      out.push({ x: xArr[i0 + bi], y: yArr[i0 + bi] });
+      a = bi;
+    }
+    out.push({ x: xArr[i0 + len - 1], y: yArr[i0 + len - 1] });
+    return out;
+  };
+
+  // ── Bucketize for band chart ───────────────────────────────
+  // Returns array of { x, min, q1, med, q3, max, n }
+  const bucketize = (xArr, yArr, i0, i1, bucketMs) => {
+    const buckets = [];
+    if (i0 >= i1) return buckets;
+    const buf = [];
+    let bStart = Math.floor(xArr[i0] / bucketMs) * bucketMs;
+
+    const flush = () => {
+      if (!buf.length) return;
+      buf.sort((a, b) => a - b);
+      const n = buf.length, mid = n >> 1;
+      buckets.push({
+        x: bStart + bucketMs / 2,
+        min: buf[0],
+        q1: buf[Math.floor(n * 0.25)],
+        med: n & 1 ? buf[mid] : (buf[mid - 1] + buf[mid]) / 2,
+        q3: buf[Math.ceil(n * 0.75) - 1] || buf[n - 1],
+        max: buf[n - 1],
+        n
+      });
+      buf.length = 0;
+    };
+
+    for (let i = i0; i < i1; i++) {
+      const bKey = Math.floor(xArr[i] / bucketMs) * bucketMs;
+      if (bKey !== bStart) { flush(); bStart = bKey; }
+      buf.push(yArr[i]);
+    }
+    flush();
+    return buckets;
+  };
+
+  // ── Stats helpers ──────────────────────────────────────────
+  const sortedSlice = (arr, i0, i1) => {
+    const tmp = new Float64Array(i1 - i0);
+    for (let i = 0; i < tmp.length; i++) tmp[i] = arr[i0 + i];
+    tmp.sort();
+    return tmp;
+  };
+  const medianOf = s => {
+    const n = s.length, m = n >> 1;
+    return n & 1 ? s[m] : (s[m - 1] + s[m]) / 2;
+  };
+  const pctOf = (s, p) => {
+    const idx = (p / 100) * (s.length - 1);
+    const lo = Math.floor(idx), hi = Math.ceil(idx);
+    return lo === hi ? s[lo] : s[lo] + (s[hi] - s[lo]) * (idx - lo);
+  };
+
+  // ── Constants ──────────────────────────────────────────────
+  const HOUR = 3_600_000;
+  const BAND_THRESHOLD = 48;  // hours: above this → band mode
+  const presets = [6, 12, 24, 48, 168, 720];
+  const COL = { dl: '#7eb6f6', ul: '#c982e0', pi: '#f2a93b' };
+  const dataEnd = ts[LEN - 1];
+  let currentH = 48, rangeEnd = dataEnd + 600_000;
+  let rangeStart = rangeEnd - currentH * HOUR;
+  let isLive = true, renderRAF = 0, lastMode = '';
+
+  const pad2 = n => n < 10 ? '0' + n : '' + n;
+  const fmtDate = t => {
+    const d = new Date(t);
+    return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  };
+  const fmtSpd = v => v >= 1000
+    ? `${(v / 1000).toFixed(1)}<span class="u">Gb/s</span>`
+    : `${v.toFixed(0)}<span class="u">Mb/s</span>`;
+  const fmtSpd0 = v => v >= 1000 ? (v / 1000).toFixed(1) + ' G' : v.toFixed(0);
+
+  const bsearch = (target, first) => {
+    let lo = 0, hi = LEN - 1, r = first ? LEN : -1;
+    while (lo <= hi) {
+      const m = (lo + hi) >> 1;
+      if (first) { if (ts[m] >= target) { r = m; hi = m - 1; } else lo = m + 1; }
+      else { if (ts[m] <= target) { r = m; lo = m + 1; } else hi = m - 1; }
+    }
+    return r;
+  };
+
+  const filterRange = (s, e) => {
+    const i0 = bsearch(s, true), i1 = bsearch(e, false);
+    return (i0 <= i1 && i0 < LEN) ? [i0, i1 + 1] : null;
+  };
+
+  const bucketSize = () => currentH <= 168 ? 2 * HOUR : currentH <= 720 ? 6 * HOUR : 24 * HOUR;
+
+  // ── Gradient ───────────────────────────────────────────────
+  const mkGrad = (ctx, hex, h) => {
+    const [r, g, b] = hex.slice(1).match(/.{2}/g).map(x => parseInt(x, 16));
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, `rgba(${r},${g},${b},0.25)`);
+    grad.addColorStop(1, `rgba(${r},${g},${b},0.01)`);
+    return grad;
+  };
+  const rgba = (hex, a) => {
+    const [r, g, b] = hex.slice(1).match(/.{2}/g).map(x => parseInt(x, 16));
+    return `rgba(${r},${g},${b},${a})`;
+  };
+
+  // ── Chart config ───────────────────────────────────────────
+  Chart.defaults.color = '#555';
+  Chart.defaults.borderColor = '#2a2a2d';
+
+  const mono = "'Geist Mono',monospace";
+  const scaleX = {
+    type: 'time',
+    time: { tooltipFormat: 'dd/MM HH:mm', displayFormats: { hour: 'HH:mm', day: 'dd/MM' } },
+    grid: { color: '#1e2228' },
+    ticks: { font: { family: mono, size: 10 }, maxTicksLimit: 12 }
+  };
+  const baseOpts = (ar) => ({
+    responsive: true, maintainAspectRatio: true,
+    aspectRatio: innerWidth < 600 ? 1.5 : ar,
+    animation: false, parsing: false, normalized: true,
+    interaction: { mode: 'index', intersect: false },
+    scales: { x: { ...scaleX } },
+    plugins: { legend: { display: false } }
+  });
+  const tipStyle = {
+    backgroundColor: '#141415', borderColor: '#2a2a2d', borderWidth: 1,
+    titleFont: { family: mono, size: 11 }, bodyFont: { family: mono, size: 11 },
+    padding: 10, cornerRadius: 4
+  };
+
+  // Charts created once, datasets swapped per mode
+  const bwCtx = document.getElementById('bwChart').getContext('2d');
+  const bwH = document.getElementById('bwChart').parentElement.clientHeight || 300;
+  const bwChart = new Chart(bwCtx, {
+    type: 'line', data: { datasets: [] },
+    options: {
+      ...baseOpts(2.8),
+      scales: {
+        x: { ...scaleX },
+        y: { beginAtZero: true, grid: { color: '#1e2228' },
+          ticks: { font: { family: mono, size: 10 }, callback: v => v >= 1000 ? (v / 1000).toFixed(1) + ' Gb/s' : v + ' Mb/s' } }
+      },
+      plugins: { legend: { display: false },
+        tooltip: { ...tipStyle, callbacks: {
+          label: c => {
+            const ds = c.dataset;
+            if (ds._isBand) return null; // hide band tooltip lines
+            return `${ds.label}: ${c.parsed.y.toFixed(1)} Mb/s`;
+          }
+        }, filter: c => c.dataset.label && !c.dataset._isBand
         }
-        var series = RAW_DATA.results[0].series;
-        if (!series || !series[0] || !series[0].values || series[0].values.length === 0) {
-            document.getElementById('statsRow').innerHTML = '<div class="no-data">Aucune donn\u00e9e disponible</div>';
-            return;
+      }
+    }
+  });
+
+  const piCtx = document.getElementById('piChart').getContext('2d');
+  const piH = document.getElementById('piChart').parentElement.clientHeight || 200;
+  const piChart = new Chart(piCtx, {
+    type: 'line', data: { datasets: [] },
+    options: {
+      ...baseOpts(4),
+      scales: {
+        x: { ...scaleX },
+        y: { beginAtZero: true, grid: { color: '#1e2228' },
+          ticks: { font: { family: mono, size: 10 }, callback: v => v + ' ms' } }
+      },
+      plugins: { legend: { display: false },
+        tooltip: { ...tipStyle, callbacks: {
+          label: c => {
+            if (c.dataset._isBand) return null;
+            return `${c.parsed.y.toFixed(1)} ms`;
+          }
+        }, filter: c => !c.dataset._isBand
         }
+      }
+    }
+  });
 
-        var cols = series[0].columns;
-        var iTime = cols.indexOf('time'), iDl = cols.indexOf('download_bandwidth');
-        var iUl = cols.indexOf('upload_bandwidth'), iPing = cols.indexOf('ping_latency');
+  // ── Dataset factories ──────────────────────────────────────
+  const dsLine = {
+    tension: 0.15, pointRadius: 0,
+    pointHitRadius: 6, pointHoverRadius: 3, borderWidth: 1.5
+  };
 
-        var allData = series[0].values.map(function(r) {
-            var t = new Date(r[iTime]);
-            return { ts: t.getTime(), dl: r[iDl] / 125000, ul: r[iUl] / 125000, pi: r[iPing] };
-        });
+  // Band datasets: Q3 fill→Q1, Q1 invisible, median solid
+  const makeBandDs = (buckets, color, label) => [
+    { // Q3 upper boundary → fills down to Q1
+      ...dsLine, data: buckets.map(b => ({ x: b.x, y: b.q3 })),
+      borderColor: 'transparent', borderWidth: 0, pointRadius: 0,
+      backgroundColor: rgba(color, 0.15), fill: '+1', _isBand: true,
+      tension: 0.3
+    },
+    { // Q1 lower boundary
+      ...dsLine, data: buckets.map(b => ({ x: b.x, y: b.q1 })),
+      borderColor: rgba(color, 0.3), borderWidth: 0.5, pointRadius: 0,
+      fill: false, _isBand: true, tension: 0.3
+    },
+    { // Median line
+      ...dsLine, data: buckets.map(b => ({ x: b.x, y: b.med })),
+      borderColor: color, borderWidth: 2, pointRadius: 0,
+      fill: false, label, tension: 0.3
+    },
+    { // Min whisker (very faint)
+      ...dsLine, data: buckets.map(b => ({ x: b.x, y: b.min })),
+      borderColor: rgba(color, 0.12), borderWidth: 1, pointRadius: 0,
+      borderDash: [2, 3], fill: false, _isBand: true, tension: 0.3
+    },
+    { // Max whisker (very faint)
+      ...dsLine, data: buckets.map(b => ({ x: b.x, y: b.max })),
+      borderColor: rgba(color, 0.12), borderWidth: 1, pointRadius: 0,
+      borderDash: [2, 3], fill: false, _isBand: true, tension: 0.3
+    }
+  ];
 
-        var allXY = {
-            dl: allData.map(function(d) { return { x: d.ts, y: d.dl }; }),
-            ul: allData.map(function(d) { return { x: d.ts, y: d.ul }; }),
-            pi: allData.map(function(d) { return { x: d.ts, y: d.pi }; })
+  const makeLineDs = (xArr, yArr, i0, i1, color, label, ctx, h) => [{
+    ...dsLine, label, data: lttb(xArr, yArr, i0, i1, MAX_PTS),
+    borderColor: color, backgroundColor: mkGrad(ctx, color, h), fill: true
+  }];
+
+  // ── Stat card builder ──────────────────────────────────────
+  const statCard = (cls, label, mainVal, items, nPts, timeRange) =>
+    `<div class="stat ${cls}">
+      <div class="v">${mainVal}</div>
+      <div class="l">${label} <span style="font-size:.85em;opacity:.5">m\u00e9diane</span></div>
+      <dl class="sg">${items.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
+      <div class="pts">${timeRange} \u00b7 ${nPts} pts</div>
+    </div>`;
+
+  // ── Band tooltip (shows bucket stats) ──────────────────────
+  const bandTooltipBw = {
+    ...tipStyle,
+    filter: c => !c.dataset._isBand,
+    callbacks: {
+      label: c => {
+        if (c.dataset._isBand) return null;
+        const idx = c.dataIndex;
+        const label = c.dataset.label;
+        const val = c.parsed.y.toFixed(1);
+        return `${label} med: ${val} Mb/s`;
+      }
+    }
+  };
+  const bandTooltipPi = {
+    ...tipStyle,
+    filter: c => !c.dataset._isBand,
+    callbacks: {
+      label: c => c.dataset._isBand ? null : `med: ${c.parsed.y.toFixed(1)} ms`
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────
+  const doRender = () => {
+    const rng = filterRange(rangeStart, rangeEnd);
+    const mode = currentH > BAND_THRESHOLD ? 'band' : 'line';
+
+    if (!rng) {
+      statsEl.innerHTML = '<div class="no-data" style="grid-column:1/-1">Aucune donn\u00e9e sur cette p\u00e9riode</div>';
+      document.getElementById('bwLeg').innerHTML = '';
+      document.getElementById('piLeg').innerHTML = '';
+      bwChart.data.datasets = [];
+      piChart.data.datasets = [];
+    } else {
+      const [i0, i1] = rng;
+      const n = i1 - i0;
+
+      // ── Stats ──────────────────────────────────────────────
+      let dlS = 0, ulS = 0, piS = 0;
+      let dlMx = -Infinity, dlMn = Infinity, ulMx = -Infinity, ulMn = Infinity;
+      let piMn = Infinity, piMx = -Infinity;
+      for (let i = i0; i < i1; i++) {
+        const d = dl[i], u = ul[i], p = pi[i];
+        dlS += d; ulS += u; piS += p;
+        if (d > dlMx) dlMx = d; if (d < dlMn) dlMn = d;
+        if (u > ulMx) ulMx = u; if (u < ulMn) ulMn = u;
+        if (p > piMx) piMx = p; if (p < piMn) piMn = p;
+      }
+      const dlAvg = dlS / n, ulAvg = ulS / n, piAvg = piS / n;
+      const dlSorted = sortedSlice(dl, i0, i1);
+      const ulSorted = sortedSlice(ul, i0, i1);
+      const piSorted = sortedSlice(pi, i0, i1);
+      const dlMed = medianOf(dlSorted), ulMed = medianOf(ulSorted), piMed = medianOf(piSorted);
+      const piP95 = pctOf(piSorted, 95);
+
+      const trLabel = `${fmtDate(rangeStart)} \u2192 ${fmtDate(rangeEnd)}`;
+
+      statsEl.innerHTML =
+        statCard('dl', 'Download', fmtSpd(dlMed), [
+          ['min', fmtSpd0(dlMn)], ['avg', fmtSpd0(dlAvg)],
+          ['max', fmtSpd0(dlMx)], ['last', fmtSpd0(dl[i1 - 1])]
+        ], n, trLabel)
+        + statCard('ul', 'Upload', fmtSpd(ulMed), [
+          ['min', fmtSpd0(ulMn)], ['avg', fmtSpd0(ulAvg)],
+          ['max', fmtSpd0(ulMx)], ['last', fmtSpd0(ul[i1 - 1])]
+        ], n, trLabel)
+        + statCard('pi', 'Ping', `${piMed.toFixed(1)}<span class="u">ms</span>`, [
+          ['min', piMn.toFixed(1)], ['med', piMed.toFixed(1)],
+          ['p95', piP95.toFixed(1)], ['max', piMx.toFixed(1)]
+        ], n, trLabel);
+
+      // ── Legend ─────────────────────────────────────────────
+      const bandLabel = mode === 'band' ? ' <span style="color:var(--text3)">(m\u00e9diane + IQR)</span>' : '';
+      document.getElementById('bwLeg').innerHTML = `
+        <span><i style="background:${COL.dl}"></i>download${bandLabel}</span>
+        <span><i style="background:${COL.ul}"></i>upload</span>`;
+      document.getElementById('piLeg').innerHTML = `
+        <span><i style="background:${COL.pi}"></i>latency${bandLabel}</span>`;
+
+      // ── Datasets ───────────────────────────────────────────
+      if (mode === 'band') {
+        const bMs = bucketSize();
+        const dlB = bucketize(ts, dl, i0, i1, bMs);
+        const ulB = bucketize(ts, ul, i0, i1, bMs);
+        const piB = bucketize(ts, pi, i0, i1, bMs);
+
+        bwChart.data.datasets = [
+          ...makeBandDs(dlB, COL.dl, 'download'),
+          ...makeBandDs(ulB, COL.ul, 'upload')
+        ];
+        bwChart.options.plugins.tooltip = bandTooltipBw;
+
+        piChart.data.datasets = makeBandDs(piB, COL.pi, 'latency');
+        piChart.options.plugins.tooltip = bandTooltipPi;
+      } else {
+        bwChart.data.datasets = [
+          ...makeLineDs(ts, dl, i0, i1, COL.dl, 'download', bwCtx, bwH),
+          ...makeLineDs(ts, ul, i0, i1, COL.ul, 'upload', bwCtx, bwH)
+        ];
+        bwChart.options.plugins.tooltip = {
+          ...tipStyle,
+          callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y.toFixed(1)} Mb/s` }
         };
 
-        // LTTB downsampling
-        var MAX_PTS = 800;
-        function lttb(data, n) {
-            var len = data.length;
-            if (len <= n) return data;
-            var out = [data[0]], bs = (len - 2) / (n - 2), a = 0;
-            for (var i = 0; i < n - 2; i++) {
-                var s = Math.floor((i + 1) * bs) + 1, e = Math.min(Math.floor((i + 2) * bs) + 1, len);
-                var ns = Math.min(Math.floor((i + 2) * bs) + 1, len - 1);
-                var ne = Math.min(Math.floor((i + 3) * bs) + 1, len);
-                var ax = 0, ay = 0, c = 0;
-                for (var j = ns; j < ne; j++) { ax += data[j].x; ay += data[j].y; c++; }
-                if (c) { ax /= c; ay /= c; }
-                var ma = -1, bi = s, px = data[a].x, py = data[a].y;
-                for (var j = s; j < e; j++) {
-                    var ar = Math.abs((px - ax) * (data[j].y - py) - (px - data[j].x) * (ay - py));
-                    if (ar > ma) { ma = ar; bi = j; }
-                }
-                out.push(data[bi]); a = bi;
-            }
-            out.push(data[len - 1]);
-            return out;
-        }
+        piChart.data.datasets = makeLineDs(ts, pi, i0, i1, COL.pi, 'latency', piCtx, piH);
+        piChart.options.plugins.tooltip = {
+          ...tipStyle,
+          callbacks: { label: c => `${c.parsed.y.toFixed(1)} ms` }
+        };
+      }
+    }
 
-        var dataEnd = allData[allData.length - 1].ts;
-        var HOUR = 3600000;
-        var rangePresets = [6, 12, 24, 48, 168, 720];
-        var currentHours = 48;
-        var rangeEnd = dataEnd + 600000;
-        var rangeStart = rangeEnd - currentHours * HOUR;
-        var isLive = true;
+    bwChart.options.scales.x.min = rangeStart;
+    bwChart.options.scales.x.max = rangeEnd;
+    bwChart.update('none');
 
-        // Colors matching Grafana
-        var COL_DL = '#7eb6f6';  // blue
-        var COL_UL = '#c982e0';  // purple/pink
-        var COL_PI = '#f2a93b';  // yellow/orange
+    piChart.options.scales.x.min = rangeStart;
+    piChart.options.scales.x.max = rangeEnd;
+    piChart.update('none');
 
-        Chart.defaults.color = '#6e7681';
-        Chart.defaults.borderColor = '#2a2e35';
+    document.getElementById('rangeLabel').textContent = `${fmtDate(rangeStart)}  \u2192  ${fmtDate(rangeEnd)}`;
+    document.querySelectorAll('.rb').forEach(b =>
+      b.classList.toggle('on', parseInt(b.dataset.hours) === currentH));
+    lastMode = mode;
+  };
 
-        function makeGradient(ctx, hex, h) {
-            var m = hex.replace('#','').match(/.{2}/g).map(function(x) { return parseInt(x,16); });
-            var g = ctx.createLinearGradient(0, 0, 0, h);
-            g.addColorStop(0, 'rgba(' + m + ',0.35)');
-            g.addColorStop(1, 'rgba(' + m + ',0.03)');
-            return g;
-        }
+  const render = () => {
+    cancelAnimationFrame(renderRAF);
+    renderRAF = requestAnimationFrame(doRender);
+  };
 
-        // Bandwidth chart (2 datasets: download + upload overlaid)
-        var bwCtx = document.getElementById('bandwidthChart').getContext('2d');
-        var bwH = document.getElementById('bandwidthChart').parentElement.clientHeight || 300;
-        var bwChart = new Chart(bwCtx, {
-            type: 'line',
-            data: {
-                datasets: [
-                    {
-                        label: 'download', data: [], order: 2,
-                        borderColor: COL_DL, backgroundColor: makeGradient(bwCtx, COL_DL, bwH),
-                        fill: true, tension: 0.2, pointRadius: 0,
-                        pointHitRadius: 6, pointHoverRadius: 3, borderWidth: 1.5
-                    },
-                    {
-                        label: 'upload', data: [], order: 1,
-                        borderColor: COL_UL, backgroundColor: makeGradient(bwCtx, COL_UL, bwH),
-                        fill: true, tension: 0.2, pointRadius: 0,
-                        pointHitRadius: 6, pointHoverRadius: 3, borderWidth: 1.5
-                    }
-                ]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: true,
-                aspectRatio: window.innerWidth < 600 ? 1.5 : 2.8,
-                animation: false, parsing: false, normalized: true,
-                interaction: { mode: 'index', intersect: false },
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: { tooltipFormat: 'dd/MM HH:mm', displayFormats: { hour: 'HH:mm', day: 'dd/MM' } },
-                        grid: { color: '#1e2228' }
-                    },
-                    y: {
-                        beginAtZero: true, grid: { color: '#1e2228' },
-                        ticks: { callback: function(v) { return v >= 1000 ? (v/1000).toFixed(1) + ' Gb/s' : v + ' Mb/s'; } }
-                    }
-                },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { backgroundColor: '#181b1f', borderColor: '#2a2e35', borderWidth: 1,
-                        callbacks: { label: function(c) { return c.dataset.label + ': ' + c.parsed.y.toFixed(1) + ' Mb/s'; } }
-                    }
-                }
-            }
-        });
+  // ── Time controls ──────────────────────────────────────────
+  const setRange = h => {
+    currentH = h;
+    if (isLive) rangeEnd = dataEnd + 600_000;
+    rangeStart = rangeEnd - currentH * HOUR;
+    render();
+  };
 
-        // Ping chart
-        var piCtx = document.getElementById('pingChart').getContext('2d');
-        var piH = document.getElementById('pingChart').parentElement.clientHeight || 200;
-        var piChart = new Chart(piCtx, {
-            type: 'line',
-            data: {
-                datasets: [{
-                    label: 'latency', data: [],
-                    borderColor: COL_PI, backgroundColor: makeGradient(piCtx, COL_PI, piH),
-                    fill: true, tension: 0.2, pointRadius: 0,
-                    pointHitRadius: 6, pointHoverRadius: 3, borderWidth: 1.5
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: true,
-                aspectRatio: window.innerWidth < 600 ? 1.5 : 4,
-                animation: false, parsing: false, normalized: true,
-                interaction: { mode: 'index', intersect: false },
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: { tooltipFormat: 'dd/MM HH:mm', displayFormats: { hour: 'HH:mm', day: 'dd/MM' } },
-                        grid: { color: '#1e2228' }
-                    },
-                    y: {
-                        beginAtZero: true, grid: { color: '#1e2228' },
-                        ticks: { callback: function(v) { return v + ' ms'; } }
-                    }
-                },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: { backgroundColor: '#181b1f', borderColor: '#2a2e35', borderWidth: 1,
-                        callbacks: { label: function(c) { return c.parsed.y.toFixed(1) + ' ms'; } }
-                    }
-                }
-            }
-        });
+  const shift = dir => {
+    const s = currentH * HOUR * 0.5 * dir;
+    rangeStart += s; rangeEnd += s;
+    isLive = rangeEnd >= dataEnd;
+    render();
+  };
 
-        // Helpers
-        function pad2(n) { return n < 10 ? '0' + n : '' + n; }
-        function fmtDate(ts) {
-            var d = new Date(ts);
-            return pad2(d.getDate()) + '/' + pad2(d.getMonth()+1) + ' ' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
-        }
-        function bsearch(arr, ts, first) {
-            var lo = 0, hi = arr.length - 1, r = first ? arr.length : -1;
-            while (lo <= hi) {
-                var m = (lo + hi) >> 1;
-                if (first) { if (arr[m].ts >= ts) { r = m; hi = m-1; } else lo = m+1; }
-                else { if (arr[m].ts <= ts) { r = m; lo = m+1; } else hi = m-1; }
-            }
-            return r;
-        }
-        function filterRange(s, e) {
-            var i0 = bsearch(allData, s, true), i1 = bsearch(allData, e, false);
-            return (i0 <= i1 && i0 < allData.length) ? [i0, i1+1] : null;
-        }
+  document.querySelectorAll('.rb').forEach(b =>
+    b.addEventListener('click', () => { isLive = true; setRange(parseInt(b.dataset.hours)); }));
+  document.getElementById('btnBack').addEventListener('click', () => shift(-1));
+  document.getElementById('btnFwd').addEventListener('click', () => shift(1));
+  document.getElementById('btnZoomIn').addEventListener('click', () => {
+    const i = presets.indexOf(currentH);
+    if (i > 0) setRange(presets[i - 1]);
+    else if (currentH > presets[0]) setRange(presets[0]);
+  });
+  document.getElementById('btnZoomOut').addEventListener('click', () => {
+    const i = presets.indexOf(currentH);
+    if (i >= 0 && i < presets.length - 1) setRange(presets[i + 1]);
+    else if (i < 0) { for (const p of presets) { if (p > currentH) { setRange(p); break; } } }
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowLeft') shift(-1);
+    else if (e.key === 'ArrowRight') shift(1);
+    else if (e.key === '+' || e.key === '=') document.getElementById('btnZoomIn').click();
+    else if (e.key === '-') document.getElementById('btnZoomOut').click();
+  });
 
-        function render() {
-            var rng = filterRange(rangeStart, rangeEnd);
-
-            if (!rng) {
-                document.getElementById('statsRow').innerHTML =
-                    '<div class="no-data" style="grid-column:1/-1">Aucune donn\u00e9e sur cette p\u00e9riode</div>';
-                document.getElementById('bwLegend').innerHTML = '';
-                document.getElementById('pingLegend').innerHTML = '';
-            } else {
-                var i0 = rng[0], i1 = rng[1], n = i1 - i0;
-                var dlS=0, ulS=0, piS=0, dlMx=0, dlMn=1e9, ulMx=0, ulMn=1e9, piMn=1e9, piMx=0;
-                var lastDl=0, lastUl=0;
-                for (var i = i0; i < i1; i++) {
-                    var d = allData[i];
-                    dlS += d.dl; ulS += d.ul; piS += d.pi;
-                    if (d.dl > dlMx) dlMx = d.dl; if (d.dl < dlMn) dlMn = d.dl;
-                    if (d.ul > ulMx) ulMx = d.ul; if (d.ul < ulMn) ulMn = d.ul;
-                    if (d.pi > piMx) piMx = d.pi; if (d.pi < piMn) piMn = d.pi;
-                    lastDl = d.dl; lastUl = d.ul;
-                }
-                var dlAvg = dlS/n, ulAvg = ulS/n, piAvg = piS/n;
-
-                document.getElementById('statsRow').innerHTML =
-                    '<div class="stat-panel ping"><div class="stat-title">Ping</div>'
-                    + '<div class="stat-value">' + piAvg.toFixed(1) + '<span class="stat-unit">ms</span></div>'
-                    + '<div class="stat-sub">min ' + piMn.toFixed(1) + ' &middot; max ' + piMx.toFixed(1) + '</div></div>'
-                    + '<div class="stat-panel download"><div class="stat-title">Download</div>'
-                    + '<div class="stat-value">' + lastDl.toFixed(0) + '<span class="stat-unit">Mb/s</span></div>'
-                    + '<div class="stat-sub">moy ' + dlAvg.toFixed(0) + ' &middot; max ' + dlMx.toFixed(0) + '</div></div>'
-                    + '<div class="stat-panel upload"><div class="stat-title">Upload</div>'
-                    + '<div class="stat-value">' + lastUl.toFixed(0) + '<span class="stat-unit">Mb/s</span></div>'
-                    + '<div class="stat-sub">moy ' + ulAvg.toFixed(0) + ' &middot; max ' + ulMx.toFixed(0) + '</div></div>';
-
-                document.getElementById('bwLegend').innerHTML =
-                    '<span class="leg-item"><span class="leg-color" style="background:' + COL_DL + '"></span> download'
-                    + '  Max: ' + dlMx.toFixed(0) + '  Min: ' + dlMn.toFixed(1) + '</span>'
-                    + '<span class="leg-item"><span class="leg-color" style="background:' + COL_UL + '"></span> upload'
-                    + '  Max: ' + ulMx.toFixed(0) + '  Min: ' + ulMn.toFixed(0) + '</span>';
-
-                document.getElementById('pingLegend').innerHTML =
-                    '<span class="leg-item"><span class="leg-color" style="background:' + COL_PI + '"></span> latency'
-                    + '  Avg: ' + piAvg.toFixed(1) + ' ms  Max: ' + piMx.toFixed(1) + ' ms</span>';
-            }
-
-            var sl = rng || [0, 0];
-            bwChart.data.datasets[0].data = lttb(allXY.dl.slice(sl[0], sl[1]), MAX_PTS);
-            bwChart.data.datasets[1].data = lttb(allXY.ul.slice(sl[0], sl[1]), MAX_PTS);
-            bwChart.options.scales.x.min = rangeStart;
-            bwChart.options.scales.x.max = rangeEnd;
-            bwChart.update('none');
-
-            piChart.data.datasets[0].data = lttb(allXY.pi.slice(sl[0], sl[1]), MAX_PTS);
-            piChart.options.scales.x.min = rangeStart;
-            piChart.options.scales.x.max = rangeEnd;
-            piChart.update('none');
-
-            document.getElementById('rangeLabel').textContent =
-                fmtDate(rangeStart) + '  \u2192  ' + fmtDate(rangeEnd);
-            document.querySelectorAll('.range-btn').forEach(function(b) {
-                b.classList.toggle('active', parseInt(b.dataset.hours) === currentHours);
-            });
-        }
-
-        function setRange(h) {
-            currentHours = h;
-            if (isLive) rangeEnd = dataEnd + 600000;
-            rangeStart = rangeEnd - currentHours * HOUR;
-            render();
-        }
-        function shift(dir) {
-            var s = currentHours * HOUR * 0.5 * dir;
-            rangeStart += s; rangeEnd += s;
-            isLive = rangeEnd >= dataEnd;
-            render();
-        }
-
-        document.querySelectorAll('.range-btn').forEach(function(b) {
-            b.addEventListener('click', function() { isLive = true; setRange(parseInt(this.dataset.hours)); });
-        });
-        document.getElementById('btnBack').addEventListener('click', function() { shift(-1); });
-        document.getElementById('btnForward').addEventListener('click', function() { shift(1); });
-        document.getElementById('btnZoomIn').addEventListener('click', function() {
-            var idx = rangePresets.indexOf(currentHours);
-            if (idx > 0) setRange(rangePresets[idx-1]);
-            else if (currentHours > rangePresets[0]) setRange(rangePresets[0]);
-        });
-        document.getElementById('btnZoomOut').addEventListener('click', function() {
-            var idx = rangePresets.indexOf(currentHours);
-            if (idx >= 0 && idx < rangePresets.length - 1) setRange(rangePresets[idx+1]);
-            else if (idx < 0) {
-                for (var i = 0; i < rangePresets.length; i++) {
-                    if (rangePresets[i] > currentHours) { setRange(rangePresets[i]); break; }
-                }
-            }
-        });
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'ArrowLeft') shift(-1);
-            else if (e.key === 'ArrowRight') shift(1);
-            else if (e.key === '+' || e.key === '=') document.getElementById('btnZoomIn').click();
-            else if (e.key === '-') document.getElementById('btnZoomOut').click();
-        });
-
-        render();
-    })();
-    </script>
+  doRender();
+})();
+</script>
 </body>
 </html>
