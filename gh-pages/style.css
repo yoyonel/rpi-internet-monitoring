@@ -302,6 +302,10 @@ nav .meta time {
 }
 
 /* ── CHART PANELS ── */
+#bwChart,
+#piChart {
+  cursor: crosshair;
+}
 .panel {
   background: var(--bg2);
   border: 1px solid var(--border);

@@ -261,6 +261,27 @@
     cornerRadius: 4,
   };
 
+  // ── Drag-to-zoom (chartjs-plugin-zoom) ─────────────────────
+  const zoomOpts = {
+    zoom: {
+      drag: {
+        enabled: true,
+        backgroundColor: 'rgba(127,127,127,0.15)',
+        borderColor: 'rgba(127,127,127,0.4)',
+        borderWidth: 1,
+      },
+      mode: 'x',
+      onZoomComplete: ({ chart }) => {
+        const { min, max } = chart.scales.x;
+        rangeStart = min;
+        rangeEnd = max;
+        currentH = (rangeEnd - rangeStart) / HOUR;
+        isLive = rangeEnd >= dataEnd;
+        render();
+      },
+    },
+  };
+
   // Charts created once, datasets swapped per mode
   const bwCtx = document.getElementById('bwChart').getContext('2d');
   const bwH = document.getElementById('bwChart').parentElement.clientHeight || 300;
@@ -282,6 +303,7 @@
       },
       plugins: {
         legend: { display: false },
+        zoom: zoomOpts,
         tooltip: {
           ...tipStyle,
           callbacks: {
@@ -317,6 +339,7 @@
       },
       plugins: {
         legend: { display: false },
+        zoom: zoomOpts,
         tooltip: {
           ...tipStyle,
           callbacks: {
@@ -458,6 +481,10 @@
       const [i0, i1] = rng;
       const n = i1 - i0;
 
+      // Padded range: include one sample before/after for continuous curves
+      const p0 = Math.max(0, i0 - 1);
+      const p1 = Math.min(LEN, i1 + 1);
+
       // ── Stats ──────────────────────────────────────────────
       let dlS = 0,
         ulS = 0,
@@ -545,12 +572,12 @@
       document.getElementById('piLeg').innerHTML = `
         <span><i style="background:${COL.pi}"></i>latency${bandLabel}</span>`;
 
-      // ── Datasets ───────────────────────────────────────────
+      // ── Datasets (padded range for edge continuity) ────────
       if (mode === 'band') {
         const bMs = bucketSize();
-        const dlB = bucketize(ts, dl, i0, i1, bMs);
-        const ulB = bucketize(ts, ul, i0, i1, bMs);
-        const piB = bucketize(ts, pi, i0, i1, bMs);
+        const dlB = bucketize(ts, dl, p0, p1, bMs);
+        const ulB = bucketize(ts, ul, p0, p1, bMs);
+        const piB = bucketize(ts, pi, p0, p1, bMs);
 
         bwChart.data.datasets = [
           ...makeBandDs(dlB, COL.dl, 'download'),
@@ -562,8 +589,8 @@
         piChart.options.plugins.tooltip = bandTooltipPi;
       } else {
         bwChart.data.datasets = [
-          ...makeLineDs(ts, dl, i0, i1, COL.dl, 'download', bwCtx, bwH),
-          ...makeLineDs(ts, ul, i0, i1, COL.ul, 'upload', bwCtx, bwH),
+          ...makeLineDs(ts, dl, p0, p1, COL.dl, 'download', bwCtx, bwH),
+          ...makeLineDs(ts, ul, p0, p1, COL.ul, 'upload', bwCtx, bwH),
         ];
         bwChart.options.plugins.tooltip = {
           ...tipStyle,
@@ -572,7 +599,7 @@
           },
         };
 
-        piChart.data.datasets = makeLineDs(ts, pi, i0, i1, COL.pi, 'latency', piCtx, piH);
+        piChart.data.datasets = makeLineDs(ts, pi, p0, p1, COL.pi, 'latency', piCtx, piH);
         piChart.options.plugins.tooltip = {
           ...tipStyle,
           callbacks: {
@@ -650,6 +677,14 @@
     else if (e.key === '+' || e.key === '=') document.getElementById('btnZoomIn').click();
     else if (e.key === '-') document.getElementById('btnZoomOut').click();
   });
+
+  // Double-click on chart → reset to default 48 h live view
+  const resetToLive = () => {
+    isLive = true;
+    setRange(48);
+  };
+  document.getElementById('bwChart').addEventListener('dblclick', resetToLive);
+  document.getElementById('piChart').addEventListener('dblclick', resetToLive);
 
   doRender();
 })();
