@@ -1,7 +1,7 @@
 # Scheduling : de crontab à systemd timers
 
-> **Statut** : implémenté (unit files + Justfile), **pas encore déployé sur le RPi**.
-> À reprendre dès que l'accès au Raspberry Pi est rétabli.
+> **Statut** : déployé sur le RPi (16 avril 2026).
+> Timers actifs, crontab supprimé, linger activé.
 
 ---
 
@@ -296,6 +296,7 @@ Apr 16 15:20:33 raspberrypi publish-gh-pages[12350]: → 4317 data points export
 ## Checklist de migration RPi
 
 > **À exécuter quand l'accès au Raspberry Pi est rétabli.**
+> ✅ **Déployé le 16 avril 2026.**
 
 ### Pré-requis
 
@@ -492,7 +493,36 @@ journalctl --user -u publish-gh-pages.service -n 10
 # - Clé SSH non chargée → évaluer ssh-agent dans le service ou utiliser HTTPS + token
 # - Pas de droits push sur le repo → gh auth status
 # - Branche gh-pages inexistante → git ls-remote --heads origin gh-pages
+# - GitHub Pages en mode "workflow" au lieu de "legacy" → voir ci-dessous
 ```
+
+### GitHub Pages ne se met pas à jour malgré un push réussi
+
+Si le repo est configuré avec `build_type: workflow` (Settings > Pages > Source: GitHub Actions),
+les pushes sur `gh-pages` ne déclenchent **aucun** rebuild. Il faut passer en `legacy` :
+
+```bash
+# Vérifier la config actuelle
+gh api repos/<owner>/<repo>/pages | jq .build_type
+
+# Passer en "Deploy from a branch"
+echo '{"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}' | \
+  gh api repos/<owner>/<repo>/pages --method PUT --input -
+```
+
+Après le changement, le prochain push déclenchera un build classique (~1-3 min).
+
+### Chemin avec espaces dans le projet
+
+Si le chemin du projet contient des espaces (ex: `MONITORER SON DÉBIT INTERNET`),
+le `project_dir` dans le Justfile doit être **quoté** :
+
+```just
+install-timers:
+    bash scripts/install-timers.sh '{{ project_dir }}'
+```
+
+Sans les quotes, `bash` interprète chaque mot comme un argument séparé.
 
 **Note importante sur SSH** : dans un contexte systemd user sans session interactive, `ssh-agent`
 n'est pas automatiquement démarré. Si le publish utilise SSH pour git push, il faudra soit :

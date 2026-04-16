@@ -31,17 +31,23 @@ def main():
     with open(f"{output_dir}/data.json", "w") as f:
         f.write(m.group(1))
 
-    m2 = re.search(r"(?:var|const)\s+ALERTS\s*=\s*(\[.*?\]);", html, re.DOTALL)
+    m2 = re.search(r"(?:var|const)\s+ALERTS\s*=\s*(\{.*?\}|\[.*?\]);", html, re.DOTALL)
     if not m2:
         print("ERROR: Could not extract ALERTS from live page", file=sys.stderr)
         sys.exit(1)
+    alerts_raw = m2.group(1)
     with open(f"{output_dir}/alerts.json", "w") as f:
-        f.write(m2.group(1))
+        f.write(alerts_raw)
 
     data = json.loads(m.group(1))
     pts = len(data.get("results", [{}])[0].get("series", [{}])[0].get("values", []))
-    alerts = json.loads(m2.group(1))
-    print(f"  → {pts} data points, {len(alerts)} alerts extracted")
+    alerts_parsed = json.loads(alerts_raw)
+    # Support both {alerts: [...], lastEvaluation: ...} and legacy [...] format
+    if isinstance(alerts_parsed, dict):
+        alert_count = len(alerts_parsed.get("alerts", []))
+    else:
+        alert_count = len(alerts_parsed)
+    print(f"  → {pts} data points, {alert_count} alerts extracted")
 
 
 if __name__ == "__main__":

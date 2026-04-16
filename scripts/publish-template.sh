@@ -68,7 +68,7 @@ else
     git add index.html style.css app.js
     git commit -q -m "Update template — $NOW (data from live page)"
     git remote add origin "$REPO_URL"
-    git push -f -q origin gh-pages
+    git push --force-with-lease -q origin gh-pages
 
     echo "  → Pushed to gh-pages branch"
     echo ""

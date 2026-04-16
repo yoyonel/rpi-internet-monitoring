@@ -1,5 +1,11 @@
 // ── Alerts ───────────────────────────────────────────────────
 (() => {
+  // Escape HTML to prevent XSS from alert data
+  const esc = (s) =>
+    String(s).replace(
+      /[&<>"']/g,
+      (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+    );
   // Support both legacy array format and new {alerts, lastEvaluation} format
   const alertsArr = Array.isArray(ALERTS) ? ALERTS : ALERTS?.alerts;
   const lastEval = Array.isArray(ALERTS) ? null : ALERTS?.lastEvaluation;
@@ -32,8 +38,8 @@
         const label = a.state === 'inactive' ? 'ok' : a.state;
         return `<div class="al-row">
       <span class="al-icon">${icon}</span>
-      <span class="al-name">${a.name}</span>
-      <span class="al-sum">${fixTemp(a.summary)}</span>
+      <span class="al-name">${esc(a.name)}</span>
+      <span class="al-sum">${esc(fixTemp(a.summary))}</span>
       <span class="al-badge ${badge}">${label}</span>
     </div>`;
       })
