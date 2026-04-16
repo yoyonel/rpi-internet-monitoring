@@ -30,49 +30,10 @@ jobs:
           echo "── Fetching data from live GitHub Pages ──"
           curl -sfL "https://yoyonel.github.io/rpi-internet-monitoring/" -o "$BUILD_DIR/live.html"
 
-          python3 << 'PYEOF'
-          import re, json
+          python3 scripts/extract-live-data.py "$BUILD_DIR/live.html" "$BUILD_DIR"
+          python3 scripts/render-template.py gh-pages/index.template.html "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "$BUILD_DIR/index.html"
 
-          with open("/tmp/gh-pages-build/live.html") as f:
-              html = f.read()
-
-          m = re.search(r'(?:var|const)\s+RAW_DATA\s*=\s*({.*?});', html, re.DOTALL)
-          with open("/tmp/gh-pages-build/data.json", "w") as f:
-              f.write(m.group(1))
-
-          m2 = re.search(r'(?:var|const)\s+ALERTS\s*=\s*(\[.*?\]);', html, re.DOTALL)
-          with open("/tmp/gh-pages-build/alerts.json", "w") as f:
-              f.write(m2.group(1))
-
-          pts = len(json.loads(m.group(1)).get('results', [{}])[0].get('series', [{}])[0].get('values', []))
-          print(f"  → {pts} data points extracted")
-          PYEOF
-
-          python3 << 'PYEOF'
-          from datetime import datetime
-
-          with open("gh-pages/index.template.html") as f:
-              html = f.read()
-          with open("/tmp/gh-pages-build/data.json") as f:
-              data = f.read()
-          with open("/tmp/gh-pages-build/alerts.json") as f:
-              alerts = f.read()
-
-          now = datetime.now().strftime('%d/%m/%Y %H:%M')
-          gen = datetime.now().strftime('%d/%m/%Y à %H:%M:%S')
-
-          html = html.replace('"__SPEEDTEST_DATA__"', data)
-          html = html.replace('"__ALERTS_DATA__"', alerts)
-          html = html.replace('__LAST_UPDATE__', now)
-          html = html.replace('__GENERATED_AT__', gen)
-
-          with open("/tmp/gh-pages-build/index.html", "w") as f:
-              f.write(html)
-          print(f"  → index.html ({len(html):,} bytes)")
-          PYEOF
-
-          # Copy static assets alongside the rendered HTML
-          cp gh-pages/style.css gh-pages/app.js /tmp/gh-pages-build/
+          cp gh-pages/style.css gh-pages/app.js "$BUILD_DIR/"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

@@ -33,57 +33,13 @@ echo "── Fetching data from live GitHub Pages ──"
 curl -sfL "$LIVE_URL" -o "$BUILD_DIR/live.html" \
     || { echo "ERROR: Could not fetch $LIVE_URL"; exit 1; }
 
-python3 << PYEOF
-import re, json, sys
-
-with open("$BUILD_DIR/live.html") as f:
-    html = f.read()
-
-m = re.search(r'(?:var|const)\s+RAW_DATA\s*=\s*({.*?});', html, re.DOTALL)
-if not m:
-    print("  ERROR: Could not extract RAW_DATA from live page"); sys.exit(1)
-with open("$BUILD_DIR/data.json", "w") as f:
-    f.write(m.group(1))
-
-m2 = re.search(r'(?:var|const)\s+ALERTS\s*=\s*(\[.*?\]);', html, re.DOTALL)
-if not m2:
-    print("  ERROR: Could not extract ALERTS from live page"); sys.exit(1)
-with open("$BUILD_DIR/alerts.json", "w") as f:
-    f.write(m2.group(1))
-
-data = json.loads(m.group(1))
-pts = len(data.get('results', [{}])[0].get('series', [{}])[0].get('values', []))
-alerts = json.loads(m2.group(1))
-print(f"  → {pts} data points, {len(alerts)} alerts extracted from live page")
-PYEOF
+python3 "$SCRIPT_DIR/scripts/extract-live-data.py" "$BUILD_DIR/live.html" "$BUILD_DIR"
 
 # ── 2. Build page from local template ────────────────────
 echo ""
 echo "── Building page from local template ──"
 
-LAST_UPDATE=$(date '+%d/%m/%Y %H:%M')
-GENERATED_AT=$(date '+%d/%m/%Y à %H:%M:%S')
-
-python3 << PYEOF
-with open("$TEMPLATE") as f:
-    html = f.read()
-with open("$BUILD_DIR/data.json") as f:
-    data = f.read().strip()
-with open("$BUILD_DIR/alerts.json") as f:
-    alerts = f.read().strip()
-
-html = html.replace('"__SPEEDTEST_DATA__"', data)
-html = html.replace('"__ALERTS_DATA__"', alerts)
-html = html.replace('__LAST_UPDATE__', '$LAST_UPDATE')
-html = html.replace('__GENERATED_AT__', '$GENERATED_AT (template update)')
-
-with open("$BUILD_DIR/index.html", "w") as f:
-    f.write(html)
-
-assert '__SPEEDTEST_DATA__' not in html, "Data injection failed"
-assert '__ALERTS_DATA__' not in html, "Alerts injection failed"
-print("  → index.html ({:,} bytes)".format(len(html)))
-PYEOF
+python3 "$SCRIPT_DIR/scripts/render-template.py" "$TEMPLATE" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "$BUILD_DIR/index.html" "(template update)"
 
 # Copy static assets
 cp "$SCRIPT_DIR/gh-pages/style.css" "$SCRIPT_DIR/gh-pages/app.js" "$BUILD_DIR/"

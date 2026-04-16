@@ -93,39 +93,11 @@ echo "── Building static page ──"
 BUILD_DIR=$(mktemp -d)
 trap 'rm -rf "$BUILD_DIR"' EXIT
 
-LAST_UPDATE=$(date '+%d/%m/%Y %H:%M')
-GENERATED_AT=$(date '+%d/%m/%Y à %H:%M:%S')
-
 # Write data to temp files, then inject into template
 echo "$JSON_DATA" > "$BUILD_DIR/data.json"
 echo "$ALERTS_DATA" > "$BUILD_DIR/alerts.json"
 
-python3 << PYEOF
-import json
-
-with open("$TEMPLATE") as f:
-    html = f.read()
-
-with open("$BUILD_DIR/data.json") as f:
-    data = f.read().strip()
-
-with open("$BUILD_DIR/alerts.json") as f:
-    alerts = f.read().strip()
-
-html = html.replace('"__SPEEDTEST_DATA__"', data)
-html = html.replace('"__ALERTS_DATA__"', alerts)
-html = html.replace('__LAST_UPDATE__', '$LAST_UPDATE')
-html = html.replace('__GENERATED_AT__', '$GENERATED_AT')
-
-with open("$BUILD_DIR/index.html", "w") as f:
-    f.write(html)
-
-# Validate JSON was injected correctly
-with open("$BUILD_DIR/index.html") as f:
-    content = f.read()
-assert '__SPEEDTEST_DATA__' not in content, "Data injection failed"
-print("  → index.html generated ({:,} bytes)".format(len(content)))
-PYEOF
+python3 "$SCRIPT_DIR/scripts/render-template.py" "$TEMPLATE" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "$BUILD_DIR/index.html"
 
 # Copy static assets
 cp "$SCRIPT_DIR/gh-pages/style.css" "$SCRIPT_DIR/gh-pages/app.js" "$BUILD_DIR/"
