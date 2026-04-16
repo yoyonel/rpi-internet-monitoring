@@ -135,11 +135,21 @@ Les timers remplacent le crontab : la configuration est versionnée dans `system
 
 ### Utilitaires
 
-| Commande            | Description                  |
-| ------------------- | ---------------------------- |
-| `just alerts`       | État des alertes (✅/🔴)     |
-| `just influx-shell` | Shell InfluxDB interactif    |
-| `just shell <svc>`  | Shell bash dans un container |
+| Commande             | Description                                    |
+| -------------------- | ---------------------------------------------- |
+| `just alerts`        | État des alertes (✅/🔴)                       |
+| `just influx-shell`  | Shell InfluxDB interactif                      |
+| `just shell <svc>`   | Shell bash dans un container                   |
+| `just install-hooks` | Installe les git hooks (pre-commit + pre-push) |
+
+### Git hooks
+
+Installer avec `just install-hooks`. Deux hooks sont fournis :
+
+| Hook         | Déclencheur  | Action                                                                                          |
+| ------------ | ------------ | ----------------------------------------------------------------------------------------------- |
+| `pre-commit` | `git commit` | Lint & format check sur les fichiers stagés (sh, py, yaml, html, css, js, json, md, Dockerfile) |
+| `pre-push`   | `git push`   | E2E tests Playwright (démarre un serveur preview si nécessaire)                                 |
 
 ## Configuration
 
@@ -291,7 +301,10 @@ Page statique publique avec les résultats speedtest des 30 derniers jours :
 
 - **Thème sombre** inspiré de [tsbench](https://mibayy.github.io/tsbench/) : CSS variables, police Geist + Geist Mono (Google Fonts), `backdrop-filter` nav, panels `border-radius:8px`
 - **Stats détaillées** : chaque carte affiche la **médiane** comme valeur principale + sous-métriques (min / avg / max / last pour bandwidth, min / med / p95 / max pour ping), nombre de points et plage temporelle active
-- **Alertes RPi** : état des 6 alertes Grafana avec badges ok/firing/pending, températures converties en °C
+- **Alertes RPi** : état des 6 alertes Grafana avec badges ok/firing/pending, températures converties en °C, horodatage de la dernière évaluation Grafana
+
+> **Note** : l'horodatage des alertes (`Dernière évaluation : ...`) n'est disponible qu'après une publication depuis le RPi (`just publish`), car c'est le seul moment où `publish-gh-pages.sh` interroge l'API Grafana. Le format legacy (tableau simple sans timestamp) reste supporté — dans ce cas la date n'est simplement pas affichée.
+
 - **Drag-to-zoom** : sélection au clic-glissé sur les graphiques pour zoomer sur une plage temporelle (style Grafana). Les deux charts se synchronisent automatiquement. Double-clic pour revenir à la vue 48 h live
 - **Sélecteur de plage temporelle** (style Grafana) : clic sur la plage affichée ouvre un panneau avec calendrier, entrées From/To absolues, présets relatifs (5 min → 30 jours), et historique des plages récentes
 

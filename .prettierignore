@@ -1,0 +1,8 @@
+# Grafana auto-generated dashboards and provisioning
+grafana/
+speedtest/
+telegraf/
+
+# Build artifacts
+test-results/
+node_modules/
