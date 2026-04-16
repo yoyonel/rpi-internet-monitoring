@@ -206,3 +206,7 @@ fmt:
     npx prettier --write 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
     ruff format scripts/*.py
     @echo "All files formatted ✅"
+
+# E2E tests against a local or remote preview (default: http://localhost:8080)
+e2e url="http://localhost:8080":
+    E2E_BASE_URL={{ url }} npx playwright test
