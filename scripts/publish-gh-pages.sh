@@ -93,81 +93,16 @@ echo "── Building static page ──"
 BUILD_DIR=$(mktemp -d)
 trap 'rm -rf "$BUILD_DIR"' EXIT
 
-LAST_UPDATE=$(date '+%d/%m/%Y %H:%M')
-GENERATED_AT=$(date '+%d/%m/%Y à %H:%M:%S')
-
 # Write data to temp files, then inject into template
-echo "$JSON_DATA" > "$BUILD_DIR/data.json"
-echo "$ALERTS_DATA" > "$BUILD_DIR/alerts.json"
+echo "$JSON_DATA" >"$BUILD_DIR/data.json"
+echo "$ALERTS_DATA" >"$BUILD_DIR/alerts.json"
 
-python3 << PYEOF
-import json
+python3 "$SCRIPT_DIR/scripts/render-template.py" "$TEMPLATE" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "$BUILD_DIR/index.html"
 
-with open("$TEMPLATE") as f:
-    html = f.read()
+# Copy static assets
+cp "$SCRIPT_DIR/gh-pages/style.css" "$SCRIPT_DIR/gh-pages/app.js" "$BUILD_DIR/"
 
-with open("$BUILD_DIR/data.json") as f:
-    data = f.read().strip()
-
-with open("$BUILD_DIR/alerts.json") as f:
-    alerts = f.read().strip()
-
-html = html.replace('"__SPEEDTEST_DATA__"', data)
-html = html.replace('"__ALERTS_DATA__"', alerts)
-html = html.replace('__LAST_UPDATE__', '$LAST_UPDATE')
-html = html.replace('__GENERATED_AT__', '$GENERATED_AT')
-
-with open("$BUILD_DIR/index.html", "w") as f:
-    f.write(html)
-
-# Validate JSON was injected correctly
-with open("$BUILD_DIR/index.html") as f:
-    content = f.read()
-assert '__SPEEDTEST_DATA__' not in content, "Data injection failed"
-print("  → index.html generated ({:,} bytes)".format(len(content)))
-PYEOF
-
-# ── 3. Validate JS syntax ────────────────────────────────
-echo ""
-echo "── Validating JavaScript syntax ──"
-python3 << CHECKEOF
-import re, sys
-
-with open("$BUILD_DIR/index.html") as f:
-    html = f.read()
-
-m = re.search(r'<script>(.*?)</script>', html, re.DOTALL)
-if not m:
-    print("  ⚠️  No <script> block found"); sys.exit(0)
-
-js = m.group(1)
-errors = []
-
-# Check balanced braces/parens/brackets
-for open_c, close_c, name in [('(',')', 'parentheses'), ('{','}', 'braces'), ('[',']', 'brackets')]:
-    depth = 0
-    for ch in js:
-        if ch == open_c: depth += 1
-        elif ch == close_c: depth -= 1
-        if depth < 0: break
-    if depth != 0:
-        errors.append(f"Unbalanced {name} (depth={depth:+d})")
-
-# Check forEach/function bodies
-opens = len(re.findall(r'\.forEach\s*\(\s*function', js))
-closes = len(re.findall(r'\}\s*\)', js))
-if opens > closes:
-    errors.append(f"Possible unclosed forEach callback ({opens} opens, {closes} closes)")
-
-if errors:
-    for e in errors:
-        print(f"  ❌ {e}")
-    sys.exit(1)
-else:
-    print("  ✅ JS syntax checks passed")
-CHECKEOF
-
-# ── 4. Preview or Push ────────────────────────────────────
+# ── 3. Preview or Push ────────────────────────────────────
 if [[ "$PREVIEW" == "true" ]]; then
     echo ""
     echo "── Preview mode ──"
@@ -185,7 +120,7 @@ else
     git config user.email "gh-pages-bot@users.noreply.github.com"
     git config user.name "GitHub Pages Bot"
     git checkout -q -b gh-pages
-    git add index.html
+    git add index.html style.css app.js
     git commit -q -m "Update monitoring data — $NOW"
     git remote add origin "$REPO_URL"
     git push -f -q origin gh-pages

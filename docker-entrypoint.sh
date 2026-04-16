@@ -24,7 +24,7 @@ curl \
 
 # Write metric to InfluxDB
 http_post_data_metrics="speedtest,result_id=${result_id} ping_latency=${ping_latency},download_bandwidth=${download_bandwidth},upload_bandwidth=${upload_bandwidth}"
-echo ${http_post_data_metrics}
+echo "${http_post_data_metrics}"
 curl \
     -d "${http_post_data_metrics}" \
     "${influxdb_url}/write?db=${influxdb_db}"

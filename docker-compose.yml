@@ -12,9 +12,9 @@ services:
     networks:
       - speedtest
     ports:
-      - "3000:3000"
+      - '3000:3000'
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:3000/api/health || exit 1"]
+      test: ['CMD-SHELL', 'curl -sf http://localhost:3000/api/health || exit 1']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -31,9 +31,9 @@ services:
     networks:
       - speedtest
     expose:
-      - "8086"
+      - '8086'
     healthcheck:
-      test: ["CMD-SHELL", "influx -execute 'SHOW DATABASES' >/dev/null 2>&1 || exit 1"]
+      test: ['CMD-SHELL', "influx -execute 'SHOW DATABASES' >/dev/null 2>&1 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -46,14 +46,14 @@ services:
     networks:
       - speedtest
     ports:
-      - "8888:8888"
+      - '8888:8888'
     volumes:
       - chronograf-data:/var/lib/chronograf
     depends_on:
       influxdb:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8888/chronograf/v1/me || exit 1"]
+      test: ['CMD-SHELL', 'curl -sf http://localhost:8888/chronograf/v1/me || exit 1']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -64,7 +64,7 @@ services:
     image: telegraf:1.38.2
     hostname: rpi-latty
     restart: unless-stopped
-    user: "telegraf:995"
+    user: 'telegraf:995'
     environment:
       INFLUXDB_USER: ${INFLUXDB_USER}
       INFLUXDB_USER_PASSWORD: ${INFLUXDB_USER_PASSWORD}
@@ -80,7 +80,7 @@ services:
       - /var/run/utmp:/var/run/utmp:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     healthcheck:
-      test: ["CMD-SHELL", "pgrep telegraf || exit 1"]
+      test: ['CMD-SHELL', 'pgrep telegraf || exit 1']
       interval: 30s
       timeout: 5s
       retries: 3
@@ -98,7 +98,7 @@ services:
         condition: service_healthy
     profiles:
       - run-once
-    # Triggered by cron: docker compose run --rm speedtest
+      # Triggered by cron: docker compose run --rm speedtest
 
 networks:
   speedtest:

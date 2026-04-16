@@ -38,6 +38,7 @@ La planification reposait entièrement sur **crontab user** :
 ```
 
 Deux tâches, toutes les 10 minutes :
+
 1. **Speedtest** : lance un conteneur Docker qui exécute le test Ookla et écrit dans InfluxDB
 2. **Publish GH Pages** : exporte les données InfluxDB, génère une page HTML statique, et push vers GitHub Pages
 
@@ -52,31 +53,31 @@ fichiers versionnés dans le repo et une installation automatisée via Justfile.
 
 ## Pourquoi quitter cron
 
-| Problème | Détail |
-|---|---|
-| **Pas versionné** | Le crontab vit en dehors du repo. Aucune trace dans git, aucun review possible. Si le RPi est réinstallé, il faut se souvenir des entrées exactes. |
-| **Pas de logs structurés** | cron écrit dans syslog (`/var/log/syslog`) sans séparation par job. Filtrer les erreurs d'un job spécifique demande du `grep` manuel. La redirection `>/dev/null 2>&1` masque les erreurs silencieusement. |
-| **Pas de gestion des overlaps** | Si un speedtest prend plus de 10 minutes (réseau lent, API timeout), cron lance quand même le suivant. Deux conteneurs speedtest en parallèle peuvent produire des données corrompues ou des conflits réseau. |
-| **Pas de rattrapage** | Si le RPi est éteint ou reboot pendant un slot cron, l'exécution est simplement perdue. Aucun mécanisme de catch-up. |
-| **Pas de random delay** | Toutes les 10 min exactement. Si d'autres tâches sont calées sur le même slot, elles se disputent les ressources en même temps. |
-| **Pas de timeout** | Si `docker compose run` hang (daemon Docker bloqué, réseau down), le process reste orphelin indéfiniment. |
-| **Environnement minimal** | cron exécute dans un environnement PATH minimal. Les commandes comme `just` ou `docker compose` (v2) ne sont pas toujours dans le PATH de cron, ce qui force des chemins absolus et des hacks `source ~/.profile`. |
+| Problème                        | Détail                                                                                                                                                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Pas versionné**               | Le crontab vit en dehors du repo. Aucune trace dans git, aucun review possible. Si le RPi est réinstallé, il faut se souvenir des entrées exactes.                                                                 |
+| **Pas de logs structurés**      | cron écrit dans syslog (`/var/log/syslog`) sans séparation par job. Filtrer les erreurs d'un job spécifique demande du `grep` manuel. La redirection `>/dev/null 2>&1` masque les erreurs silencieusement.         |
+| **Pas de gestion des overlaps** | Si un speedtest prend plus de 10 minutes (réseau lent, API timeout), cron lance quand même le suivant. Deux conteneurs speedtest en parallèle peuvent produire des données corrompues ou des conflits réseau.      |
+| **Pas de rattrapage**           | Si le RPi est éteint ou reboot pendant un slot cron, l'exécution est simplement perdue. Aucun mécanisme de catch-up.                                                                                               |
+| **Pas de random delay**         | Toutes les 10 min exactement. Si d'autres tâches sont calées sur le même slot, elles se disputent les ressources en même temps.                                                                                    |
+| **Pas de timeout**              | Si `docker compose run` hang (daemon Docker bloqué, réseau down), le process reste orphelin indéfiniment.                                                                                                          |
+| **Environnement minimal**       | cron exécute dans un environnement PATH minimal. Les commandes comme `just` ou `docker compose` (v2) ne sont pas toujours dans le PATH de cron, ce qui force des chemins absolus et des hacks `source ~/.profile`. |
 
 ---
 
 ## Pourquoi systemd timers
 
-| Avantage | Détail |
-|---|---|
-| **Infra as code** | Les unit files vivent dans `systemd/` dans le repo. Versionnés, reviewables, reproductibles. |
-| **Logs natifs** | `journalctl --user -u speedtest` donne les logs filtrés par service, avec timestamps, exit codes, durée d'exécution. |
-| **Anti-overlap** | `Type=oneshot` + `ExecCondition` : le timer ne lance pas une nouvelle instance si la précédente tourne encore. |
-| **Persistent** | `Persistent=true` : si le RPi était éteint au moment du slot, systemd rattrape l'exécution dès le redémarrage. |
-| **RandomizedDelay** | Étale les exécutions pour éviter les pics de charge simultanés. |
-| **Timeout** | `TimeoutStartSec` tue le process s'il dépasse la durée autorisée. |
-| **User-level** | `systemctl --user` : pas besoin de root, pas de sudoers, pas de fichiers dans `/etc/systemd/`. |
-| **Intégration systemd** | `systemctl status`, `systemctl is-active`, dépendances, ordonnancement — tout l'écosystème systemd est disponible. |
-| **Installation automatisée** | `just install-timers` copie les fichiers, adapte le `WorkingDirectory`, reload, enable et start en une commande. |
+| Avantage                     | Détail                                                                                                               |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **Infra as code**            | Les unit files vivent dans `systemd/` dans le repo. Versionnés, reviewables, reproductibles.                         |
+| **Logs natifs**              | `journalctl --user -u speedtest` donne les logs filtrés par service, avec timestamps, exit codes, durée d'exécution. |
+| **Anti-overlap**             | `Type=oneshot` + `ExecCondition` : le timer ne lance pas une nouvelle instance si la précédente tourne encore.       |
+| **Persistent**               | `Persistent=true` : si le RPi était éteint au moment du slot, systemd rattrape l'exécution dès le redémarrage.       |
+| **RandomizedDelay**          | Étale les exécutions pour éviter les pics de charge simultanés.                                                      |
+| **Timeout**                  | `TimeoutStartSec` tue le process s'il dépasse la durée autorisée.                                                    |
+| **User-level**               | `systemctl --user` : pas besoin de root, pas de sudoers, pas de fichiers dans `/etc/systemd/`.                       |
+| **Intégration systemd**      | `systemctl status`, `systemctl is-active`, dépendances, ordonnancement — tout l'écosystème systemd est disponible.   |
+| **Installation automatisée** | `just install-timers` copie les fichiers, adapte le `WorkingDirectory`, reload, enable et start en une commande.     |
 
 ---
 
@@ -145,13 +146,13 @@ TimeoutStartSec=300
 ExecCondition=/bin/sh -c '! docker ps --format "{{.Names}}" | grep -q speedtest'
 ```
 
-| Directive | Rôle |
-|---|---|
-| `Type=oneshot` | Le service exécute une commande et se termine. Pas de daemon. |
-| `WorkingDirectory=%h/rpi-internet-monitoring` | Valeur par défaut, **remplacée par le chemin réel** lors de `just install-timers` via `sed`. `%h` = `$HOME` de l'utilisateur. |
-| `ExecStart` | Lance le conteneur speedtest (build via Dockerfile, réseau Docker, écrit dans InfluxDB). `--rm` supprime le conteneur après exécution. |
-| `TimeoutStartSec=300` | 5 minutes max. Un speedtest normal prend 30-60s, mais sur réseau lent ça peut monter. Au-delà, systemd tue le process (SIGTERM puis SIGKILL). |
-| `ExecCondition` | **Guard anti-overlap**. Vérifie via `docker ps` qu'aucun conteneur nommé "speedtest" ne tourne. Si la condition échoue (exit ≠ 0), le service est skipped sans erreur. Protège contre : timer qui fire pendant qu'un ancien run est encore en cours, ou run manuel via `just speedtest` en parallèle. |
+| Directive                                     | Rôle                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Type=oneshot`                                | Le service exécute une commande et se termine. Pas de daemon.                                                                                                                                                                                                                                         |
+| `WorkingDirectory=%h/rpi-internet-monitoring` | Valeur par défaut, **remplacée par le chemin réel** lors de `just install-timers` via `sed`. `%h` = `$HOME` de l'utilisateur.                                                                                                                                                                         |
+| `ExecStart`                                   | Lance le conteneur speedtest (build via Dockerfile, réseau Docker, écrit dans InfluxDB). `--rm` supprime le conteneur après exécution.                                                                                                                                                                |
+| `TimeoutStartSec=300`                         | 5 minutes max. Un speedtest normal prend 30-60s, mais sur réseau lent ça peut monter. Au-delà, systemd tue le process (SIGTERM puis SIGKILL).                                                                                                                                                         |
+| `ExecCondition`                               | **Guard anti-overlap**. Vérifie via `docker ps` qu'aucun conteneur nommé "speedtest" ne tourne. Si la condition échoue (exit ≠ 0), le service est skipped sans erreur. Protège contre : timer qui fire pendant qu'un ancien run est encore en cours, ou run manuel via `just speedtest` en parallèle. |
 
 ### speedtest.timer
 
@@ -170,12 +171,12 @@ Persistent=true
 WantedBy=timers.target
 ```
 
-| Directive | Rôle |
-|---|---|
-| `OnCalendar=*:0/10` | Toutes les 10 minutes (`:00`, `:10`, `:20`, `:30`, `:40`, `:50`). Équivalent de `*/10 * * * *` en cron. |
-| `RandomizedDelaySec=30` | Ajoute un délai aléatoire entre 0 et 30 secondes à chaque déclenchement. Évite que speedtest et publish s'exécutent exactement au même moment. |
-| `Persistent=true` | Si le RPi était éteint au moment d'un slot, l'exécution est rattrapée au prochain démarrage. Critique pour un appareil qui peut être débranché/rebranché. |
-| `WantedBy=timers.target` | Le timer démarre automatiquement au boot (après `enable`). |
+| Directive                | Rôle                                                                                                                                                      |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OnCalendar=*:0/10`      | Toutes les 10 minutes (`:00`, `:10`, `:20`, `:30`, `:40`, `:50`). Équivalent de `*/10 * * * *` en cron.                                                   |
+| `RandomizedDelaySec=30`  | Ajoute un délai aléatoire entre 0 et 30 secondes à chaque déclenchement. Évite que speedtest et publish s'exécutent exactement au même moment.            |
+| `Persistent=true`        | Si le RPi était éteint au moment d'un slot, l'exécution est rattrapée au prochain démarrage. Critique pour un appareil qui peut être débranché/rebranché. |
+| `WantedBy=timers.target` | Le timer démarre automatiquement au boot (après `enable`).                                                                                                |
 
 ### publish-gh-pages.service
 
@@ -193,11 +194,11 @@ TimeoutStartSec=120
 Environment=HOME=%h
 ```
 
-| Directive | Rôle |
-|---|---|
-| `ExecStart` | Exécute le script de publication avec 30 jours d'historique. Le script : exporte les données InfluxDB en JSON, récupère les alertes Grafana, injecte dans le template HTML, et push sur la branche `gh-pages`. |
-| `TimeoutStartSec=120` | 2 minutes max. Le script est principalement I/O (requête InfluxDB locale + git push). 2 min est large. |
-| `Environment=HOME=%h` | Explicite `$HOME` pour le script. Nécessaire car certaines commandes (git, ssh-agent) en dépendent et l'environnement systemd user est plus restreint que le shell interactif. |
+| Directive             | Rôle                                                                                                                                                                                                           |
+| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ExecStart`           | Exécute le script de publication avec 30 jours d'historique. Le script : exporte les données InfluxDB en JSON, récupère les alertes Grafana, injecte dans le template HTML, et push sur la branche `gh-pages`. |
+| `TimeoutStartSec=120` | 2 minutes max. Le script est principalement I/O (requête InfluxDB locale + git push). 2 min est large.                                                                                                         |
+| `Environment=HOME=%h` | Explicite `$HOME` pour le script. Nécessaire car certaines commandes (git, ssh-agent) en dépendent et l'environnement systemd user est plus restreint que le shell interactif.                                 |
 
 **Note** : pas de `ExecCondition` anti-overlap ici. Le script `publish-gh-pages.sh` est idempotent (il régénère et écrase la page à chaque fois), donc deux exécutions simultanées ne posent pas de problème fonctionnel (au pire un double git push, qui est un no-op si le contenu est identique).
 
@@ -218,9 +219,9 @@ Persistent=true
 WantedBy=timers.target
 ```
 
-| Directive | Rôle |
-|---|---|
-| `RandomizedDelaySec=60` | Délai aléatoire plus large (0-60s) que le speedtest (0-30s). Objectif : la publication se fait *après* le speedtest dans la majorité des cas, pour inclure le résultat le plus récent. Ce n'est pas garanti (pas de dépendance explicite `After=`), mais statistiquement ça fonctionne bien. |
+| Directive               | Rôle                                                                                                                                                                                                                                                                                         |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RandomizedDelaySec=60` | Délai aléatoire plus large (0-60s) que le speedtest (0-30s). Objectif : la publication se fait _après_ le speedtest dans la majorité des cas, pour inclure le résultat le plus récent. Ce n'est pas garanti (pas de dépendance explicite `After=`), mais statistiquement ça fonctionne bien. |
 
 ---
 
@@ -236,6 +237,7 @@ just install-timers
 ```
 
 Output attendu :
+
 ```
   → /home/latty/.config/systemd/user/speedtest.service
   → /home/latty/.config/systemd/user/speedtest.timer
@@ -249,6 +251,7 @@ Thu 2026-04-16 15:30:45 CEST 8min left -   -      publish-gh-pages.timer   publi
 ```
 
 **Ce que fait la recette :**
+
 1. `mkdir -p ~/.config/systemd/user/`
 2. Copie les 4 fichiers de `systemd/` vers `~/.config/systemd/user/`
 3. `sed -i` remplace `WorkingDirectory=...` par le chemin réel du projet (`justfile_directory()`)
@@ -272,6 +275,7 @@ just timer-status
 ```
 
 Output :
+
 ```
 ── Timers ──
 NEXT                         LEFT     LAST                         PASSED  UNIT                     ACTIVATES
@@ -492,6 +496,7 @@ journalctl --user -u publish-gh-pages.service -n 10
 
 **Note importante sur SSH** : dans un contexte systemd user sans session interactive, `ssh-agent`
 n'est pas automatiquement démarré. Si le publish utilise SSH pour git push, il faudra soit :
+
 - Configurer un `ssh-agent.service` systemd user
 - Utiliser une clé SSH sans passphrase (moins sécurisé mais fonctionnel)
 - Basculer le remote sur HTTPS avec un token GitHub (plus simple)
@@ -505,6 +510,7 @@ n'est pas automatiquement démarré. Si le publish utilise SSH pour git push, il
 **Idée** : garder cron mais écrire un script `scripts/cron-wrapper.sh` qui gère les logs, overlaps et timeouts.
 
 **Rejeté car** :
+
 - Réinventer la roue — systemd fait déjà tout ça nativement
 - Le crontab lui-même reste hors repo (pas versionné)
 - Pas de `Persistent` (catch-up après downtime)
@@ -514,6 +520,7 @@ n'est pas automatiquement démarré. Si le publish utilise SSH pour git push, il
 **Idée** : `*/10 * * * * flock -n /tmp/speedtest.lock docker compose run --rm speedtest`
 
 **Rejeté car** :
+
 - Résout seulement l'anti-overlap, pas les autres problèmes (logs, timeout, catch-up, versioning)
 - `flock` ne gère pas le timeout natif
 
@@ -523,6 +530,7 @@ n'est pas automatiquement démarré. Si le publish utilise SSH pour git push, il
 `deploy.restart_policy` de Docker Swarm pour planifier les tâches.
 
 **Rejeté car** :
+
 - Ajoute un service supplémentaire à maintenir
 - Ofelia est un projet peu actif
 - Swarm est overkill pour un RPi mono-node
@@ -533,6 +541,7 @@ n'est pas automatiquement démarré. Si le publish utilise SSH pour git push, il
 **Idée** : un workflow `schedule:` sur GitHub qui SSH vers le RPi pour lancer les tâches.
 
 **Rejeté car** :
+
 - Dépendance à GitHub (si GitHub Actions est down, plus de monitoring)
 - Nécessite d'exposer le RPi en SSH sur internet (sécurité)
 - Latence et overhead inutiles
@@ -540,6 +549,7 @@ n'est pas automatiquement démarré. Si le publish utilise SSH pour git push, il
 ### Choix final : systemd user timers
 
 **Retenu car** :
+
 - Zéro dépendance externe (systemd est déjà sur le RPi)
 - Toutes les fonctionnalités nécessaires par défaut (logs, overlap, timeout, persistent, random delay)
 - Fichiers versionnés dans le repo (infra as code)
@@ -551,11 +561,11 @@ n'est pas automatiquement démarré. Si le publish utilise SSH pour git push, il
 
 ## Fichiers du projet
 
-| Fichier | Rôle |
-|---|---|
-| `systemd/speedtest.service` | Service oneshot : lance le conteneur speedtest |
-| `systemd/speedtest.timer` | Timer : toutes les 10 min, 30s random delay |
-| `systemd/publish-gh-pages.service` | Service oneshot : publie sur GitHub Pages |
-| `systemd/publish-gh-pages.timer` | Timer : toutes les 10 min, 60s random delay |
-| `Justfile` | Recettes `install-timers` / `uninstall-timers` / `timer-status` |
-| `docs/scheduling-systemd-timers.md` | Ce document |
+| Fichier                             | Rôle                                                            |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `systemd/speedtest.service`         | Service oneshot : lance le conteneur speedtest                  |
+| `systemd/speedtest.timer`           | Timer : toutes les 10 min, 30s random delay                     |
+| `systemd/publish-gh-pages.service`  | Service oneshot : publie sur GitHub Pages                       |
+| `systemd/publish-gh-pages.timer`    | Timer : toutes les 10 min, 60s random delay                     |
+| `Justfile`                          | Recettes `install-timers` / `uninstall-timers` / `timer-status` |
+| `docs/scheduling-systemd-timers.md` | Ce document                                                     |

@@ -18,61 +18,22 @@ echo ""
 # ── 1. Fetch live data ────────────────────────────────────
 echo "── Fetching data from live GitHub Pages ──"
 
-curl -sfL "https://yoyonel.github.io/rpi-internet-monitoring/" -o "$BUILD_DIR/live.html" \
-    || { echo "ERROR: Could not fetch live page. Check your connection."; exit 1; }
+curl -sfL "https://yoyonel.github.io/rpi-internet-monitoring/" -o "$BUILD_DIR/live.html" ||
+    {
+        echo "ERROR: Could not fetch live page. Check your connection."
+        exit 1
+    }
 
-python3 << PYEOF
-import re, json
-
-with open("$BUILD_DIR/live.html") as f:
-    html = f.read()
-
-m = re.search(r'(?:var|const)\s+RAW_DATA\s*=\s*({.*?});', html, re.DOTALL)
-if not m:
-    print("  ERROR: Could not extract speedtest data"); exit(1)
-with open("$BUILD_DIR/data.json", "w") as f:
-    f.write(m.group(1))
-pts = len(json.loads(m.group(1)).get('results', [{}])[0].get('series', [{}])[0].get('values', []))
-
-m2 = re.search(r'(?:var|const)\s+ALERTS\s*=\s*(\[.*?\]);', html, re.DOTALL)
-if not m2:
-    print("  ERROR: Could not extract alerts data"); exit(1)
-with open("$BUILD_DIR/alerts.json", "w") as f:
-    f.write(m2.group(1))
-alerts_count = len(json.loads(m2.group(1)))
-
-print(f"  → {pts} data points, {alerts_count} alerts")
-PYEOF
+python3 "$SCRIPT_DIR/scripts/extract-live-data.py" "$BUILD_DIR/live.html" "$BUILD_DIR"
 
 # ── 2. Build page from template ──────────────────────────
 echo ""
 echo "── Building page from template ──"
 
-python3 << PYEOF
-from datetime import datetime
+python3 "$SCRIPT_DIR/scripts/render-template.py" "$TEMPLATE" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "$BUILD_DIR/index.html"
 
-with open("$TEMPLATE") as f:
-    html = f.read()
-with open("$BUILD_DIR/data.json") as f:
-    data = f.read()
-with open("$BUILD_DIR/alerts.json") as f:
-    alerts = f.read()
-
-now = datetime.now().strftime('%d/%m/%Y %H:%M')
-gen = datetime.now().strftime('%d/%m/%Y à %H:%M:%S')
-
-html = html.replace('"__SPEEDTEST_DATA__"', data)
-html = html.replace('"__ALERTS_DATA__"', alerts)
-html = html.replace('__LAST_UPDATE__', now)
-html = html.replace('__GENERATED_AT__', gen)
-
-with open("$BUILD_DIR/index.html", "w") as f:
-    f.write(html)
-print(f"  → index.html ({len(html):,} bytes)")
-
-assert '__SPEEDTEST_DATA__' not in html, "Data injection failed"
-assert '__ALERTS_DATA__' not in html, "Alerts injection failed"
-PYEOF
+# Copy static assets
+cp "$SCRIPT_DIR/gh-pages/style.css" "$SCRIPT_DIR/gh-pages/app.js" "$BUILD_DIR/"
 
 # ── 3. Serve ─────────────────────────────────────────────
 echo ""

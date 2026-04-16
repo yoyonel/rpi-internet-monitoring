@@ -1,4 +1,5 @@
 copie des sources vers le raspberry
+
 ```sh
 ╰─ scp -r MONITORER\ SON\ DÉBIT\ INTERNET/ latty@192.168.1.24:"/home/latty/Prog"
 telegraf.conf                                                                                                                 100%   12KB   3.6MB/s   00:00
@@ -20,6 +21,7 @@ dashboard.json                                                                  
 ```
 
 build de l'image (custom) docker pour speedtest (+ analyse des résultats) sur le raspberry:
+
 ```sh
 latty@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ docker build -t docker.local/speedtest:buster-slim .
 Sending build context to Docker daemon  29.18kB
@@ -34,6 +36,7 @@ Successfully tagged docker.local/speedtest:buster-slim
 ```
 
 on lance le docker-compose:
+
 ```sh
 latty@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ docker-compose up -d
 Creating network "speedtest" with driver "bridge"
@@ -79,6 +82,7 @@ Creating chronograf     ... done
 ```
 
 On check l'état des containers:
+
 ```sh
 latty@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ docker ps
 CONTAINER ID   IMAGE                   COMMAND                  CREATED          STATUS          PORTS                                       NAMES
@@ -96,6 +100,7 @@ telegraf         /entrypoint.sh telegraf     Up      8092/udp, 8094/tcp, 8125/ud
 ```
 
 (On peut lancer une exécution de l'image (custom) docker pour lancer notre workflow speedtest:
+
 ```sh
 latty@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ docker run --rm docker.local/speedtest:buster-slim
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
@@ -111,8 +116,10 @@ speedtest,result_id=a3fa59aa-3fae-466a-8546-30f60265dd8f ping_latency=11.709,dow
                                  Dload  Upload   Total   Spent    Left  Speed
 100   168    0     0  100   168      0    113  0:00:01  0:00:01 --:--:--   113
 ```
+
 ℹ️Remarqueℹ️
 Dans le `docker-entrypoint.sh` :
+
 ```shell
 influxdb_db=${INFLUXDB_DB:-speedtest}
 [...]
@@ -121,15 +128,17 @@ curl \
     -d "q=CREATE DATABASE ${influxdb_db}" \
     "${influxdb_url}/query"
 ```
+
 on s'assure que la DB existe dans InfluxDB avant de send des données dedans)
 
 Connection à Grafana depuis l'extérieur:
 url: http://192.168.1.24:3000
 
-1ère connection -> utiliser l'authent par défaut admin/admin, 
+1ère connection -> utiliser l'authent par défaut admin/admin,
 puis définir un nouveau mot de passe (stocké dans .env: GF_SECURITY_ADMIN_PASSWORD)
 
 Configuration Grafana:
+
 - `/datasources/new?utm_source=grafana_gettingstarted`
   Add data source > Data Sources / InfluxDB
   Name: InfluxDB
@@ -144,10 +153,12 @@ Import via panel json
 on copie colle depuis: `https://gist.githubusercontent.com/VEBERArnaud/4d37935fe906324dd18ff01cb511eda6/raw/f3d650842c5edf8dc237c1f95713b8bf195cc751/dashboard.json`
 et on `Load`
 Name: "InfluxDB"
+
 > `Import`
-Et voilà ! :-D
+> Et voilà ! :-D
 
 configuration de la tâche CRON:
+
 ```sh
 latty@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ which docker
 /usr/bin/docker
@@ -162,6 +173,7 @@ latty@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ crontab -l
 
 Configuration de Telegraph/Grafana:
 Configuration Grafana:
+
 - `/datasources/new?utm_source=grafana_gettingstarted`
   Name: Telegraph
   Add data source > Data Sources / InfluxDB
@@ -176,7 +188,8 @@ Import via panel json
 on copie colle depuis: `https://gist.githubusercontent.com/VEBERArnaud/4d37935fe906324dd18ff01cb511eda6/raw/f3d650842c5edf8dc237c1f95713b8bf195cc751/dashboard.json`
 et on `Load`
 Name: "Single System Dashboard (Using Telegraf and InfluxDB)"
+
 > `Import`
-Et voilà ! :-D
+> Et voilà ! :-D
 
 => fonctionnel !

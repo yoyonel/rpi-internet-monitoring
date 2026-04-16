@@ -26,15 +26,15 @@ UIDS=$(curl -sf -u "$GRAFANA_CREDS" "$GRAFANA_URL/api/search?type=dash-db" | jq 
 for uid in $UIDS; do
     TITLE=$(curl -sf -u "$GRAFANA_CREDS" "$GRAFANA_URL/api/dashboards/uid/$uid" | jq -r '.dashboard.title // "unknown"')
     SAFE_TITLE=$(echo "$TITLE" | tr ' /' '_-')
-    curl -sf -u "$GRAFANA_CREDS" "$GRAFANA_URL/api/dashboards/uid/$uid" | jq . > "$BACKUP_DIR/dashboard-${SAFE_TITLE}.json"
-    echo "  → dashboard-${SAFE_TITLE}.json ($(wc -c < "$BACKUP_DIR/dashboard-${SAFE_TITLE}.json") bytes)"
+    curl -sf -u "$GRAFANA_CREDS" "$GRAFANA_URL/api/dashboards/uid/$uid" | jq . >"$BACKUP_DIR/dashboard-${SAFE_TITLE}.json"
+    echo "  → dashboard-${SAFE_TITLE}.json ($(wc -c <"$BACKUP_DIR/dashboard-${SAFE_TITLE}.json") bytes)"
 done
 
 # ── Grafana datasources ──
 echo ""
 echo "── Grafana datasources ──"
-curl -sf -u "$GRAFANA_CREDS" "$GRAFANA_URL/api/datasources" | jq . > "$BACKUP_DIR/datasources.json"
-echo "  → datasources.json ($(wc -c < "$BACKUP_DIR/datasources.json") bytes)"
+curl -sf -u "$GRAFANA_CREDS" "$GRAFANA_URL/api/datasources" | jq . >"$BACKUP_DIR/datasources.json"
+echo "  → datasources.json ($(wc -c <"$BACKUP_DIR/datasources.json") bytes)"
 
 # ── InfluxDB ──
 echo ""
