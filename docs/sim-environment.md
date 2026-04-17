@@ -143,6 +143,7 @@ x86-compatible inputs:
 | `sim-speedtest`    | Run a manual speedtest                                    |
 | `sim-influx-shell` | Open InfluxDB CLI in the sim container                    |
 | `sim-stats`        | Show databases, retention policies, data counts           |
+| `sim-test`         | Run the smoke test suite (25 checks, 7 sections)          |
 | `sim-binfmt`       | Register QEMU binfmt handlers                             |
 
 ## Simulation fidelity vs production RPi
