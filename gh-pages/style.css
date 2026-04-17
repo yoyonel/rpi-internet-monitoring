@@ -1,3 +1,19 @@
+@font-face {
+  font-family: 'Geist Fallback';
+  src: local('Segoe UI'), local('system-ui'), local('Roboto'), local('Helvetica Neue');
+  size-adjust: 100.4%;
+  ascent-override: 99%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: 'Geist Mono Fallback';
+  src: local('Cascadia Mono'), local('Consolas'), local('Menlo'), local('monospace');
+  size-adjust: 100.9%;
+  ascent-override: 99%;
+  descent-override: 22%;
+  line-gap-override: 0%;
+}
 * {
   margin: 0;
   padding: 0;
@@ -30,6 +46,7 @@ body {
   color: var(--text);
   font-family:
     'Geist',
+    'Geist Fallback',
     system-ui,
     -apple-system,
     sans-serif;
@@ -74,7 +91,7 @@ nav .brand .hi {
 nav .meta {
   font-size: 0.72rem;
   color: var(--text3);
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
 }
 nav .meta time {
   color: var(--blue);
@@ -157,20 +174,20 @@ nav .meta time {
   color: var(--text3);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
 }
 .stat .sg dd {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text2);
   margin: 0 0 2px;
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
 }
 .stat .pts {
   font-size: 0.6rem;
   color: var(--text3);
   margin-top: 6px;
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
 }
 
 /* ── ALERTS ── */
@@ -189,7 +206,7 @@ nav .meta time {
 .al-eval {
   font-size: 0.68rem;
   color: var(--text3);
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
   margin-bottom: 10px;
 }
 .al-eval time {
@@ -221,7 +238,7 @@ nav .meta time {
 .al-sum {
   color: var(--text2);
   flex: 1;
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
   font-size: 0.72rem;
 }
 .al-badge {
@@ -296,7 +313,7 @@ nav .meta time {
   font-size: 0.76rem;
   font-weight: 500;
   transition: all 0.15s;
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
 }
 .tp .rb:hover {
   color: var(--text);
@@ -309,7 +326,7 @@ nav .meta time {
 .tp .rl {
   font-size: 0.72rem;
   color: var(--text3);
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
   min-width: 180px;
   text-align: center;
 }
@@ -412,7 +429,7 @@ nav .meta time {
 .tr-cal table {
   width: 100%;
   border-collapse: collapse;
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
   font-size: 0.68rem;
 }
 .tr-cal th {
@@ -434,7 +451,7 @@ nav .meta time {
   border-radius: 3px;
   color: var(--text2);
   cursor: pointer;
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
   font-size: 0.68rem;
   transition: all 0.1s;
 }
@@ -483,7 +500,7 @@ nav .meta time {
   background: var(--surface);
   border: 1px solid var(--border);
   color: var(--text);
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
   font-size: 0.72rem;
   padding: 5px 8px;
   border-radius: 4px;
@@ -525,7 +542,7 @@ nav .meta time {
   background: none;
   border: none;
   color: var(--text2);
-  font-family: 'Geist Mono', monospace;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
   font-size: 0.68rem;
   padding: 4px 6px;
   border-radius: 3px;
