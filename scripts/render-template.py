@@ -42,8 +42,10 @@ def main():
     with open(template_path) as f:
         html = f.read()
 
-    now = datetime.now(tz=TZ).strftime("%d/%m/%Y %H:%M")
-    gen = datetime.now(tz=TZ).strftime("%d/%m/%Y à %H:%M:%S")
+    dt = datetime.now(tz=TZ)
+    tz_abbr = dt.strftime("%Z")  # CET or CEST
+    now = dt.strftime(f"%d/%m/%Y %H:%M ({tz_abbr})")
+    gen = dt.strftime(f"%d/%m/%Y à %H:%M:%S ({tz_abbr})")
     if suffix:
         gen = f"{gen} {suffix}"
 

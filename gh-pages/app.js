@@ -19,9 +19,15 @@ _dataReady.then(([, ALERTS]) => {
     document.getElementById('alertsSec').style.display = 'none';
     return;
   }
-  // Convert m°C to °C in alert summaries
-  const fixTemp = (s) =>
-    s ? s.replace(/(\d+)\s*m°C/g, (_, v) => (parseInt(v) / 1000).toFixed(2) + ' °C') : '';
+  // Convert m°C to °C in alert summaries and remove duplicate thresholds
+  const fixTemp = (s) => {
+    if (!s) return '';
+    // Convert millidegrees to degrees: "70000 m°C" → "70.00 °C"
+    let r = s.replace(/(\d+)\s*m°C/g, (_, v) => (parseInt(v) / 1000).toFixed(2) + ' °C');
+    // Remove "/ 70°C" duplicate after converted threshold: "(threshold: 70.00 °C / 70°C)"
+    r = r.replace(/(\d+\.?\d*\s*°C)\s*\/\s*\d+\.?\d*\s*°C/g, '$1');
+    return r;
+  };
 
   // Format lastEvaluation timestamp
   const fmtEval = (iso) => {
@@ -29,7 +35,8 @@ _dataReady.then(([, ALERTS]) => {
     const d = new Date(iso);
     if (isNaN(d)) return null;
     const p = (n) => (n < 10 ? '0' + n : '' + n);
-    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    const tz = d.toLocaleTimeString('fr-FR', { timeZoneName: 'short' }).split(' ').pop();
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} (${tz})`;
   };
   const evalStr = fmtEval(lastEval);
   const evalHtml = evalStr
@@ -207,10 +214,12 @@ _dataReady.then(async ([RAW_DATA]) => {
     lastMode = '';
 
   const pad2 = (n) => (n < 10 ? '0' + n : '' + n);
+  const tzAbbr = new Date().toLocaleTimeString('fr-FR', { timeZoneName: 'short' }).split(' ').pop();
   const fmtDate = (t) => {
     const d = new Date(t);
     return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
   };
+  const fmtDateTz = (t) => `${fmtDate(t)} ${tzAbbr}`;
   const fmtSpd = (v) =>
     v >= 1000
       ? `${(v / 1000).toFixed(1)}<span class="u">Gb/s</span>`
@@ -278,6 +287,13 @@ _dataReady.then(async ([RAW_DATA]) => {
     },
     grid: { color: '#1e2228' },
     ticks: { font: { family: mono, size: 10 }, maxTicksLimit: 12 },
+    title: {
+      display: true,
+      text: `Heure (${tzAbbr})`,
+      font: { family: mono, size: 10 },
+      color: '#666',
+      padding: { top: 2 },
+    },
   };
   const baseOpts = (ar) => ({
     responsive: true,
@@ -562,7 +578,7 @@ _dataReady.then(async ([RAW_DATA]) => {
         piMed = medianOf(piSorted);
       const piP95 = pctOf(piSorted, 95);
 
-      const trLabel = `${fmtDate(rangeStart)} \u2192 ${fmtDate(rangeEnd)}`;
+      const trLabel = `${fmtDateTz(rangeStart)} \u2192 ${fmtDateTz(rangeEnd)}`;
 
       statsEl.innerHTML =
         statCard(
@@ -658,7 +674,7 @@ _dataReady.then(async ([RAW_DATA]) => {
     piChart.options.scales.x.max = rangeEnd;
 
     document.getElementById('rangeLabel').textContent =
-      `${fmtDate(rangeStart)}  \u2192  ${fmtDate(rangeEnd)}`;
+      `${fmtDateTz(rangeStart)}  \u2192  ${fmtDateTz(rangeEnd)}`;
     document
       .querySelectorAll('.rb')
       .forEach((b) => b.classList.toggle('on', parseInt(b.dataset.hours) === currentH));
