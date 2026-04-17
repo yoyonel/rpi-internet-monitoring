@@ -77,3 +77,33 @@ services:
       dockerfile: Dockerfile
       platforms:
         - linux/arm64
+
+  # Periodic speedtest — replaces the systemd timer from production.
+  # Runs every SPEEDTEST_INTERVAL seconds (default 600 = 10 min).
+  speedtest-cron:
+    container_name: speedtest-cron
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    platform: linux/arm64
+    mem_limit: 256m
+    memswap_limit: 384m
+    environment:
+      INFLUXDB_USER: ${INFLUXDB_USER}
+      INFLUXDB_USER_PASSWORD: ${INFLUXDB_USER_PASSWORD}
+      SPEEDTEST_INTERVAL: '600'
+    networks:
+      - speedtest
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    volumes:
+      - ./sim/speedtest-loop.sh:/usr/local/bin/speedtest-loop.sh:ro
+    entrypoint: ['/bin/bash', '/usr/local/bin/speedtest-loop.sh']
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

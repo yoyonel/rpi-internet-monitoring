@@ -208,7 +208,7 @@ lint:
 
 # Auto-format all source files
 fmt:
-    shfmt -w -i 4 -ci scripts/*.sh docker-entrypoint.sh test-stack.sh
+    shfmt -w -i 4 -ci scripts/*.sh sim/*.sh docker-entrypoint.sh test-stack.sh
     npx prettier --write 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
     ruff format scripts/*.py
     @echo "All files formatted ✅"
@@ -242,7 +242,7 @@ sim-nuke:
 sim-status:
     @{{ sim_compose }} ps -a
     @echo ""
-    @docker inspect rpi-sim-influxdb-1 rpi-sim-grafana-1 rpi-sim-telegraf-1 rpi-sim-chronograf-1 2>/dev/null | jq -r '.[] | "  \(.Name | ltrimstr("/")): \(.State.Health.Status // "n/a")"' || true
+    @docker inspect rpi-sim-influxdb-1 rpi-sim-grafana-1 rpi-sim-telegraf-1 rpi-sim-chronograf-1 speedtest-cron 2>/dev/null | jq -r '.[] | "  \(.Name | ltrimstr("/")): \(.State.Health.Status // "n/a")"' || true
 
 # Show simulation logs
 sim-logs lines="50":

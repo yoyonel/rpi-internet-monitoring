@@ -37,6 +37,7 @@ InfluxDB API: <http://localhost:8086> (admin / simpass)
 sim/.env.sim                  ← credentials (safe local defaults)
 sim/docker-compose.sim.yml    ← ARM64 override layer
 sim/telegraf-sim.conf         ← Telegraf config adapted for x86 host
+sim/speedtest-loop.sh         ← periodic speedtest loop (replaces systemd timer)
 docker-compose.yml            ← base compose (shared with production)
 ```
 
@@ -76,7 +77,8 @@ production deployment on the same host.
 | Telegraf            | 256 MB      | 384 MB        |
 | Chronograf          | 256 MB      | 384 MB        |
 | docker-socket-proxy | 64 MB       | 64 MB         |
-| **Total**           | **~2.1 GB** | **~3.1 GB**   |
+| speedtest-cron      | 256 MB      | 384 MB        |
+| **Total**           | **~2.3 GB** | **~3.5 GB**   |
 
 ## Grafana provisioning
 
@@ -174,7 +176,7 @@ x86-compatible inputs:
 | **Global tag**                 | `env = "sim"` (in telegraf-sim.conf)                     | No env tag (production telegraf.conf)                | Easy to distinguish in InfluxDB queries                    |
 | **InfluxDB capabilities**      | `cap_add` for CHOWN/DAC_OVERRIDE/etc.                    | `cap_drop: ALL` only                                 | Sim is slightly more permissive (required for QEMU init)   |
 | **Credentials**                | Hardcoded `simpass` in `.env.sim`                        | Real secrets in production `.env` (not in repo)      | No security concern — sim is local-only                    |
-| **systemd timers**             | Not present (speedtest triggered manually)               | `speedtest.timer` + `publish-gh-pages.timer`         | Scheduling pipeline not tested in sim                      |
+| **systemd timers**             | `speedtest-cron` container loop (every 10 min)           | `speedtest.timer` + `publish-gh-pages.timer`         | Speedtest cadence replicated; gh-pages publish untested    |
 | **InfluxDB `_internal` DB**    | Disabled (`INFLUXDB_MONITOR_STORE_ENABLED: false`)       | Enabled by default                                   | No monitoring overhead data in sim                         |
 
 ### What you can rely on
@@ -196,7 +198,7 @@ x86-compatible inputs:
 - **Real network monitoring**: speedtest results measure the dev machine's connection, not the RPi's ISP link.
 - **Disk wear / reliability**: host SSD ≠ RPi microSD. I/O patterns and failure modes are fundamentally different.
 - **Temperature monitoring**: x86 thermal_zone0 values have no relation to BCM2711 temperatures.
-- **Scheduling / cron**: systemd timers are not part of the sim stack. The periodic speedtest + gh-pages publish cadence is untested.
+- **Scheduling / cron**: the `speedtest-cron` container replaces `speedtest.timer` but uses a sleep loop, not a real scheduler. The `publish-gh-pages.timer` is not replicated.
 
 ### Summary
 
@@ -240,9 +242,20 @@ just sim-influx-shell
 
 ### Running a speedtest
 
-The `speedtest` service uses `profiles: [run-once]` — it does not start
-with `docker compose up`. Trigger it manually:
+The `speedtest-cron` service starts automatically with `just sim-up`
+and runs a speedtest every 10 minutes (configurable via
+`SPEEDTEST_INTERVAL` in `sim/docker-compose.sim.yml`), matching the
+production `speedtest.timer` cadence.
+
+To trigger an additional one-off speedtest:
 
 ```bash
 just sim-speedtest
+```
+
+Check the cron logs:
+
+```bash
+just sim-logs-follow
+# or: docker logs -f speedtest-cron
 ```
