@@ -242,7 +242,7 @@ sim-nuke:
 sim-status:
     @{{ sim_compose }} ps -a
     @echo ""
-    @docker inspect rpi-sim-influxdb-1 rpi-sim-grafana-1 rpi-sim-telegraf-1 rpi-sim-chronograf-1 speedtest-cron 2>/dev/null | jq -r '.[] | "  \(.Name | ltrimstr("/")): \(.State.Health.Status // "n/a")"' || true
+    @docker inspect influxdb grafana telegraf chronograf speedtest-cron 2>/dev/null | jq -r '.[] | "  \(.Name | ltrimstr("/")): \(.State.Health.Status // "n/a")"' || true
 
 # Show simulation logs
 sim-logs lines="50":
@@ -262,22 +262,22 @@ sim-speedtest:
 
 # Open an InfluxDB shell in the simulation
 sim-influx-shell:
-    docker exec -it rpi-sim-influxdb-1 influx -username admin -password simpass
+    docker exec -it influxdb influx -username admin -password simpass
 
 # Show simulation stats (databases, counts, disk)
 sim-stats:
     @echo "── Databases ──"
-    @docker exec rpi-sim-influxdb-1 influx -username admin -password simpass -execute "SHOW DATABASES"
+    @docker exec influxdb influx -username admin -password simpass -execute "SHOW DATABASES"
     @echo ""
     @echo "── Retention Policies ──"
     @for db in speedtest telegraf; do \
-        echo "  $$db:"; \
-        docker exec rpi-sim-influxdb-1 influx -username admin -password simpass -execute "SHOW RETENTION POLICIES ON $$db" 2>/dev/null | tail -2; \
+        echo "  $db:"; \
+        docker exec influxdb influx -username admin -password simpass -execute "SHOW RETENTION POLICIES ON $db" 2>/dev/null | tail -2; \
         echo ""; \
     done
     @echo "── Data Counts ──"
-    @printf "  Speedtest points: %s\n" "$$(docker exec rpi-sim-influxdb-1 influx -username admin -password simpass -execute 'SELECT COUNT(download_bandwidth) FROM speedtest' -database speedtest 2>/dev/null | tail -1 | awk '{print $$2}')"
-    @printf "  Telegraf cpu (last 1h): %s\n" "$$(docker exec rpi-sim-influxdb-1 influx -username admin -password simpass -execute 'SELECT COUNT(usage_idle) FROM cpu WHERE time > now() - 1h' -database telegraf 2>/dev/null | tail -1 | awk '{print $$2}')"
+    @printf "  Speedtest points: %s\n" "$(docker exec influxdb influx -username admin -password simpass -execute 'SELECT COUNT(download_bandwidth) FROM speedtest' -database speedtest 2>/dev/null | tail -1 | awk '{print $2}')"
+    @printf "  Telegraf cpu (last 1h): %s\n" "$(docker exec influxdb influx -username admin -password simpass -execute 'SELECT COUNT(usage_idle) FROM cpu WHERE time > now() - 1h' -database telegraf 2>/dev/null | tail -1 | awk '{print $2}')"
 
 # Register QEMU user-static (needed once per host reboot)
 sim-binfmt:
