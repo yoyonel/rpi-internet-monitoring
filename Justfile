@@ -198,7 +198,7 @@ cron:
 
 # Lint all source files
 lint:
-    shellcheck scripts/*.sh docker-entrypoint.sh test-stack.sh
+    shellcheck scripts/*.sh sim/*.sh docker-entrypoint.sh test-stack.sh
     hadolint Dockerfile
     yamllint docker-compose.yml .github/workflows/*.yml grafana/provisioning/alerting/alerts.yml .yamllint.yml .hadolint.yaml
     npx prettier --check 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
@@ -282,3 +282,7 @@ sim-stats:
 # Register QEMU user-static (needed once per host reboot)
 sim-binfmt:
     docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
+# Run the sim smoke test suite (25 checks)
+sim-test:
+    ./scripts/test-sim-stack.sh
