@@ -4,19 +4,33 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="refresh" content="660" />
+    <link rel="icon" href="data:," />
+    <meta
+      name="description"
+      content="Tableau de bord temps réel du débit internet via Speedtest Ookla sur Raspberry Pi 4. Download, upload, latence — mis à jour toutes les 10 minutes."
+    />
     <title>Internet Speed Monitor — RPi4</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
+      rel="preload"
       href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap"
-      rel="stylesheet"
+      as="style"
+      onload="
+        this.onload = null;
+        this.rel = 'stylesheet';
+      "
     />
+    <noscript
+      ><link
+        href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap"
+        rel="stylesheet"
+    /></noscript>
     <link rel="stylesheet" href="style.css" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
   </head>
   <body>
     <nav>
@@ -26,7 +40,7 @@
       </div>
     </nav>
 
-    <div class="w">
+    <main class="w">
       <section class="hero">
         <h1>Internet Speed Monitor</h1>
         <p class="sub">Raspberry Pi 4 &mdash; Speedtest Ookla toutes les 10 min</p>
@@ -102,7 +116,7 @@
         </div>
         <canvas id="piChart"></canvas>
       </div>
-    </div>
+    </main>
 
     <footer>
       <p>
@@ -115,6 +129,11 @@
       const RAW_DATA = '__SPEEDTEST_DATA__';
       const ALERTS = '__ALERTS_DATA__';
     </script>
-    <script src="app.js"></script>
+    <script defer src="app.js"></script>
+    <script>
+      setTimeout(function () {
+        location.reload();
+      }, 660000);
+    </script>
   </body>
 </html>

@@ -398,7 +398,31 @@ Le mode band chart est inspiré des boxplots : au lieu de tracer des milliers de
 | [LTTB](https://skemman.is/bitstream/1946/15343/3/SS_MSthesis.pdf)                                                        | Downsampling préservant les pics                   |
 | Float64Array                                                                                                             | Stockage mémoire compact, itération cache-friendly |
 | requestAnimationFrame                                                                                                    | Debounce du rendering                              |
-| Geist / Geist Mono                                                                                                       | Typographie (Google Fonts)                         |
+| Geist / Geist Mono                                                                                                       | Typographie (Google Fonts, async preload)          |
+
+### Performance & Accessibilité
+
+Optimisations appliquées pour maximiser les scores [Lighthouse](https://developer.chrome.com/docs/lighthouse/) :
+
+| Optimisation                                                    | Impact                                           |
+| --------------------------------------------------------------- | ------------------------------------------------ |
+| `defer` sur tous les `<script>` CDN                             | Élimine le render-blocking JS (-1.2 s mobile)    |
+| Preload async des Google Fonts                                  | Élimine le render-blocking CSS font              |
+| Auto-refresh via `setTimeout` (pas `<meta http-equiv=refresh>`) | Accessibilité : pas de refresh inattendu         |
+| `<main>` landmark                                               | Screen readers : navigation structurée           |
+| `<meta name="description">`                                     | SEO : description dans les résultats             |
+| Contrastes WCAG AA (≥ 4.5:1)                                    | `--text2` 7.7:1, `--text3` 5.8:1, `.rb.on` 9.2:1 |
+| Liens distinguables (underline)                                 | Pas de dépendance couleur seule                  |
+| `<link rel="icon" href="data:,">`                               | Supprime l'erreur console 404 favicon            |
+
+**Scores Lighthouse (avril 2026)** :
+
+|                | Mobile | Desktop |
+| -------------- | :----: | :-----: |
+| Performance    | 🟠 ~60 | 🟠 ~80  |
+| Accessibility  | 🟢 100 | 🟢 100  |
+| Best Practices | 🟢 100 | 🟢 100  |
+| SEO            | 🟢 100 | 🟢 100  |
 
 ### Commandes
 

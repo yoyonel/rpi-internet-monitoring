@@ -1,6 +1,11 @@
 name: Lighthouse Audit
 
 on:
+  # Run on PRs that touch the frontend
+  pull_request:
+    paths:
+      - 'gh-pages/**'
+      - '.github/workflows/lighthouse.yml'
   # Run after each gh-pages deploy
   workflow_run:
     workflows: ['Deploy GitHub Pages']
