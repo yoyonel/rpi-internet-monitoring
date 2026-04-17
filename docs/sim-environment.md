@@ -141,6 +141,76 @@ x86-compatible inputs:
 | `sim-stats`        | Show databases, retention policies, data counts           |
 | `sim-binfmt`       | Register QEMU binfmt handlers                             |
 
+## Simulation fidelity vs production RPi
+
+### What is identical
+
+| Aspect                   | Detail                                                                                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Container images**     | Same images, same tags, same ARM64 binaries (InfluxDB 1.8.10, Grafana 12.4.3, Telegraf 1.38.2, Chronograf 1.9.4)                                        |
+| **Compose base file**    | `docker-compose.yml` is shared — service definitions, networks, security options are the same                                                           |
+| **InfluxDB schema**      | Same databases (`telegraf`, `speedtest`), same measurements, same field keys                                                                            |
+| **Telegraf inputs**      | Same set of input plugins (cpu, mem, disk, diskio, swap, system, net, kernel, processes, netstat, interrupts, linux_sysctl_fs, docker, cpu_temperature) |
+| **Telegraf output**      | Same InfluxDB output config (database, retention policy, auth)                                                                                          |
+| **Grafana dashboards**   | Same JSON files, same datasource UIDs, same queries                                                                                                     |
+| **Grafana provisioning** | Same datasource and dashboard provider config                                                                                                           |
+| **Speedtest pipeline**   | Same Dockerfile, same `docker-entrypoint.sh`, same InfluxDB write format                                                                                |
+| **Security posture**     | Same `cap_drop: ALL`, `no-new-privileges`, `read_only` (telegraf), socket-proxy pattern                                                                 |
+| **Docker networking**    | Same bridge network, same service names, same inter-container DNS                                                                                       |
+
+### What differs
+
+| Aspect                         | Simulation (x86 + QEMU)                                  | Production (RPi4 native)                             | Impact                                                     |
+| ------------------------------ | -------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------- |
+| **CPU architecture execution** | ARM64 user-mode emulated via QEMU (~10× slower)          | Native ARM Cortex-A72                                | Startup times and query latency are not representative     |
+| **CPU temperature sensor**     | `/sys/class/thermal/thermal_zone0` (x86 CPU)             | BCM2711 thermal sensor (same sysfs path on RPi OS)   | Measurement name identical, values differ (x86 vs ARM SoC) |
+| **Network interfaces**         | Wildcard (auto-detect: `docker0`, `eth0`, `veth*`, etc.) | Hardcoded `eth0` + `wlan0`                           | Sim collects more interfaces; field names identical        |
+| **Hostname**                   | `rpi-sim`                                                | Real RPi hostname (`rpi-latty`)                      | Queries using `WHERE host = 'xxx'` need adaptation         |
+| **Memory limits**              | Docker `mem_limit` constraints                           | Physical 4 GB RAM                                    | Behavior under OOM may differ (Docker OOM-kill vs kernel)  |
+| **Disk I/O**                   | Host SSD/NVMe (fast, even emulated)                      | microSD or USB SSD (slower, wear leveling)           | I/O latency and throughput not representative              |
+| **Speedtest results**          | Host network (fibre/cable, low latency)                  | RPi network (Ethernet or WiFi, different throughput) | Bandwidth and latency values differ from real ISP metrics  |
+| **Swap**                       | Host swap (may be large or absent)                       | RPi swap (typically 100 MB dphys-swapfile)           | Swap usage patterns differ                                 |
+| **Docker metrics**             | Emulated containers (QEMU overhead in all stats)         | Native containers                                    | CPU/memory per container inflated by emulation overhead    |
+| **Global tag**                 | `env = "sim"` (in telegraf-sim.conf)                     | No env tag (production telegraf.conf)                | Easy to distinguish in InfluxDB queries                    |
+| **InfluxDB capabilities**      | `cap_add` for CHOWN/DAC_OVERRIDE/etc.                    | `cap_drop: ALL` only                                 | Sim is slightly more permissive (required for QEMU init)   |
+| **Credentials**                | Hardcoded `simpass` in `.env.sim`                        | Real secrets in production `.env` (not in repo)      | No security concern — sim is local-only                    |
+| **systemd timers**             | Not present (speedtest triggered manually)               | `speedtest.timer` + `publish-gh-pages.timer`         | Scheduling pipeline not tested in sim                      |
+| **InfluxDB `_internal` DB**    | Disabled (`INFLUXDB_MONITOR_STORE_ENABLED: false`)       | Enabled by default                                   | No monitoring overhead data in sim                         |
+
+### What you can rely on
+
+**High confidence** — the simulation is a reliable proxy for:
+
+- **Grafana dashboard development**: datasources, queries, panel layout, alerting rules — all identical. What renders in sim renders the same in production.
+- **InfluxDB schema validation**: databases, measurements, field keys, retention policies — same data model.
+- **Compose / container orchestration**: service dependencies, healthchecks, volume mounts, network topology — all exercised.
+- **Telegraf plugin configuration**: same input/output plugins, same collection interval, same data format.
+- **Speedtest data pipeline**: same Dockerfile, same entrypoint, same InfluxDB write path. Only the measured values differ.
+- **Security configuration**: same security options and capability drops. The `cap_add` overrides in sim are an exception, documented above.
+- **Provisioning-as-code workflow**: if dashboards and datasources provision correctly in sim, they will in production.
+
+**Low confidence** — do not trust the simulation for:
+
+- **Performance benchmarking**: QEMU adds ~10× overhead. CPU, memory, I/O metrics reflect the x86 host + emulation, not RPi4 hardware.
+- **Capacity planning**: memory pressure, OOM behavior, swap usage are all distorted by the emulation layer and Docker memory limits.
+- **Real network monitoring**: speedtest results measure the dev machine's connection, not the RPi's ISP link.
+- **Disk wear / reliability**: host SSD ≠ RPi microSD. I/O patterns and failure modes are fundamentally different.
+- **Temperature monitoring**: x86 thermal_zone0 values have no relation to BCM2711 temperatures.
+- **Scheduling / cron**: systemd timers are not part of the sim stack. The periodic speedtest + gh-pages publish cadence is untested.
+
+### Summary
+
+The simulation is a **functional test environment**, not a **performance
+replica**. It validates that all components wire together correctly,
+dashboards render with real data, and the provisioning pipeline works
+end-to-end. It does _not_ replicate RPi4 hardware characteristics
+(CPU speed, thermal behavior, SD card I/O, WiFi stability).
+
+Rule of thumb: if it works in sim, the _configuration_ is correct. If
+it doesn't work on the RPi, look at _hardware-specific_ factors (SD card
+corruption, thermal throttling, network driver issues, kernel
+differences).
+
 ## Troubleshooting
 
 ### InfluxDB fails to start (permission denied)
