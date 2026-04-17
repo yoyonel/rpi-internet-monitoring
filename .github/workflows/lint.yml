@@ -24,10 +24,10 @@ jobs:
           sudo chmod +x /usr/local/bin/shfmt
 
       - name: shellcheck
-        run: shellcheck scripts/*.sh docker-entrypoint.sh test-stack.sh
+        run: shellcheck scripts/*.sh sim/*.sh docker-entrypoint.sh test-stack.sh
 
       - name: shfmt
-        run: shfmt -d -i 4 -ci scripts/*.sh docker-entrypoint.sh test-stack.sh
+        run: shfmt -d -i 4 -ci scripts/*.sh sim/*.sh docker-entrypoint.sh test-stack.sh
 
       - name: hadolint
         run: hadolint Dockerfile

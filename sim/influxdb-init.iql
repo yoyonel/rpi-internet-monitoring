@@ -1,0 +1,6 @@
+-- InfluxDB init script — runs once on first container boot (empty volume).
+-- Creates both databases and grants the non-admin user full access.
+CREATE DATABASE telegraf
+CREATE DATABASE speedtest
+GRANT ALL ON telegraf TO "telegraf"
+GRANT ALL ON speedtest TO "telegraf"

@@ -1,0 +1,68 @@
+name: Sim Stack E2E — Nightly
+
+on:
+  schedule:
+    # Every night at 03:30 UTC (offset from e2e-nightly at 03:00)
+    - cron: '30 3 * * *'
+  workflow_dispatch: # Manual trigger for PR validation
+
+jobs:
+  sim-e2e:
+    name: Sim stack smoke tests (ARM64 / QEMU)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Register QEMU binfmt handlers
+        run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
+      - name: Build and start sim stack
+        run: |
+          docker compose \
+            -f docker-compose.yml \
+            -f sim/docker-compose.sim.yml \
+            --env-file sim/.env.sim \
+            -p rpi-sim \
+            up -d --build
+
+      - name: Wait for InfluxDB healthy
+        run: |
+          echo "Waiting for InfluxDB healthy (QEMU ~2-3 min)..."
+          timeout 180 bash -c '
+            until docker inspect influxdb \
+              --format "{{.State.Health.Status}}" 2>/dev/null \
+              | grep -q healthy; do
+              sleep 5
+            done
+          '
+          echo "InfluxDB healthy."
+
+      - name: Wait for Telegraf data
+        run: |
+          echo "Waiting for Telegraf to collect data (~90s under QEMU)..."
+          sleep 90
+
+      - name: Run sim smoke tests
+        run: ./scripts/test-sim-stack.sh
+
+      - name: Collect logs on failure
+        if: failure()
+        run: |
+          {
+            docker compose -p rpi-sim logs --no-color 2>&1
+            echo "──────────────────────────────────────"
+            docker compose -p rpi-sim ps --all 2>&1
+          } > sim-logs.txt
+
+      - name: Upload logs artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sim-e2e-logs
+          path: sim-logs.txt
+          retention-days: 7
+
+      - name: Teardown
+        if: always()
+        run: docker compose -p rpi-sim down -v

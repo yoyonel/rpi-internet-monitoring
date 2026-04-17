@@ -1,0 +1,115 @@
+# docker-compose.sim.yml — RPi4 ARM64 simulation on x86 host
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f sim/docker-compose.sim.yml up -d
+#
+# What this does:
+#   - Forces linux/arm64 platform on all services (QEMU user-mode emulation)
+#   - Swaps Telegraf config for x86-compatible version
+#   - Adds memory limits matching RPi4 constraints (4 Go total budget)
+#   - Uses separate project name & volumes to avoid conflicts with production
+#   - Exposes InfluxDB port for external tooling (CQ migration, etc.)
+
+services:
+  grafana:
+    platform: linux/arm64
+    mem_limit: 512m
+    memswap_limit: 768m
+
+  influxdb:
+    platform: linux/arm64
+    mem_limit: 1g
+    memswap_limit: 1536m
+    # InfluxDB 1.8 entrypoint needs these caps to init data dir (chown/mkdir)
+    # They are dropped by cap_drop: ALL in the base compose
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETUID
+      - SETGID
+      - FOWNER
+    # QEMU emulation is ~10x slower — increase healthcheck timeouts
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          influx
+          -username "$INFLUXDB_ADMIN_USER"
+          -password "$INFLUXDB_ADMIN_PASSWORD"
+          -execute 'SHOW DATABASES'
+          >/dev/null 2>&1 || exit 1
+      interval: 30s
+      timeout: 30s
+      retries: 10
+      start_period: 120s
+    # Expose InfluxDB for external access (CQ migration from laptop, etc.)
+    ports:
+      - '127.0.0.1:8086:8086'
+    volumes:
+      # Init script creates databases + grants on first boot (empty volume)
+      - ./sim/influxdb-init.iql:/docker-entrypoint-initdb.d/init.iql:ro
+    environment:
+      # R4: disable _internal for RPi simulation
+      INFLUXDB_MONITOR_STORE_ENABLED: 'false'
+
+  chronograf:
+    platform: linux/arm64
+    mem_limit: 256m
+    memswap_limit: 384m
+
+  docker-socket-proxy:
+    platform: linux/arm64
+    mem_limit: 64m
+    memswap_limit: 64m
+
+  telegraf:
+    platform: linux/arm64
+    mem_limit: 256m
+    memswap_limit: 384m
+    hostname: rpi-sim
+    volumes:
+      - ./sim/telegraf-sim.conf:/etc/telegraf/telegraf.conf:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/utmp:/var/run/utmp:ro
+
+  speedtest:
+    platform: linux/arm64
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    environment:
+      INFLUXDB_USER: ${INFLUXDB_ADMIN_USER:-admin}
+      INFLUXDB_USER_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD}
+
+  # Periodic speedtest — replaces the systemd timer from production.
+  # Runs every SPEEDTEST_INTERVAL seconds (default 600 = 10 min).
+  speedtest-cron:
+    container_name: speedtest-cron
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    platform: linux/arm64
+    mem_limit: 256m
+    memswap_limit: 384m
+    environment:
+      INFLUXDB_USER: ${INFLUXDB_ADMIN_USER:-admin}
+      INFLUXDB_USER_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD}
+      SPEEDTEST_INTERVAL: '600'
+    networks:
+      - speedtest
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    volumes:
+      - ./sim/speedtest-loop.sh:/usr/local/bin/speedtest-loop.sh:ro
+    entrypoint: ['/bin/bash', '/usr/local/bin/speedtest-loop.sh']
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL

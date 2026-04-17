@@ -1,0 +1,420 @@
+{
+  "uid": "system-metrics-dashboard",
+  "title": "System Metrics",
+  "tags": ["system", "telegraf", "rpi"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Uptime",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 3600 },
+              { "color": "green", "value": 86400 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SELECT last(\"uptime\") FROM \"system\" WHERE $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "CPU Cores",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+      "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SELECT last(\"n_cpus\") FROM \"system\" WHERE $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 3,
+      "type": "gauge",
+      "title": "CPU Usage",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "orange", "value": 80 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SELECT 100 - last(\"usage_idle\") AS \"cpu_usage\" FROM \"cpu\" WHERE \"cpu\" = 'cpu-total' AND $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "gauge",
+      "title": "Memory Usage",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "orange", "value": 80 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SELECT last(\"used_percent\") FROM \"mem\" WHERE $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 5,
+      "type": "gauge",
+      "title": "Disk Usage /",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "orange", "value": 85 },
+              { "color": "red", "value": 95 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SELECT last(\"used_percent\") FROM \"disk\" WHERE \"path\" = '/' AND $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 6,
+      "type": "gauge",
+      "title": "CPU Temperature",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "orange", "value": 70 },
+              { "color": "red", "value": 80 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SELECT last(\"value\") / 1000 AS \"temp\" FROM \"cpu_temperature\" WHERE $timeFilter",
+          "rawQuery": true,
+          "resultFormat": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "CPU Usage %",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "fillOpacity": 20, "lineWidth": 1 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SELECT mean(\"usage_user\") AS \"user\", mean(\"usage_system\") AS \"system\", mean(\"usage_iowait\") AS \"iowait\", mean(\"usage_irq\") + mean(\"usage_softirq\") AS \"irq\" FROM \"cpu\" WHERE \"cpu\" = 'cpu-total' AND $timeFilter GROUP BY time($__interval) fill(none)",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "System Load",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": { "fillOpacity": 10, "lineWidth": 2 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SELECT mean(\"load1\") AS \"1m\", mean(\"load5\") AS \"5m\", mean(\"load15\") AS \"15m\" FROM \"system\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Memory",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "fillOpacity": 30, "lineWidth": 1, "stacking": { "mode": "normal" } }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "available" },
+            "properties": [{ "id": "custom.fillOpacity", "value": 5 }, { "id": "custom.stacking", "value": { "mode": "none" } }, { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } }]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SELECT mean(\"used\") AS \"used\", mean(\"cached\") AS \"cached\", mean(\"buffered\") AS \"buffered\", mean(\"available\") AS \"available\" FROM \"mem\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Swap",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "fillOpacity": 20, "lineWidth": 1 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SELECT mean(\"used\") AS \"used\", mean(\"free\") AS \"free\" FROM \"swap\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Disk I/O (bytes/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": { "fillOpacity": 15, "lineWidth": 1 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SELECT non_negative_derivative(mean(\"read_bytes\"), 1s) AS \"read\", non_negative_derivative(mean(\"write_bytes\"), 1s) AS \"write\" FROM \"diskio\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Network Traffic (bytes/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": { "fillOpacity": 15, "lineWidth": 1 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SELECT non_negative_derivative(mean(\"bytes_recv\"), 1s) AS \"rx\", non_negative_derivative(mean(\"bytes_sent\"), 1s) AS \"tx\" FROM \"net\" WHERE \"interface\" != 'lo' AND $timeFilter GROUP BY time($__interval) fill(none)",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 40,
+      "type": "timeseries",
+      "title": "CPU Temperature",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": { "fillOpacity": 10, "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "orange", "value": 70 },
+              { "color": "red", "value": 80 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SELECT mean(\"value\") / 1000 AS \"temperature\" FROM \"cpu_temperature\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 41,
+      "type": "timeseries",
+      "title": "Disk Usage %",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "fillOpacity": 10, "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "orange", "value": 85 },
+              { "color": "red", "value": 95 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "2QPKy_O4k", "type": "influxdb" },
+          "query": "SELECT mean(\"used_percent\") FROM \"disk\" WHERE $timeFilter GROUP BY time($__interval), \"path\" fill(none)",
+          "rawQuery": true,
+          "resultFormat": "time_series"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}

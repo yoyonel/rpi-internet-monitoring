@@ -1,5 +1,11 @@
 # Monitoring Débit Internet — RPi4
 
+[![Lint](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/lint.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/lint.yml)
+[![E2E Nightly — Production](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-nightly.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-nightly.yml)
+[![Sim Stack E2E — Nightly](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/sim-e2e-nightly.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/sim-e2e-nightly.yml)
+[![Deploy GitHub Pages](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/deploy-gh-pages.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/deploy-gh-pages.yml)
+[![GitHub Pages](https://img.shields.io/website?url=https%3A%2F%2Fyoyonel.github.io%2Frpi-internet-monitoring%2F&label=GitHub%20Pages)](https://yoyonel.github.io/rpi-internet-monitoring/)
+
 Stack Docker pour monitorer le débit internet (download, upload, ping) via [Ookla Speedtest CLI](https://www.speedtest.net/apps/cli), avec stockage dans InfluxDB et visualisation dans Grafana.
 
 ## Architecture
@@ -110,6 +116,7 @@ just install-timers
 | `just test`      | **oui**    | Suite de régression complète (17 checks)                |
 | `just check`     | **oui**    | Health check rapide des 4 services                      |
 | `just e2e [url]` | non        | Tests E2E Playwright contre une preview (défaut: :8080) |
+| `just sim-test`  | non        | Smoke tests de la stack sim (25 checks)                 |
 | `just lint`      | non        | Vérifier le formatage et le linting de tous les sources |
 | `just fmt`       | non        | Auto-formater tous les fichiers sources                 |
 
@@ -132,6 +139,26 @@ just install-timers
 | `just timer-status`     | État des timers + logs récents                          |
 
 Les timers remplacent le crontab : la configuration est versionnée dans `systemd/`, installée via `just install-timers`, et visible via `systemctl --user list-timers`. Logs consultables avec `journalctl --user -u speedtest` / `-u publish-gh-pages`.
+
+### Simulation RPi4 (ARM64 sur x86)
+
+Stack de simulation locale : tous les containers tournent en ARM64 via QEMU, reproduisant l'architecture du RPi4 de production. Voir [docs/sim-environment.md](docs/sim-environment.md) pour le détail complet.
+
+| Commande             | Description                                         |
+| -------------------- | --------------------------------------------------- |
+| `just sim-binfmt`    | Enregistrer les handlers QEMU (1× par reboot)       |
+| `just sim-up`        | Démarrer la stack sim complète                      |
+| `just sim-stop`      | Arrêter (préserve l'état)                           |
+| `just sim-down`      | Supprimer les containers (préserve les volumes)     |
+| `just sim-nuke`      | Supprimer containers **et** volumes (⚠️ destructif) |
+| `just sim-status`    | État des containers + health checks                 |
+| `just sim-logs`      | Dernières 50 lignes de logs                         |
+| `just sim-build`     | Build l'image speedtest pour ARM64                  |
+| `just sim-speedtest` | Lancer un speedtest manuellement                    |
+| `just sim-test`      | Suite de smoke tests (25 checks)                    |
+| `just sim-stats`     | Bases de données, rétention, compteurs              |
+
+Grafana : <http://localhost:3000> (admin / simpass) — Chronograf : <http://localhost:8888>
 
 ### Utilitaires
 
@@ -316,6 +343,10 @@ just fmt       # Auto-formater tous les fichiers
 | ruff       | Python (lint + format)              |
 
 La CI exécute `just lint` sur chaque push et PR via `.github/workflows/lint.yml`.
+
+#### Sim Stack — Nightly E2E
+
+Un workflow dédié (`.github/workflows/sim-e2e-nightly.yml`) démarre la stack ARM64 complète sur un runner Ubuntu chaque nuit (03:30 UTC) et exécute les 25 smoke tests. Déclenchable manuellement via l'onglet **Actions** → **Sim Stack E2E — Nightly** → **Run workflow** pour valider une PR.
 
 ## GitHub Pages — Vue externe
 
