@@ -19,6 +19,15 @@ for arg in "$@"; do
     esac
 done
 
+# ── 0. Sync local repo ───────────────────────────────────
+echo "── Syncing local repo with origin/master ──"
+if git -C "$SCRIPT_DIR" pull --ff-only origin master 2>&1; then
+    echo "  → Repo updated"
+else
+    echo "  ⚠ WARNING: git pull failed — continuing with local version"
+fi
+echo ""
+
 NOW=$(date -Iseconds)
 REPO_URL=$(git -C "$SCRIPT_DIR" remote get-url origin 2>/dev/null || echo "https://github.com/yoyonel/rpi-internet-monitoring.git")
 
