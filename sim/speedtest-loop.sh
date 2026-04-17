@@ -6,6 +6,11 @@ set -euo pipefail
 
 interval="${SPEEDTEST_INTERVAL:-600}"
 
+# Trap SIGTERM so docker stop doesn't wait for the full stop timeout.
+# Kill the sleep process (if running) and exit cleanly.
+sleep_pid=
+trap 'echo "[$(date -Iseconds)] Shutting down"; [[ -n "$sleep_pid" ]] && kill "$sleep_pid" 2>/dev/null; exit 0' SIGTERM SIGINT
+
 echo "Speedtest cron started (interval: ${interval}s)"
 
 while true; do
@@ -15,5 +20,8 @@ while true; do
         echo "[$(date -Iseconds)] OK" ||
         echo "[$(date -Iseconds)] Failed (exit $?)"
     echo "[$(date -Iseconds)] Next run in ${interval}s"
-    sleep "$interval"
+    sleep "$interval" &
+    sleep_pid=$!
+    wait "$sleep_pid" || true
+    sleep_pid=
 done
