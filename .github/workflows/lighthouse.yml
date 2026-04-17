@@ -34,10 +34,30 @@ jobs:
       - name: Install Lighthouse
         run: npm install -g lighthouse
 
+      - name: Determine target URL
+        id: url
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            PR="${{ github.event.pull_request.number }}"
+            URL="https://yoyonel-rpi-internet-monitoring-deploy-and-test-pr-${PR}.surge.sh/"
+            echo "Waiting for Surge preview at $URL ..."
+            for i in $(seq 1 30); do
+              if curl -sf --max-time 5 "$URL" -o /dev/null; then
+                echo "Preview is live!"
+                break
+              fi
+              echo "  Attempt $i/30 — not ready yet"
+              sleep 10
+            done
+          else
+            URL="https://yoyonel.github.io/rpi-internet-monitoring/"
+          fi
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+
       - name: Run Lighthouse (${{ matrix.preset }})
         run: |
           set -euo pipefail
-          URL="https://yoyonel.github.io/rpi-internet-monitoring/"
+          URL="${{ steps.url.outputs.url }}"
           ARGS=(
             "$URL"
             --output html --output json
@@ -72,6 +92,8 @@ jobs:
           badge() { if (( $1 >= 90 )); then echo "🟢"; elif (( $1 >= 50 )); then echo "🟠"; else echo "🔴"; fi; }
           {
             echo "## Lighthouse — ${{ matrix.preset }}"
+            echo ""
+            echo "> Audited: \`${{ steps.url.outputs.url }}\`"
             echo ""
             echo "| Category | Score |"
             echo "|----------|------:|"
