@@ -14,6 +14,9 @@ Arguments:
 
 import sys
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+TZ = ZoneInfo("Europe/Paris")
 
 
 def main():
@@ -37,8 +40,8 @@ def main():
     with open(alerts_path) as f:
         alerts = f.read().strip()
 
-    now = datetime.now().strftime("%d/%m/%Y %H:%M")
-    gen = datetime.now().strftime("%d/%m/%Y à %H:%M:%S")
+    now = datetime.now(tz=TZ).strftime("%d/%m/%Y %H:%M")
+    gen = datetime.now(tz=TZ).strftime("%d/%m/%Y à %H:%M:%S")
     if suffix:
         gen = f"{gen} {suffix}"
 
