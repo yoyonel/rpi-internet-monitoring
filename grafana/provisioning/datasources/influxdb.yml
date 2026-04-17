@@ -1,0 +1,26 @@
+apiVersion: 1
+
+datasources:
+  - name: InfluxDB
+    type: influxdb
+    uid: 2QPKy_O4k
+    access: proxy
+    url: http://influxdb:8086
+    database: telegraf
+    user: ${INFLUXDB_USER}
+    secureJsonData:
+      password: ${INFLUXDB_USER_PASSWORD}
+    isDefault: true
+    editable: false
+
+  - name: InfluxDB-Speedtest
+    type: influxdb
+    uid: influxdb-speedtest
+    access: proxy
+    url: http://influxdb:8086
+    database: speedtest
+    user: ${INFLUXDB_USER}
+    secureJsonData:
+      password: ${INFLUXDB_USER_PASSWORD}
+    isDefault: false
+    editable: false
