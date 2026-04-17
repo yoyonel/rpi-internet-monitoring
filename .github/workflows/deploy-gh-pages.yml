@@ -5,6 +5,9 @@ on:
     branches: [master]
     paths:
       - 'gh-pages/**'
+      - 'scripts/render-template.py'
+      - 'scripts/extract-live-data.py'
+  workflow_dispatch: # Manual trigger
 
 permissions:
   contents: read
