@@ -1,173 +1,216 @@
 import { test, expect } from '@playwright/test';
 
-// Collect all JS console errors during each test
-let consoleErrors;
-test.beforeEach(async ({ page }) => {
-  consoleErrors = [];
-  page.on('pageerror', (err) => consoleErrors.push(err.message));
-  await page.goto('/');
-});
+const BASE = (process.env.E2E_BASE_URL || 'http://localhost:8080').replace(/\/+$/, '') + '/';
 
-// ── 1. Page loads without JS errors ─────────────────────────
-test('no JavaScript errors in console', async () => {
-  expect(consoleErrors).toEqual([]);
-});
+/**
+ * Wait until the app has finished rendering (stats cards + charts).
+ * Uses a generous timeout to survive slow networks (GH Pages CDN).
+ */
+async function waitForAppReady(page) {
+  await page.waitForFunction(
+    () =>
+      document.querySelector('#statsRow .stat .v')?.textContent?.trim() &&
+      (Chart.getChart('bwChart')?.data?.datasets?.[0]?.data?.length ?? 0) > 0,
+    { timeout: 25_000 },
+  );
+}
 
-// ── 2. Data is parsed and stats are rendered ────────────────
-test('stats cards display values', async ({ page }) => {
-  const statsRow = page.locator('#statsRow');
+/**
+ * Navigate to the app and wait for full hydration.
+ * Uses 'commit' navigation (faster first paint) + explicit JS readiness wait.
+ */
+async function gotoAndWait(page) {
+  await page.goto(BASE, { waitUntil: 'commit' });
+  await waitForAppReady(page);
+}
 
-  // 3 stat cards: Download, Upload, Ping
-  const cards = statsRow.locator('.stat');
-  await expect(cards).toHaveCount(3);
+// ═════════════════════════════════════════════════════════════
+// Read-only checks — share a SINGLE page load (biggest speed win)
+// ═════════════════════════════════════════════════════════════
+test.describe('read-only checks', () => {
+  test.describe.configure({ mode: 'serial' });
 
-  // Each card has a non-empty headline value
-  for (const card of await cards.all()) {
-    const val = card.locator('.v');
-    await expect(val).not.toBeEmpty();
-    // Value should contain a number (e.g. "145.3 Mbps" or "12.5 ms")
-    await expect(val).toHaveText(/\d/);
-  }
-});
+  /** @type {import('@playwright/test').Page} */
+  let page;
+  const consoleErrors = [];
 
-// ── 3. Charts are rendered with data ────────────────────────
-test('bandwidth chart has data', async ({ page }) => {
-  const dataLen = await page.evaluate(() => {
-    const chart = Chart.getChart('bwChart');
-    return chart?.data?.datasets?.[0]?.data?.length ?? 0;
+  test.beforeAll(async ({ browser }) => {
+    page = await browser.newPage();
+    page.on('pageerror', (err) => consoleErrors.push(err.message));
+    await gotoAndWait(page);
   });
-  expect(dataLen).toBeGreaterThan(0);
-});
 
-test('ping chart has data', async ({ page }) => {
-  const dataLen = await page.evaluate(() => {
-    const chart = Chart.getChart('piChart');
-    return chart?.data?.datasets?.[0]?.data?.length ?? 0;
+  test.afterAll(async () => {
+    await page?.close();
   });
-  expect(dataLen).toBeGreaterThan(0);
-});
 
-// ── 4. Alerts section is populated ──────────────────────────
-test('alerts are displayed', async ({ page }) => {
-  const alertsSec = page.locator('#alertsSec');
-  // Section should be visible (not display:none) when alerts exist
-  await expect(alertsSec).toBeVisible();
-
-  const rows = alertsSec.locator('.al-row');
-  const count = await rows.count();
-  expect(count).toBeGreaterThan(0);
-
-  // Each alert row has a name and a badge
-  for (const row of await rows.all()) {
-    await expect(row.locator('.al-name')).not.toBeEmpty();
-    await expect(row.locator('.al-badge')).not.toBeEmpty();
-  }
-});
-
-// ── 5. Time range buttons work ──────────────────────────────
-test('time range buttons update the view', async ({ page }) => {
-  const rangeLabel = page.locator('#rangeLabel');
-  const initialText = await rangeLabel.textContent();
-
-  // Click "6h" — guaranteed to differ from default 48h range
-  await page.click('.rb[data-hours="6"]');
-
-  // Wait for the range label to change (rendering uses requestAnimationFrame)
-  await expect(rangeLabel).not.toHaveText(initialText, { timeout: 5000 });
-});
-
-// ── 6. No template placeholders left ────────────────────────
-test('no unreplaced template placeholders', async ({ page }) => {
-  const html = await page.content();
-  for (const token of [
-    '__SPEEDTEST_DATA__',
-    '__ALERTS_DATA__',
-    '__LAST_UPDATE__',
-    '__GENERATED_AT__',
-  ]) {
-    expect(html).not.toContain(token);
-  }
-});
-
-// ── 7. Data point count is reasonable ───────────────────────
-test('data contains a reasonable number of points', async ({ page }) => {
-  const count = await page.evaluate(() => {
-    return RAW_DATA?.results?.[0]?.series?.[0]?.values?.length ?? 0;
+  // ── 1. Page loads without JS errors ─────────────────────────
+  test('no JavaScript errors in console', async () => {
+    expect(consoleErrors).toEqual([]);
   });
-  // Expect at least 100 data points (10 min intervals × 24h = 144/day)
-  expect(count).toBeGreaterThan(100);
-});
 
-// ── 8. Drag-to-zoom plugin is loaded and configured ─────────
-test('drag-to-zoom plugin is configured on charts', async ({ page }) => {
-  const config = await page.evaluate(() => {
-    const bw = Chart.getChart('bwChart');
-    const pi = Chart.getChart('piChart');
-    return {
-      bwDrag: bw?.options?.plugins?.zoom?.zoom?.drag?.enabled,
-      piDrag: pi?.options?.plugins?.zoom?.zoom?.drag?.enabled,
-      bwMode: bw?.options?.plugins?.zoom?.zoom?.mode,
-      piMode: pi?.options?.plugins?.zoom?.zoom?.mode,
-      hasZoomFn: typeof bw?.zoom === 'function',
-      hasResetFn: typeof bw?.resetZoom === 'function',
-    };
+  // ── 2. Data is parsed and stats are rendered ────────────────
+  test('stats cards display values', async () => {
+    const cards = page.locator('#statsRow .stat');
+    await expect(cards).toHaveCount(3);
+
+    for (const card of await cards.all()) {
+      const val = card.locator('.v');
+      await expect(val).not.toBeEmpty();
+      await expect(val).toHaveText(/\d/);
+    }
   });
-  expect(config.bwDrag).toBe(true);
-  expect(config.piDrag).toBe(true);
-  expect(config.bwMode).toBe('x');
-  expect(config.piMode).toBe('x');
-  expect(config.hasZoomFn).toBe(true);
-  expect(config.hasResetFn).toBe(true);
+
+  // ── 3. Charts are rendered with data ────────────────────────
+  test('bandwidth chart has data', async () => {
+    const dataLen = await page.evaluate(() => {
+      const chart = Chart.getChart('bwChart');
+      return chart?.data?.datasets?.[0]?.data?.length ?? 0;
+    });
+    expect(dataLen).toBeGreaterThan(0);
+  });
+
+  test('ping chart has data', async () => {
+    const dataLen = await page.evaluate(() => {
+      const chart = Chart.getChart('piChart');
+      return chart?.data?.datasets?.[0]?.data?.length ?? 0;
+    });
+    expect(dataLen).toBeGreaterThan(0);
+  });
+
+  // ── 4. Alerts section is populated ──────────────────────────
+  test('alerts are displayed', async () => {
+    const alertsSec = page.locator('#alertsSec');
+    await expect(alertsSec).toBeVisible();
+
+    const rows = alertsSec.locator('.al-row');
+    expect(await rows.count()).toBeGreaterThan(0);
+
+    for (const row of await rows.all()) {
+      await expect(row.locator('.al-name')).not.toBeEmpty();
+      await expect(row.locator('.al-badge')).not.toBeEmpty();
+    }
+  });
+
+  // ── 5. No template placeholders left ────────────────────────
+  test('no unreplaced template placeholders', async () => {
+    const html = await page.content();
+    for (const token of [
+      '__SPEEDTEST_DATA__',
+      '__ALERTS_DATA__',
+      '__LAST_UPDATE__',
+      '__GENERATED_AT__',
+    ]) {
+      expect(html).not.toContain(token);
+    }
+  });
+
+  // ── 6. Data point count is reasonable ───────────────────────
+  test('data contains a reasonable number of points', async () => {
+    const count = await page.evaluate(() => {
+      return RAW_DATA?.results?.[0]?.series?.[0]?.values?.length ?? 0;
+    });
+    expect(count).toBeGreaterThan(100);
+  });
+
+  // ── 7. Drag-to-zoom plugin is loaded and configured ─────────
+  test('drag-to-zoom plugin is configured on charts', async () => {
+    const config = await page.evaluate(() => {
+      const bw = Chart.getChart('bwChart');
+      const pi = Chart.getChart('piChart');
+      return {
+        bwDrag: bw?.options?.plugins?.zoom?.zoom?.drag?.enabled,
+        piDrag: pi?.options?.plugins?.zoom?.zoom?.drag?.enabled,
+        bwMode: bw?.options?.plugins?.zoom?.zoom?.mode,
+        piMode: pi?.options?.plugins?.zoom?.zoom?.mode,
+        hasZoomFn: typeof bw?.zoom === 'function',
+        hasResetFn: typeof bw?.resetZoom === 'function',
+      };
+    });
+    expect(config.bwDrag).toBe(true);
+    expect(config.piDrag).toBe(true);
+    expect(config.bwMode).toBe('x');
+    expect(config.piMode).toBe('x');
+    expect(config.hasZoomFn).toBe(true);
+    expect(config.hasResetFn).toBe(true);
+  });
+
+  // ── 8. Capture screenshot for PR comment ───────────────────
+  test('capture preview screenshot', async () => {
+    // Wait for Chart.js animations to settle (default 1s)
+    await page.waitForFunction(
+      () => !Chart.getChart('bwChart')?.animating && !Chart.getChart('piChart')?.animating,
+      { timeout: 5_000 },
+    );
+    await page.screenshot({
+      path: 'test-results/preview.png',
+      fullPage: true,
+    });
+  });
 });
 
-// ── 9. Double-click on chart resets to default 48 h view ────
-test('double-click on chart resets to live view', async ({ page }) => {
-  // Switch to 6h to change the current range
-  await page.click('.rb[data-hours="6"]');
-  await expect(page.locator('.rb[data-hours="6"]')).toHaveClass(/on/);
+// ═════════════════════════════════════════════════════════════
+// Interactive tests — share a second page, run in serial order
+// ═════════════════════════════════════════════════════════════
+test.describe('interactive', () => {
+  test.describe.configure({ mode: 'serial' });
 
-  // Double-click on bandwidth chart to reset
-  await page.locator('#bwChart').dblclick();
+  /** @type {import('@playwright/test').Page} */
+  let page;
 
-  // The "2j" (48h) button should be active again
-  await expect(page.locator('.rb[data-hours="48"]')).toHaveClass(/on/, { timeout: 5000 });
-});
+  test.beforeAll(async ({ browser }) => {
+    page = await browser.newPage();
+    await gotoAndWait(page);
+  });
 
-// ── 10. Time range picker opens and has content ─────────────
-test('time range picker opens with calendar and presets', async ({ page }) => {
-  const picker = page.locator('#trPicker');
-  await expect(picker).toBeHidden();
+  test.afterAll(async () => {
+    await page?.close();
+  });
 
-  // Click the range label button to open
-  await page.click('#rangeLabelBtn');
-  await expect(picker).toBeVisible();
+  // ── 9. Time range buttons work ──────────────────────────────
+  test('time range buttons update the view', async () => {
+    const rangeLabel = page.locator('#rangeLabel');
+    const initialText = await rangeLabel.textContent();
 
-  // Calendar is rendered with day buttons
-  const calDays = picker.locator('.tr-cal td button');
-  expect(await calDays.count()).toBeGreaterThan(20);
+    await page.locator('.rb[data-hours="6"]').click();
+    await expect(rangeLabel).not.toHaveText(initialText);
+  });
 
-  // Relative presets are rendered
-  const relBtns = picker.locator('.tr-rel button');
-  expect(await relBtns.count()).toBeGreaterThanOrEqual(10);
+  // ── 10. Double-click on chart resets to default 48 h view ────
+  test('double-click on chart resets to live view', async () => {
+    // Ensure we're on 6h (may already be from previous test)
+    await page.locator('.rb[data-hours="6"]').click();
+    await expect(page.locator('.rb[data-hours="6"]')).toHaveClass(/on/);
 
-  // Absolute inputs exist
-  await expect(page.locator('#trFrom')).toBeVisible();
-  await expect(page.locator('#trTo')).toBeVisible();
+    await page.locator('#bwChart').dblclick();
+    await expect(page.locator('.rb[data-hours="48"]')).toHaveClass(/on/);
+  });
 
-  // Selecting a relative preset closes the picker and updates the view
-  const rangeLabel = page.locator('#rangeLabel');
-  const initialText = await rangeLabel.textContent();
-  await relBtns.filter({ hasText: '6 heures' }).click();
-  await expect(picker).toBeHidden();
-  await expect(rangeLabel).not.toHaveText(initialText, { timeout: 3000 });
-});
+  // ── 11. Time range picker opens and has content ─────────────
+  test('time range picker opens with calendar and presets', async () => {
+    const picker = page.locator('#trPicker');
+    // Ensure picker is closed (may have leaked from previous test)
+    if (await picker.isVisible()) {
+      await page.keyboard.press('Escape');
+      await expect(picker).toBeHidden();
+    }
 
-// ── 11. Capture screenshot for PR comment ───────────────────
-test('capture preview screenshot', async ({ page }) => {
-  // Give charts a moment to finish animating
-  await page.waitForTimeout(500);
-  await page.screenshot({
-    path: 'test-results/preview.png',
-    fullPage: true,
+    await page.locator('#rangeLabelBtn').click();
+    await expect(picker).toBeVisible();
+
+    const calDays = picker.locator('.tr-cal td button');
+    expect(await calDays.count()).toBeGreaterThan(20);
+
+    const relBtns = picker.locator('.tr-rel button');
+    expect(await relBtns.count()).toBeGreaterThanOrEqual(10);
+
+    await expect(page.locator('#trFrom')).toBeVisible();
+    await expect(page.locator('#trTo')).toBeVisible();
+
+    const rangeLabel = page.locator('#rangeLabel');
+    const initialText = await rangeLabel.textContent();
+    await relBtns.filter({ hasText: '6 heures' }).click();
+    await expect(picker).toBeHidden();
+    await expect(rangeLabel).not.toHaveText(initialText);
   });
 });
