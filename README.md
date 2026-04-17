@@ -111,14 +111,16 @@ just install-timers
 
 ### Testing
 
-| Commande         | RPi requis | Description                                             |
-| ---------------- | ---------- | ------------------------------------------------------- |
-| `just test`      | **oui**    | Suite de régression complète (17 checks)                |
-| `just check`     | **oui**    | Health check rapide des 4 services                      |
-| `just e2e [url]` | non        | Tests E2E Playwright contre une preview (défaut: :8080) |
-| `just sim-test`  | non        | Smoke tests de la stack sim (25 checks)                 |
-| `just lint`      | non        | Vérifier le formatage et le linting de tous les sources |
-| `just fmt`       | non        | Auto-formater tous les fichiers sources                 |
+| Commande                     | RPi requis | Description                                                     |
+| ---------------------------- | ---------- | --------------------------------------------------------------- |
+| `just test`                  | **oui**    | Suite de régression complète (17 checks)                        |
+| `just check`                 | **oui**    | Health check rapide des 4 services                              |
+| `just e2e [url]`             | non        | Tests E2E Playwright contre une preview (défaut: :8080)         |
+| `just sim-test`              | non        | Smoke tests de la stack sim (25 checks)                         |
+| `just lint`                  | non        | Vérifier le formatage et le linting de tous les sources         |
+| `just fmt`                   | non        | Auto-formater tous les fichiers sources                         |
+| `just lighthouse [flags]`    | non        | Audit Lighthouse sur la page prod (mobile+desktop par défaut)   |
+| `just lighthouse-report [p]` | non        | Analyse priorisée des rapports Lighthouse (mobile/desktop/both) |
 
 ### Publication & Preview
 
@@ -348,6 +350,19 @@ La CI exécute `just lint` sur chaque push et PR via `.github/workflows/lint.yml
 
 Un workflow dédié (`.github/workflows/sim-e2e-nightly.yml`) démarre la stack ARM64 complète sur un runner Ubuntu chaque nuit (03:30 UTC) et exécute les 25 smoke tests. Déclenchable manuellement via l'onglet **Actions** → **Sim Stack E2E — Nightly** → **Run workflow** pour valider une PR.
 
+#### Lighthouse Audit
+
+Le workflow `.github/workflows/lighthouse.yml` lance des audits Lighthouse **Mobile** et **Desktop** contre la page de production. Il se déclenche :
+
+- **automatiquement** après chaque déploiement GitHub Pages (via `workflow_run`)
+- **hebdomadairement** (lundi 06:00 UTC)
+- **manuellement** (onglet **Actions** → **Lighthouse Audit** → **Run workflow**)
+
+Chaque run produit :
+
+- Un **Job Summary** avec tableau de scores et badges colorés (🟢 ≥90, 🟠 ≥50, 🔴 <50)
+- Les rapports HTML et JSON en artifacts (rétention 30 jours)
+
 ## GitHub Pages — Vue externe
 
 Page statique publique avec les résultats speedtest des 30 derniers jours :
@@ -404,6 +419,31 @@ just preview-dev        # Prévisualiser avec les données live (http://localhos
 ```
 
 `publish-template` est utile quand on modifie le design, les stats, ou les graphiques sans avoir accès au RPi : il récupère les données actuelles de la page live, les injecte dans le template local, et pousse le résultat sur GitHub Pages.
+
+### Audit Lighthouse (local)
+
+Deux commandes pour auditer et analyser les performances de la page de production :
+
+```bash
+just lighthouse              # Lancer les audits Mobile + Desktop
+just lighthouse --mobile     # Mobile seul
+just lighthouse --desktop    # Desktop seul
+just lighthouse --both --open  # Les deux + ouvrir les rapports HTML
+```
+
+```bash
+just lighthouse-report         # Analyse priorisée (mobile + desktop)
+just lighthouse-report mobile  # Mobile seul
+just lighthouse-report desktop # Desktop seul
+```
+
+Le rapport affiche les scores, les quick wins (accessibilité, SEO) et les opportunités de performance classées par priorité (HIGH/MEDIUM/LOW) avec les savings estimés et les ressources impactées.
+
+Les rapports sont stockés dans `lighthouse-reports/` (gitignored) avec des symlinks `latest-*.report.{html,json}` pointant toujours sur le dernier run.
+
+**Prérequis** : `npm install -g lighthouse`
+
+**Workflow typique** : `just lighthouse` → `just lighthouse-report` → corriger → re-auditer.
 
 ### Développement
 
