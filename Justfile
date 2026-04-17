@@ -217,6 +217,14 @@ fmt:
 e2e url="http://localhost:8080":
     E2E_BASE_URL={{ url }} npx playwright test
 
+# Run Lighthouse audit on production (mobile+desktop by default, --open to view)
+lighthouse *args="--both":
+    bash scripts/lighthouse.sh {{ args }}
+
+# Parse Lighthouse reports and show prioritized action plan
+lighthouse-report preset="both":
+    python3 scripts/lighthouse-report.py {{ preset }}
+
 # ── RPi4 Simulation (ARM64 on x86) ─────────────────────
 
 sim_compose := "docker compose -f docker-compose.yml -f sim/docker-compose.sim.yml --env-file sim/.env.sim -p rpi-sim"

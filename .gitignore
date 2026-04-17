@@ -11,6 +11,9 @@ node_modules/
 test-results/
 playwright-report/
 
+# Lighthouse
+lighthouse-reports/
+
 # Editor
 *.swp
 *~
