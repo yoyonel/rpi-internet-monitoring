@@ -231,7 +231,9 @@ just e2e https://yoyonel.github.io/rpi-internet-monitoring/
 
 #### Couverture des tests
 
-8 tests dans [tests/e2e.spec.js](tests/e2e.spec.js) couvrant 5 domaines :
+12 tests dans [tests/e2e.spec.js](tests/e2e.spec.js) organisés en 2 groupes (7 domaines) :
+
+**Read-only checks** (9 tests, page partagée — une seule navigation) :
 
 | #   | Test                                          | Domaine        | Ce qu'il valide                                                                                   |
 | --- | --------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------- |
@@ -240,9 +242,18 @@ just e2e https://yoyonel.github.io/rpi-internet-monitoring/
 | 3   | `bandwidth chart has data`                    | Chart.js       | `Chart.getChart('bwChart')` a ≥ 1 dataset avec des data points                                    |
 | 4   | `ping chart has data`                         | Chart.js       | `Chart.getChart('piChart')` a ≥ 1 dataset avec des data points                                    |
 | 5   | `alerts are displayed`                        | Alertes        | Section `#alertsSec` visible, ≥ 1 `.al-row` avec `.al-name` et `.al-badge` non vides              |
-| 6   | `time range buttons update the view`          | Interactivité  | Clic sur le bouton "7j" change le texte de `#rangeLabel`                                          |
-| 7   | `no unreplaced template placeholders`         | Build pipeline | Aucun `__SPEEDTEST_DATA__`, `__ALERTS_DATA__`, `__LAST_UPDATE__`, `__GENERATED_AT__` dans le HTML |
-| 8   | `data contains a reasonable number of points` | Données        | `RAW_DATA.results[0].series[0].values.length > 100` (≈ 144 pts/jour à 10 min)                     |
+| 6   | `no unreplaced template placeholders`         | Build pipeline | Aucun `__SPEEDTEST_DATA__`, `__ALERTS_DATA__`, `__LAST_UPDATE__`, `__GENERATED_AT__` dans le HTML |
+| 7   | `data contains a reasonable number of points` | Données        | `RAW_DATA.results[0].series[0].values.length > 100` (≈ 144 pts/jour à 10 min)                     |
+| 8   | `drag-to-zoom plugin is configured on charts` | Zoom           | Plugin zoom activé en mode drag sur l'axe X pour les deux charts                                  |
+| 9   | `capture preview screenshot`                  | CI             | Screenshot pleine page pour commentaire PR (attend fin des animations Chart.js)                   |
+
+**Interactive** (3 tests, page partagée, exécution sérielle) :
+
+| #   | Test                                                | Domaine       | Ce qu'il valide                                                                          |
+| --- | --------------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------- |
+| 10  | `time range buttons update the view`                | Interactivité | Clic sur le bouton "6h" change le texte de `#rangeLabel`                                 |
+| 11  | `double-click on chart resets to live view`         | Interactivité | Double-clic sur le chart bandwidth réinitialise à la vue 48h                             |
+| 12  | `time range picker opens with calendar and presets` | Picker        | Ouverture du picker, présence du calendrier, présets relatifs, fermeture après sélection |
 
 #### Ce qui n'est PAS couvert
 
@@ -254,12 +265,27 @@ just e2e https://yoyonel.github.io/rpi-internet-monitoring/
 #### Architecture technique
 
 ```
-playwright.config.js     → Config : testDir, baseURL via E2E_BASE_URL, Chromium only
-tests/e2e.spec.js        → 8 tests, ~100 lignes
+playwright.config.js     → Config : testDir, baseURL via E2E_BASE_URL, Chromium only,
+                            timeouts adaptatifs (local vs remote)
+tests/e2e.spec.js        → 12 tests en 2 groupes, ~210 lignes
 Justfile (just e2e)      → Point d'entrée local : E2E_BASE_URL=<url> npx playwright test
 ```
 
 Le `baseURL` est configurable via la variable d'environnement `E2E_BASE_URL` (défaut: `http://localhost:8080`). Cela permet d'exécuter les mêmes tests contre n'importe quel déploiement : local, Surge preview, ou production.
+
+#### Stratégie de stabilité
+
+Les tests E2E sont conçus pour être **rapides et non-flaky**, même contre des URLs distantes (GitHub Pages, Surge) :
+
+| Technique                        | Impact                                                                                  |
+| -------------------------------- | --------------------------------------------------------------------------------------- |
+| **Page partagée par groupe**     | 2 navigations au lieu de 12 → ~5s au lieu de ~4 min contre GH Pages                     |
+| **`waitForAppReady()`**          | Attend que stats + charts soient rendus (pas de `waitForTimeout` magique)               |
+| **`waitUntil: 'commit'`**        | Navigation rapide, la readiness est vérifiée par JS plutôt que par les sous-ressources  |
+| **Timeouts adaptatifs**          | `timeout`, `navigationTimeout`, `retries` augmentés automatiquement pour les URLs HTTPS |
+| **Locators Playwright**          | `page.locator().click()` au lieu de `page.click()` → auto-attente d'actionabilité       |
+| **Animation guard (screenshot)** | `waitForFunction(!chart.animating)` au lieu d'un délai fixe                             |
+| **État défensif (picker)**       | Guard `Escape` si le picker est resté ouvert d'un test précédent                        |
 
 #### Pipeline CI
 
@@ -268,8 +294,8 @@ Les tests E2E s'exécutent automatiquement dans le workflow **Preview PR — Sur
 1. Build de la page avec les données live
 2. Déploiement sur Surge.sh
 3. `npm ci` + installation de Chromium headless
-4. Exécution des 8 tests Playwright contre l'URL Surge déployée
-5. Retry automatique (1 retry par test en cas de flakiness réseau Surge)
+4. Exécution des 12 tests Playwright contre l'URL Surge déployée
+5. Retry automatique (2 retries par test en cas de flakiness réseau Surge)
 
 Déclenché sur chaque PR modifiant : `gh-pages/**`, `scripts/*.py`, `tests/**`, `playwright.config.js`.
 
