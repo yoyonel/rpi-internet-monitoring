@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Preview the monitoring page locally using data from the live GitHub Pages.
+# Preview the monitoring page locally using data from the live GitHub Pages
+# or local test fixtures as fallback.
 # Usage: bash scripts/preview-dev.sh [port]
 set -euo pipefail
 
@@ -15,16 +16,16 @@ echo "║  Preview Dev — GitHub Pages Monitoring   ║"
 echo "╚══════════════════════════════════════════╝"
 echo ""
 
-# ── 1. Fetch live data ────────────────────────────────────
-echo "── Fetching data from live GitHub Pages ──"
-
-curl -sfL "https://yoyonel.github.io/rpi-internet-monitoring/" -o "$BUILD_DIR/live.html" ||
-    {
-        echo "ERROR: Could not fetch live page. Check your connection."
-        exit 1
-    }
-
-python3 "$SCRIPT_DIR/scripts/extract-live-data.py" "$BUILD_DIR/live.html" "$BUILD_DIR"
+# ── 1. Fetch data ─────────────────────────────────────────
+# Try live site first, fall back to local fixtures
+if curl -sfL "https://yoyonel.github.io/rpi-internet-monitoring/data.json" -o "$BUILD_DIR/data.json" &&
+    curl -sfL "https://yoyonel.github.io/rpi-internet-monitoring/alerts.json" -o "$BUILD_DIR/alerts.json"; then
+    echo "── Using live data from GitHub Pages ──"
+else
+    echo "── Live site unavailable, using local fixtures ──"
+    cp "$SCRIPT_DIR/tests/fixtures/data.json" "$BUILD_DIR/"
+    cp "$SCRIPT_DIR/tests/fixtures/alerts.json" "$BUILD_DIR/"
+fi
 
 # ── 2. Build page from template ──────────────────────────
 echo ""
