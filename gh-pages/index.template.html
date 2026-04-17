@@ -10,22 +10,9 @@
       content="Tableau de bord temps réel du débit internet via Speedtest Ookla sur Raspberry Pi 4. Download, upload, latence — mis à jour toutes les 10 minutes."
     />
     <title>Internet Speed Monitor — RPi4</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="preload"
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=optional"
-      as="style"
-      onload="
-        this.onload = null;
-        this.rel = 'stylesheet';
-      "
-    />
-    <noscript
-      ><link
-        href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=optional"
-        rel="stylesheet"
-    /></noscript>
+    <link rel="preload" href="data.json" as="fetch" crossorigin />
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/chart.js@4" as="script" />
+    <link rel="preload" href="fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -123,12 +110,6 @@
 
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
-    <script>
-      const RAW_DATA = '__SPEEDTEST_DATA__';
-      const ALERTS = '__ALERTS_DATA__';
-    </script>
     <script defer src="app.js"></script>
     <script>
       setTimeout(function () {

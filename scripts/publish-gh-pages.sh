@@ -120,6 +120,7 @@ python3 "$SCRIPT_DIR/scripts/render-template.py" "$TEMPLATE" "$BUILD_DIR/data.js
 
 # Copy static assets
 cp "$SCRIPT_DIR/gh-pages/style.css" "$BUILD_DIR/"
+cp -r "$SCRIPT_DIR/gh-pages/fonts" "$BUILD_DIR/"
 if command -v terser &>/dev/null; then
     echo "  → Minifying app.js with terser"
     terser "$SCRIPT_DIR/gh-pages/app.js" --compress --mangle -o "$BUILD_DIR/app.js"
@@ -146,7 +147,7 @@ else
     git config user.email "gh-pages-bot@users.noreply.github.com"
     git config user.name "GitHub Pages Bot"
     git checkout -q -b gh-pages
-    git add index.html style.css app.js .nojekyll
+    git add index.html style.css app.js data.json alerts.json fonts/ .nojekyll
     git commit -q -m "Update monitoring data — $NOW"
     git remote add origin "$REPO_URL"
     git fetch origin gh-pages --depth=1 2>/dev/null || true
