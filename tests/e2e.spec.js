@@ -107,8 +107,10 @@ test.describe('read-only checks', () => {
 
   // ── 6. Data point count is reasonable ───────────────────────
   test('data contains a reasonable number of points', async () => {
-    const count = await page.evaluate(() => {
-      return RAW_DATA?.results?.[0]?.series?.[0]?.values?.length ?? 0;
+    const count = await page.evaluate(async () => {
+      const resp = await fetch('data.json');
+      const data = await resp.json();
+      return data?.results?.[0]?.series?.[0]?.values?.length ?? 0;
     });
     expect(count).toBeGreaterThan(100);
   });
