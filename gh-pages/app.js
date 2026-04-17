@@ -467,7 +467,7 @@
   const statCard = (cls, label, mainVal, items, nPts, timeRange) =>
     `<div class="stat ${cls}">
       <div class="v">${mainVal}</div>
-      <div class="l">${label} <span style="font-size:.85em;opacity:.5">m\u00e9diane</span></div>
+      <div class="l">${label} <span class="l-sub">m\u00e9diane</span></div>
       <dl class="sg">${items.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
       <div class="pts">${timeRange} \u00b7 ${nPts} pts</div>
     </div>`;

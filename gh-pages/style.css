@@ -11,8 +11,8 @@
   --border: #2a2a2d;
   --border2: #333336;
   --text: #ededed;
-  --text2: #888;
-  --text3: #555;
+  --text2: #9ca3af;
+  --text3: #8b8b93;
   --blue: #7eb6f6;
   --purple: #c982e0;
   --orange: #f2a93b;
@@ -37,7 +37,8 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
-.w {
+.w,
+main.w {
   max-width: 960px;
   margin: 0 auto;
   padding: 0 20px;
@@ -128,6 +129,10 @@ nav .meta time {
   margin-top: 6px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+.stat .l-sub {
+  font-size: 0.85em;
+  text-transform: none;
 }
 .stat.pi .v {
   color: var(--orange);
@@ -299,7 +304,7 @@ nav .meta time {
 }
 .tp .rb.on {
   background: var(--blue);
-  color: #fff;
+  color: var(--bg);
 }
 .tp .rl {
   font-size: 0.72rem;
@@ -619,7 +624,8 @@ footer p {
 }
 footer a {
   color: var(--blue);
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 footer a:hover {
   text-decoration: underline;
