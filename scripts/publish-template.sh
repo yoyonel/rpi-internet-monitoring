@@ -27,16 +27,22 @@ echo ""
 BUILD_DIR=$(mktemp -d)
 trap 'rm -rf "$BUILD_DIR"' EXIT
 
-# ── 1. Fetch live data from GitHub Pages ──────────────────
-echo "── Fetching data from live GitHub Pages ──"
+# ── 1. Fetch data from live site or gh-pages branch ───────
+DATA_SOURCE="fixtures"
 
-curl -sfL "$LIVE_URL" -o "$BUILD_DIR/live.html" ||
-    {
-        echo "ERROR: Could not fetch $LIVE_URL"
-        exit 1
-    }
-
-python3 "$SCRIPT_DIR/scripts/extract-live-data.py" "$BUILD_DIR/live.html" "$BUILD_DIR"
+if curl -sfL "${LIVE_URL}data.json" -o "$BUILD_DIR/data.json" &&
+    curl -sfL "${LIVE_URL}alerts.json" -o "$BUILD_DIR/alerts.json"; then
+    DATA_SOURCE="live"
+    echo "── Using live data from GitHub Pages ──"
+elif git -C "$SCRIPT_DIR" show origin/gh-pages:data.json >"$BUILD_DIR/data.json" 2>/dev/null &&
+    git -C "$SCRIPT_DIR" show origin/gh-pages:alerts.json >"$BUILD_DIR/alerts.json" 2>/dev/null; then
+    DATA_SOURCE="gh-pages branch"
+    echo "── Using data from gh-pages branch ──"
+else
+    echo "── Using local fixtures ──"
+    cp "$SCRIPT_DIR/tests/fixtures/data.json" "$BUILD_DIR/"
+    cp "$SCRIPT_DIR/tests/fixtures/alerts.json" "$BUILD_DIR/"
+fi
 
 # ── 2. Build page from local template ────────────────────
 echo ""
@@ -46,6 +52,7 @@ python3 "$SCRIPT_DIR/scripts/render-template.py" "$TEMPLATE" "$BUILD_DIR/data.js
 
 # Copy static assets
 cp "$SCRIPT_DIR/gh-pages/style.css" "$SCRIPT_DIR/gh-pages/app.js" "$BUILD_DIR/"
+cp -r "$SCRIPT_DIR/gh-pages/fonts" "$BUILD_DIR/"
 
 # ── 3. Preview or Push ────────────────────────────────────
 if [[ "$PREVIEW" == "true" ]]; then
@@ -61,12 +68,13 @@ else
     echo "── Pushing to gh-pages branch ──"
 
     cd "$BUILD_DIR"
+    touch .nojekyll
     git init -q
     git config user.email "gh-pages-bot@users.noreply.github.com"
     git config user.name "GitHub Pages Bot"
     git checkout -q -b gh-pages
-    git add index.html style.css app.js
-    git commit -q -m "Update template — $NOW (data from live page)"
+    git add index.html style.css app.js data.json alerts.json fonts/ .nojekyll
+    git commit -q -m "Update template — $NOW (data from $DATA_SOURCE)"
     git remote add origin "$REPO_URL"
     git push --force-with-lease -q origin gh-pages
 
