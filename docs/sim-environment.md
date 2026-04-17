@@ -36,6 +36,7 @@ InfluxDB API: <http://localhost:8086> (admin / simpass)
 ```
 sim/.env.sim                  ← credentials (safe local defaults)
 sim/docker-compose.sim.yml    ← ARM64 override layer
+sim/influxdb-init.iql         ← creates databases + grants on first boot
 sim/telegraf-sim.conf         ← Telegraf config adapted for x86 host
 sim/speedtest-loop.sh         ← periodic speedtest loop (replaces systemd timer)
 docker-compose.yml            ← base compose (shared with production)
@@ -57,16 +58,17 @@ production deployment on the same host.
 
 ### What the sim overlay changes
 
-| Service      | Override                                                  | Why                                                                               |
-| ------------ | --------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| All services | `platform: linux/arm64`                                   | Force ARM64 emulation via QEMU                                                    |
-| All services | `mem_limit` / `memswap_limit`                             | Simulate RPi4 4 GB memory budget                                                  |
-| influxdb     | `cap_add: CHOWN, DAC_OVERRIDE, SETUID, SETGID, FOWNER`    | Entrypoint needs these to init data dir (base compose has `cap_drop: ALL`)        |
-| influxdb     | Healthcheck: `timeout 30s, retries 10, start_period 120s` | QEMU emulation is ~10× slower than native                                         |
-| influxdb     | `ports: 127.0.0.1:8086:8086`                              | Expose for external tooling                                                       |
-| influxdb     | `INFLUXDB_MONITOR_STORE_ENABLED: false`                   | Skip `_internal` database to save resources                                       |
-| telegraf     | `hostname: rpi-sim`, custom `telegraf-sim.conf`           | x86-compatible inputs (thermal_zone0 instead of BCM2711, wildcard net interfaces) |
-| speedtest    | `platform: linux/arm64` + ARM64 build                     | Build the speedtest image for ARM64                                               |
+| Service      | Override                                                      | Why                                                                                |
+| ------------ | ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| All services | `platform: linux/arm64`                                       | Force ARM64 emulation via QEMU                                                     |
+| All services | `mem_limit` / `memswap_limit`                                 | Simulate RPi4 4 GB memory budget                                                   |
+| influxdb     | `cap_add: CHOWN, DAC_OVERRIDE, SETUID, SETGID, FOWNER`        | Entrypoint needs these to init data dir (base compose has `cap_drop: ALL`)         |
+| influxdb     | Healthcheck: `timeout 30s, retries 10, start_period 120s`     | QEMU emulation is ~10× slower than native                                          |
+| influxdb     | `ports: 127.0.0.1:8086:8086`                                  | Expose for external tooling                                                        |
+| influxdb     | `INFLUXDB_MONITOR_STORE_ENABLED: false`                       | Skip `_internal` database to save resources                                        |
+| telegraf     | `hostname: rpi-sim`, custom `telegraf-sim.conf`               | x86-compatible inputs (thermal_zone0 instead of BCM2711, wildcard net interfaces)  |
+| influxdb     | `influxdb-init.iql` mounted in `/docker-entrypoint-initdb.d/` | Creates `telegraf` + `speedtest` databases and grants on first boot (empty volume) |
+| speedtest    | `platform: linux/arm64` + ARM64 build + admin credentials     | Build the speedtest image for ARM64; use admin creds for `CREATE DATABASE`         |
 
 ### Memory budget (RPi4 — 4 GB)
 
@@ -230,14 +232,18 @@ ARM64 emulation on x86 is ~10× slower. The sim overlay increases
 
 ### Empty dashboards after first boot
 
-InfluxDB auto-creates the `telegraf` and `speedtest` databases on
-first start, but the `telegraf` user may lack privileges. If dashboards
-show no data, grant access:
+The init script (`sim/influxdb-init.iql`) automatically creates both
+databases and grants `ALL PRIVILEGES` to the `telegraf` user on first
+boot. If dashboards still show no data after startup:
+
+1. Verify InfluxDB is healthy: `just sim-status`
+2. Check that databases exist: `just sim-stats`
+3. If the schema is corrupted (e.g. field type conflict), nuke and
+   recreate from scratch:
 
 ```bash
-just sim-influx-shell
-> GRANT ALL ON telegraf TO telegraf
-> GRANT ALL ON speedtest TO telegraf
+just sim-nuke
+just sim-up
 ```
 
 ### Running a speedtest
@@ -259,3 +265,63 @@ Check the cron logs:
 just sim-logs-follow
 # or: docker logs -f speedtest-cron
 ```
+
+## CI / CD — Nightly sim smoke tests
+
+A GitHub Actions workflow (`.github/workflows/sim-e2e-nightly.yml`)
+runs the full sim stack on an Ubuntu runner every night and validates
+the deployment end-to-end.
+
+### Schedule
+
+- **Nightly**: 03:30 UTC (offset from the existing GH Pages E2E at 03:00)
+- **Manual**: `workflow_dispatch` — trigger from the Actions tab to
+  validate a PR before merging
+
+### Pipeline stages
+
+```
+binfmt → build → up → wait (InfluxDB healthy + Telegraf data) → smoke tests → teardown
+```
+
+| Stage                     | Duration (est.) | What it validates                                         |
+| ------------------------- | --------------- | --------------------------------------------------------- |
+| Register QEMU binfmt      | ~5s             | ARM64 emulation available on the runner                   |
+| Build + start stack       | ~5 min          | Dockerfile builds, all images pull, compose orchestration |
+| Wait for InfluxDB healthy | ~2-3 min        | Init script runs, databases + grants created              |
+| Wait for Telegraf data    | ~90s            | Collection interval works under QEMU emulation            |
+| Smoke tests               | ~15s            | 7 test sections (see below)                               |
+| Teardown                  | ~10s            | Containers + volumes removed                              |
+| **Total**                 | **~12-15 min**  |                                                           |
+
+### What the smoke tests validate
+
+The test script (`scripts/test-sim-stack.sh`) runs 7 sections:
+
+1. **Service health** — Grafana, InfluxDB, Chronograf respond on their
+   respective ports
+2. **Grafana datasources** — 2 datasources exist (`InfluxDB`,
+   `InfluxDB-Speedtest`), connectivity OK
+3. **Grafana dashboards** — 4 dashboards provisioned (by UID)
+4. **InfluxDB schema** — `telegraf` + `speedtest` databases exist,
+   `telegraf` user has `ALL PRIVILEGES` on both
+5. **Telegraf pipeline** — CPU data points written in the last 5 minutes
+   (proves Telegraf → InfluxDB is working)
+6. **Speedtest write path** — Injects a synthetic data point via the
+   InfluxDB HTTP API, verifies it is queryable, then cleans up (avoids
+   running a real speedtest — no network dependency, no QEMU slowness)
+7. **Container state** — All 6 containers running (grafana, influxdb,
+   chronograf, telegraf, docker-socket-proxy, speedtest-cron)
+
+### Running locally
+
+```bash
+just sim-up
+# Wait ~2 min for InfluxDB + Telegraf to settle
+./scripts/test-sim-stack.sh
+```
+
+### Failure artifacts
+
+On failure, the workflow uploads a `sim-e2e-logs` artifact containing
+the full Docker Compose logs and container status (retained 7 days).
