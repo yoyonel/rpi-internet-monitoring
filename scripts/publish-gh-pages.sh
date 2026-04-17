@@ -119,7 +119,13 @@ echo "$ALERTS_DATA" >"$BUILD_DIR/alerts.json"
 python3 "$SCRIPT_DIR/scripts/render-template.py" "$TEMPLATE" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "$BUILD_DIR/index.html"
 
 # Copy static assets
-cp "$SCRIPT_DIR/gh-pages/style.css" "$SCRIPT_DIR/gh-pages/app.js" "$BUILD_DIR/"
+cp "$SCRIPT_DIR/gh-pages/style.css" "$BUILD_DIR/"
+if command -v terser &>/dev/null; then
+    echo "  → Minifying app.js with terser"
+    terser "$SCRIPT_DIR/gh-pages/app.js" --compress --mangle -o "$BUILD_DIR/app.js"
+else
+    cp "$SCRIPT_DIR/gh-pages/app.js" "$BUILD_DIR/"
+fi
 
 # ── 3. Preview or Push ────────────────────────────────────
 if [[ "$PREVIEW" == "true" ]]; then
