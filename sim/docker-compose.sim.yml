@@ -45,6 +45,9 @@ services:
     # Expose InfluxDB for external access (CQ migration from laptop, etc.)
     ports:
       - '127.0.0.1:8086:8086'
+    volumes:
+      # Init script creates databases + grants on first boot (empty volume)
+      - ./sim/influxdb-init.iql:/docker-entrypoint-initdb.d/init.iql:ro
     environment:
       # R4: disable _internal for RPi simulation
       INFLUXDB_MONITOR_STORE_ENABLED: 'false'
@@ -77,6 +80,9 @@ services:
       dockerfile: Dockerfile
       platforms:
         - linux/arm64
+    environment:
+      INFLUXDB_USER: ${INFLUXDB_ADMIN_USER:-admin}
+      INFLUXDB_USER_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD}
 
   # Periodic speedtest — replaces the systemd timer from production.
   # Runs every SPEEDTEST_INTERVAL seconds (default 600 = 10 min).
@@ -91,8 +97,8 @@ services:
     mem_limit: 256m
     memswap_limit: 384m
     environment:
-      INFLUXDB_USER: ${INFLUXDB_USER}
-      INFLUXDB_USER_PASSWORD: ${INFLUXDB_USER_PASSWORD}
+      INFLUXDB_USER: ${INFLUXDB_ADMIN_USER:-admin}
+      INFLUXDB_USER_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD}
       SPEEDTEST_INTERVAL: '600'
     networks:
       - speedtest
