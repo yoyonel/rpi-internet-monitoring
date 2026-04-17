@@ -1,5 +1,11 @@
 # Monitoring Débit Internet — RPi4
 
+[![Lint](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/lint.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/lint.yml)
+[![E2E Nightly — Production](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-nightly.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-nightly.yml)
+[![Sim Stack E2E — Nightly](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/sim-e2e-nightly.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/sim-e2e-nightly.yml)
+[![Deploy GitHub Pages](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/deploy-gh-pages.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/deploy-gh-pages.yml)
+[![GitHub Pages](https://img.shields.io/website?url=https%3A%2F%2Fyoyonel.github.io%2Frpi-internet-monitoring%2F&label=GitHub%20Pages)](https://yoyonel.github.io/rpi-internet-monitoring/)
+
 Stack Docker pour monitorer le débit internet (download, upload, ping) via [Ookla Speedtest CLI](https://www.speedtest.net/apps/cli), avec stockage dans InfluxDB et visualisation dans Grafana.
 
 ## Architecture
