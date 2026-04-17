@@ -216,3 +216,69 @@ fmt:
 # E2E tests against a local or remote preview (default: http://localhost:8080)
 e2e url="http://localhost:8080":
     E2E_BASE_URL={{ url }} npx playwright test
+
+# ── RPi4 Simulation (ARM64 on x86) ─────────────────────
+
+sim_compose := "docker compose -f docker-compose.yml -f sim/docker-compose.sim.yml --env-file sim/.env.sim -p rpi-sim"
+
+# Start the RPi4 simulation stack (ARM64 emulated via QEMU)
+sim-up:
+    {{ sim_compose }} up -d
+
+# Stop the simulation stack
+sim-stop:
+    {{ sim_compose }} stop
+
+# Stop and remove simulation containers (preserves volumes)
+sim-down:
+    {{ sim_compose }} down
+
+# Stop, remove containers AND simulation volumes (⚠️ destroys sim data)
+[confirm("⚠️  This will DELETE ALL simulation data. Continue?")]
+sim-nuke:
+    {{ sim_compose }} down -v
+
+# Show simulation container status
+sim-status:
+    @{{ sim_compose }} ps -a
+    @echo ""
+    @docker inspect rpi-sim-influxdb-1 rpi-sim-grafana-1 rpi-sim-telegraf-1 rpi-sim-chronograf-1 2>/dev/null | jq -r '.[] | "  \(.Name | ltrimstr("/")): \(.State.Health.Status // "n/a")"' || true
+
+# Show simulation logs
+sim-logs lines="50":
+    {{ sim_compose }} logs --tail={{ lines }}
+
+# Follow simulation logs in real-time
+sim-logs-follow:
+    {{ sim_compose }} logs -f --tail=20
+
+# Build the speedtest image for ARM64
+sim-build:
+    {{ sim_compose }} build speedtest
+
+# Run a manual speedtest in the simulation
+sim-speedtest:
+    {{ sim_compose }} run --rm speedtest
+
+# Open an InfluxDB shell in the simulation
+sim-influx-shell:
+    docker exec -it rpi-sim-influxdb-1 influx -username admin -password simpass
+
+# Show simulation stats (databases, counts, disk)
+sim-stats:
+    @echo "── Databases ──"
+    @docker exec rpi-sim-influxdb-1 influx -username admin -password simpass -execute "SHOW DATABASES"
+    @echo ""
+    @echo "── Retention Policies ──"
+    @for db in speedtest telegraf; do \
+        echo "  $$db:"; \
+        docker exec rpi-sim-influxdb-1 influx -username admin -password simpass -execute "SHOW RETENTION POLICIES ON $$db" 2>/dev/null | tail -2; \
+        echo ""; \
+    done
+    @echo "── Data Counts ──"
+    @printf "  Speedtest points: %s\n" "$$(docker exec rpi-sim-influxdb-1 influx -username admin -password simpass -execute 'SELECT COUNT(download_bandwidth) FROM speedtest' -database speedtest 2>/dev/null | tail -1 | awk '{print $$2}')"
+    @printf "  Telegraf cpu (last 1h): %s\n" "$$(docker exec rpi-sim-influxdb-1 influx -username admin -password simpass -execute 'SELECT COUNT(usage_idle) FROM cpu WHERE time > now() - 1h' -database telegraf 2>/dev/null | tail -1 | awk '{print $$2}')"
+
+# Register QEMU user-static (needed once per host reboot)
+sim-binfmt:
+    docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
