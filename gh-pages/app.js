@@ -9,8 +9,10 @@
   // Support both legacy array format and new {alerts, lastEvaluation} format
   const alertsArr = Array.isArray(ALERTS) ? ALERTS : ALERTS?.alerts;
   const lastEval = Array.isArray(ALERTS) ? null : ALERTS?.lastEvaluation;
-  if (!Array.isArray(alertsArr) || !alertsArr.length) return;
-  document.getElementById('alertsSec').style.display = '';
+  if (!Array.isArray(alertsArr) || !alertsArr.length) {
+    document.getElementById('alertsSec').style.display = 'none';
+    return;
+  }
   // Convert m°C to °C in alert summaries
   const fixTemp = (s) =>
     s ? s.replace(/(\d+)\s*m°C/g, (_, v) => (parseInt(v) / 1000).toFixed(2) + ' °C') : '';

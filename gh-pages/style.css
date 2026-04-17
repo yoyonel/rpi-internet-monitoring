@@ -119,6 +119,7 @@ nav .meta time {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   border-bottom: 1px solid var(--border);
+  min-height: 230px;
 }
 .stat {
   padding: 20px 16px;
@@ -194,6 +195,7 @@ nav .meta time {
 .alerts {
   padding: 20px 0;
   border-bottom: 1px solid var(--border);
+  min-height: 324px;
 }
 .stitle {
   font-size: 0.7rem;
@@ -593,6 +595,16 @@ nav .meta time {
   padding: 20px;
   margin-bottom: 12px;
 }
+.panel canvas {
+  display: block;
+  width: 100%;
+}
+#bwChart {
+  aspect-ratio: 2.8;
+}
+#piChart {
+  aspect-ratio: 4;
+}
 .panel .hd {
   display: flex;
   justify-content: space-between;
@@ -669,8 +681,15 @@ footer a:hover {
   .stat .sg dd {
     font-size: 0.7rem;
   }
+  .stats {
+    min-height: 243px;
+  }
   .panel {
     padding: 14px;
+  }
+  #bwChart,
+  #piChart {
+    aspect-ratio: 1.5;
   }
   .al-row {
     flex-wrap: wrap;
@@ -712,6 +731,7 @@ footer a:hover {
 @media (max-width: 380px) {
   .stats {
     grid-template-columns: 1fr;
+    min-height: 446px;
   }
   .stat {
     border-right: none;
