@@ -5,6 +5,9 @@ on:
     branches: [master]
     paths:
       - 'gh-pages/**'
+      - 'scripts/render-template.py'
+      - 'scripts/extract-live-data.py'
+  workflow_dispatch: # Manual trigger
 
 permissions:
   contents: read
@@ -37,7 +40,9 @@ jobs:
             "$BUILD_DIR/alerts.json" \
             "$BUILD_DIR/index.html"
 
-          cp gh-pages/style.css gh-pages/app.js "$BUILD_DIR/"
+          cp gh-pages/style.css "$BUILD_DIR/"
+          npm install -g terser
+          terser gh-pages/app.js --compress --mangle -o "$BUILD_DIR/app.js"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

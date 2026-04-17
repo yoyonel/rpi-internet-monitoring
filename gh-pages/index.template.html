@@ -14,7 +14,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="preload"
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=optional"
       as="style"
       onload="
         this.onload = null;
@@ -23,14 +23,10 @@
     />
     <noscript
       ><link
-        href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&display=optional"
         rel="stylesheet"
     /></noscript>
     <link rel="stylesheet" href="style.css" />
-    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2"></script>
-    <script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
   </head>
   <body>
     <nav>
@@ -48,7 +44,7 @@
 
       <div class="stats" id="statsRow"></div>
 
-      <section class="alerts" id="alertsSec" style="display: none">
+      <section class="alerts" id="alertsSec">
         <div class="stitle">Alertes RPi</div>
         <div id="alertsList"></div>
       </section>
@@ -125,6 +121,10 @@
       </p>
     </footer>
 
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/hammerjs@2"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2"></script>
     <script>
       const RAW_DATA = '__SPEEDTEST_DATA__';
       const ALERTS = '__ALERTS_DATA__';
