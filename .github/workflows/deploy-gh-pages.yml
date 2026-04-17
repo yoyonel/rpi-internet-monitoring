@@ -41,6 +41,7 @@ jobs:
             "$BUILD_DIR/index.html"
 
           cp gh-pages/style.css "$BUILD_DIR/"
+          cp -r gh-pages/fonts "$BUILD_DIR/"
           npm install -g terser
           terser gh-pages/app.js --compress --mangle -o "$BUILD_DIR/app.js"
 

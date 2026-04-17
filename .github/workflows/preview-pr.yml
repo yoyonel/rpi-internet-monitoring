@@ -41,7 +41,9 @@ jobs:
 
           mkdir -p _surge_deploy
           cp "$BUILD_DIR/index.html" _surge_deploy/
+          cp "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" _surge_deploy/
           cp gh-pages/style.css gh-pages/app.js _surge_deploy/
+          cp -r gh-pages/fonts _surge_deploy/
 
       - name: Deploy to Surge
         id: surge

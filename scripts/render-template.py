@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Render the monitoring page template by injecting data and alerts.
+"""Render the monitoring page template by injecting timestamps.
+
+Data and alerts are written as separate JSON files next to index.html
+so the browser can load the lightweight HTML shell first, then fetch
+the (potentially large) data payload asynchronously.
 
 Usage:
   python3 scripts/render-template.py <template> <data> <alerts> <output> [suffix]
@@ -12,8 +16,10 @@ Arguments:
   suffix       Optional suffix appended to __GENERATED_AT__ (e.g. "(PR preview)")
 """
 
+import shutil
 import sys
 from datetime import datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 TZ = ZoneInfo("Europe/Paris")
@@ -35,26 +41,25 @@ def main():
 
     with open(template_path) as f:
         html = f.read()
-    with open(data_path) as f:
-        data = f.read().strip()
-    with open(alerts_path) as f:
-        alerts = f.read().strip()
 
     now = datetime.now(tz=TZ).strftime("%d/%m/%Y %H:%M")
     gen = datetime.now(tz=TZ).strftime("%d/%m/%Y à %H:%M:%S")
     if suffix:
         gen = f"{gen} {suffix}"
 
-    html = html.replace("'__SPEEDTEST_DATA__'", data)
-    html = html.replace("'__ALERTS_DATA__'", alerts)
     html = html.replace("__LAST_UPDATE__", now)
     html = html.replace("__GENERATED_AT__", gen)
 
     with open(output_path, "w") as f:
         f.write(html)
 
-    assert "__SPEEDTEST_DATA__" not in html, "Data injection failed"
-    assert "__ALERTS_DATA__" not in html, "Alerts injection failed"
+    # Copy data and alerts JSON files next to the rendered HTML
+    out_dir = Path(output_path).parent
+    for src, name in [(data_path, "data.json"), (alerts_path, "alerts.json")]:
+        dst = out_dir / name
+        if Path(src).resolve() != dst.resolve():
+            shutil.copy2(src, dst)
+
     print(f"  → {output_path} ({len(html):,} bytes)")
 
 

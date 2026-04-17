@@ -1,5 +1,11 @@
+// ── Data loading ─────────────────────────────────────────────
+const _dataReady = Promise.all([
+  fetch('data.json').then((r) => r.json()),
+  fetch('alerts.json').then((r) => r.json()),
+]);
+
 // ── Alerts ───────────────────────────────────────────────────
-(() => {
+_dataReady.then(([, ALERTS]) => {
   // Escape HTML to prevent XSS from alert data
   const esc = (s) =>
     String(s).replace(
@@ -46,10 +52,13 @@
     </div>`;
       })
       .join('');
-})();
+});
 
 // ── Charts & Data ────────────────────────────────────────────
-(() => {
+_dataReady.then(async ([RAW_DATA]) => {
+  // Yield to main thread between heavy operations to avoid long tasks (TBT)
+  const yieldToMain = () => new Promise((r) => setTimeout(r, 0));
+
   const statsEl = document.getElementById('statsRow');
 
   if (!RAW_DATA?.results?.[0]?.series?.[0]?.values?.length) {
@@ -78,6 +87,8 @@
     ul[i] = r[iUl] / 125000;
     pi[i] = r[iPi];
   }
+
+  await yieldToMain();
 
   // ── LTTB (typed array → [{x,y}]) ──────────────────────────
   const MAX_PTS = 600;
@@ -289,7 +300,7 @@
     cornerRadius: 4,
   };
 
-  // ── Drag-to-zoom (chartjs-plugin-zoom) ──────────────────────
+  // ── Drag-to-zoom (chartjs-plugin-zoom) — loaded lazily ─────
   const onZoomOrPan = ({ chart }) => {
     const { min, max } = chart.scales.x;
     rangeStart = min;
@@ -314,6 +325,8 @@
   // Charts created once, datasets swapped per mode
   const bwCtx = document.getElementById('bwChart').getContext('2d');
   const bwH = document.getElementById('bwChart').parentElement.clientHeight || 300;
+  await yieldToMain();
+
   const bwChart = new Chart(bwCtx, {
     type: 'line',
     data: { datasets: [] },
@@ -332,7 +345,6 @@
       },
       plugins: {
         legend: { display: false },
-        zoom: zoomOpts,
         tooltip: {
           ...tipStyle,
           callbacks: {
@@ -347,6 +359,8 @@
       },
     },
   });
+
+  await yieldToMain();
 
   const piCtx = document.getElementById('piChart').getContext('2d');
   const piH = document.getElementById('piChart').parentElement.clientHeight || 200;
@@ -368,7 +382,6 @@
       },
       plugins: {
         legend: { display: false },
-        zoom: zoomOpts,
         tooltip: {
           ...tipStyle,
           callbacks: {
@@ -640,11 +653,9 @@
 
     bwChart.options.scales.x.min = rangeStart;
     bwChart.options.scales.x.max = rangeEnd;
-    bwChart.update('none');
 
     piChart.options.scales.x.min = rangeStart;
     piChart.options.scales.x.max = rangeEnd;
-    piChart.update('none');
 
     document.getElementById('rangeLabel').textContent =
       `${fmtDate(rangeStart)}  \u2192  ${fmtDate(rangeEnd)}`;
@@ -654,9 +665,17 @@
     lastMode = mode;
   };
 
+  const flushCharts = () => {
+    bwChart.update('none');
+    piChart.update('none');
+  };
+
   const render = () => {
     cancelAnimationFrame(renderRAF);
-    renderRAF = requestAnimationFrame(doRender);
+    renderRAF = requestAnimationFrame(() => {
+      doRender();
+      flushCharts();
+    });
   };
 
   // ── Time controls ──────────────────────────────────────────
@@ -755,6 +774,8 @@
       if (e.button === 1) e.preventDefault();
     });
   });
+
+  await yieldToMain();
 
   // ── Grafana-style time range picker ────────────────────────
   (() => {
@@ -1028,5 +1049,34 @@
     };
   })();
 
+  await yieldToMain();
+
+  // Initial render — split chart updates to avoid long tasks
   doRender();
-})();
+  bwChart.update('none');
+  await yieldToMain();
+  piChart.update('none');
+  await yieldToMain();
+
+  // ── Lazy-load hammerjs + chartjs-plugin-zoom after first paint ──
+  const loadZoom = () => {
+    const s1 = document.createElement('script');
+    s1.src = 'https://cdn.jsdelivr.net/npm/hammerjs@2';
+    s1.onload = () => {
+      const s2 = document.createElement('script');
+      s2.src = 'https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2';
+      s2.onload = () => {
+        bwChart.options.plugins.zoom = zoomOpts;
+        bwChart.update('none');
+        setTimeout(() => {
+          piChart.options.plugins.zoom = zoomOpts;
+          piChart.update('none');
+        }, 0);
+      };
+      document.head.appendChild(s2);
+    };
+    document.head.appendChild(s1);
+  };
+  if ('requestIdleCallback' in window) requestIdleCallback(loadZoom);
+  else setTimeout(loadZoom, 100);
+});
