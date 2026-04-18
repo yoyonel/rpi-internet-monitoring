@@ -103,6 +103,12 @@ if [[ "$BEFORE" == "$AFTER" ]]; then
     _ok "Already up to date (no new commits)"
 else
     _ok "Updated: ${BEFORE:0:7} → ${AFTER:0:7}"
+    # If this script itself was updated, re-exec the new version.
+    # On re-exec, pull will be a no-op (already up to date) so no loop.
+    if git diff --name-only "$BEFORE".."$AFTER" | grep -qx "scripts/deploy.sh"; then
+        _warn "deploy.sh was updated — re-executing new version"
+        exec bash "${BASH_SOURCE[0]}" "$@"
+    fi
 fi
 
 # ── 3. Ensure containers match current config ───────────
