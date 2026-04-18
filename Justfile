@@ -7,7 +7,8 @@
 set shell := ["bash", "-eo", "pipefail", "-c"]
 set dotenv-load
 
-compose := "docker compose"
+export CONTAINER_CLI := `command -v podman >/dev/null 2>&1 && echo podman || echo docker`
+compose := CONTAINER_CLI + " compose"
 project_dir := justfile_directory()
 
 # List all available recipes (default)
@@ -58,7 +59,7 @@ status:
     @{{ compose }} ps -a
     @echo ""
     @echo "── Health ──"
-    @docker inspect influxdb grafana chronograf telegraf 2>/dev/null | jq -r '.[] | "  \(.Name | ltrimstr("/")): \(.State.Health.Status)"'
+    @{{ CONTAINER_CLI }} inspect influxdb grafana chronograf telegraf speedtest-cron 2>/dev/null | jq -r '.[] | "  \(.Name | ltrimstr("/")): \(.State.Health.Status)"'
 
 # Show versions of all services
 versions:
@@ -88,7 +89,7 @@ speedtest:
 
 # Show last N speedtest results (default: 5)
 last-results n="5":
-    @docker exec influxdb influx \
+    @{{ CONTAINER_CLI }} exec influxdb influx \
         -username "${INFLUXDB_ADMIN_USER:-admin}" -password "${INFLUXDB_ADMIN_PASSWORD}" \
         -execute "SELECT download_bandwidth/1000000 AS dl_mbps, upload_bandwidth/1000000 AS ul_mbps, ping_latency FROM speedtest ORDER BY time DESC LIMIT {{ n }}" \
         -database speedtest -precision rfc3339
@@ -113,20 +114,20 @@ clean:
     @{{ compose }} rm -f 2>/dev/null || true
     @echo ""
     @echo "── Pruning dangling images ──"
-    @docker image prune -f
+    @{{ CONTAINER_CLI }} image prune -f
     @echo ""
     @echo "── Pruning build cache ──"
-    @docker builder prune -f
+    @{{ CONTAINER_CLI }} builder prune -f
     @echo ""
-    @docker system df
+    @{{ CONTAINER_CLI }} system df
 
 # Full cleanup: clean + remove unused images (DESTRUCTIVE)
 clean-all: clean
     @echo ""
     @echo "── Removing unused images ──"
-    @docker image prune -a -f
+    @{{ CONTAINER_CLI }} image prune -a -f
     @echo ""
-    @docker system df
+    @{{ CONTAINER_CLI }} system df
 
 # ── Testing ─────────────────────────────────────────────
 
@@ -184,11 +185,11 @@ timer-status:
 
 # Open an InfluxDB CLI shell
 influx-shell:
-    docker exec -it influxdb influx
+    {{ CONTAINER_CLI }} exec -it influxdb influx
 
 # Open a bash shell in a container
 shell svc:
-    docker exec -it {{ svc }} bash 2>/dev/null || docker exec -it {{ svc }} sh
+    {{ CONTAINER_CLI }} exec -it {{ svc }} bash 2>/dev/null || {{ CONTAINER_CLI }} exec -it {{ svc }} sh
 
 # Show the active crontab entry
 cron:
@@ -227,7 +228,7 @@ lighthouse-report preset="both":
 
 # ── RPi4 Simulation (ARM64 on x86) ─────────────────────
 
-sim_compose := "docker compose -f docker-compose.yml -f sim/docker-compose.sim.yml --env-file sim/.env.sim -p rpi-sim"
+sim_compose := compose + " -f docker-compose.yml -f sim/docker-compose.sim.yml --env-file sim/.env.sim -p rpi-sim"
 
 # Start the RPi4 simulation stack (ARM64 emulated via QEMU)
 sim-up:
@@ -250,7 +251,7 @@ sim-nuke:
 sim-status:
     @{{ sim_compose }} ps -a
     @echo ""
-    @docker inspect influxdb grafana telegraf chronograf speedtest-cron 2>/dev/null | jq -r '.[] | "  \(.Name | ltrimstr("/")): \(.State.Health.Status // "n/a")"' || true
+    @{{ CONTAINER_CLI }} inspect influxdb grafana telegraf chronograf speedtest-cron 2>/dev/null | jq -r '.[] | "  \(.Name | ltrimstr("/")): \(.State.Health.Status // "n/a")"' || true
 
 # Show simulation logs
 sim-logs lines="50":
@@ -270,17 +271,17 @@ sim-speedtest:
 
 # Open an InfluxDB shell in the simulation
 sim-influx-shell:
-    docker exec -it influxdb influx -username admin -password simpass
+    {{ CONTAINER_CLI }} exec -it influxdb influx -username admin -password simpass
 
 # Show simulation stats (databases, counts, disk)
 sim-stats:
     @echo "── Databases ──"
-    @docker exec influxdb influx -username admin -password simpass -execute "SHOW DATABASES"
+    @{{ CONTAINER_CLI }} exec influxdb influx -username admin -password simpass -execute "SHOW DATABASES"
     @echo ""
     @echo "── Retention Policies ──"
     @for db in speedtest telegraf; do \
         echo "  $db:"; \
-        docker exec influxdb influx -username admin -password simpass -execute "SHOW RETENTION POLICIES ON $db" 2>/dev/null | tail -2; \
+        {{ CONTAINER_CLI }} exec influxdb influx -username admin -password simpass -execute "SHOW RETENTION POLICIES ON $db" 2>/dev/null | tail -2; \
         echo ""; \
     done
     @echo "── Data Counts ──"
@@ -289,7 +290,7 @@ sim-stats:
 
 # Register QEMU user-static (needed once per host reboot)
 sim-binfmt:
-    docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+    {{ CONTAINER_CLI }} run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
 # Run the sim smoke test suite (25 checks)
 sim-test:

@@ -5,6 +5,8 @@
 #   --preview  Build locally and serve on http://localhost:8080 (no push)
 #   days       Number of days of history to export (default: 30)
 set -euo pipefail
+DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
+
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
 TEMPLATE="$SCRIPT_DIR/gh-pages/index.template.html"
@@ -45,7 +47,7 @@ echo "── Exporting last ${DAYS}d of speedtest data from InfluxDB ──"
 
 QUERY="SELECT download_bandwidth, upload_bandwidth, ping_latency FROM speedtest WHERE time > now() - ${DAYS}d ORDER BY time ASC"
 
-JSON_DATA=$(docker exec influxdb influx \
+JSON_DATA=$("$DOCKER" exec influxdb influx \
     -username "${_influx_admin:-admin}" -password "${_influx_admin_pass}" \
     -execute "$QUERY" \
     -database speedtest \

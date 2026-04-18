@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Quick health check of the 4 monitoring services.
 set -eo pipefail
+DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
+
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
 _influx_admin=$(grep '^INFLUXDB_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
@@ -21,7 +23,7 @@ for svc in "Grafana:http://localhost:3000/api/health" "Chronograf:http://localho
     fi
 done
 
-if docker exec influxdb influx -username "${_influx_admin:-admin}" -password "${_influx_admin_pass}" -execute "SHOW DATABASES" >/dev/null 2>&1; then
+if "$DOCKER" exec influxdb influx -username "${_influx_admin:-admin}" -password "${_influx_admin_pass}" -execute "SHOW DATABASES" >/dev/null 2>&1; then
     printf "  ✅ InfluxDB\n"
     PASS=$((PASS + 1))
 else
@@ -29,7 +31,7 @@ else
     FAIL=$((FAIL + 1))
 fi
 
-if docker exec telegraf pgrep telegraf >/dev/null 2>&1; then
+if "$DOCKER" exec telegraf pgrep telegraf >/dev/null 2>&1; then
     printf "  ✅ Telegraf\n"
     PASS=$((PASS + 1))
 else

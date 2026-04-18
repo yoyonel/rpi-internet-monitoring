@@ -8,6 +8,8 @@
 #
 # Prerequisites: sim stack running, jq + curl available.
 set -uo pipefail
+DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
+
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -47,7 +49,7 @@ warn() {
 }
 
 influx_query() {
-    docker exec "$INFLUXDB_CONTAINER" influx \
+    "$DOCKER" exec "$INFLUXDB_CONTAINER" influx \
         -username "${_influx_admin:-admin}" \
         -password "${_influx_admin_pass}" \
         -execute "$1" -database "${2:-}" 2>/dev/null
@@ -196,7 +198,7 @@ echo ""
 echo "── 7. Container State ──"
 
 for svc in grafana influxdb chronograf telegraf docker-socket-proxy speedtest-cron; do
-    if docker ps --format '{{.Names}}' 2>/dev/null | grep -qi "$svc"; then
+    if "$DOCKER" ps --format '{{.Names}}' 2>/dev/null | grep -qi "$svc"; then
         pass "Container '$svc' running"
     else
         fail "Container '$svc' not running"

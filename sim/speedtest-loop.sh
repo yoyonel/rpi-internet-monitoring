@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
+DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
+
 
 # Periodically run speedtest, mimicking the systemd timer in production.
 # Default interval: 600s (10 min), matching speedtest.timer OnCalendar=*:0/10.
 
 interval="${SPEEDTEST_INTERVAL:-600}"
 
-# Trap SIGTERM so docker stop doesn't wait for the full stop timeout.
+# Trap SIGTERM so "$DOCKER" stop doesn't wait for the full stop timeout.
 # Kill the sleep process (if running) and exit cleanly.
 sleep_pid=
 trap 'echo "[$(date -Iseconds)] Shutting down"; [[ -n "$sleep_pid" ]] && kill "$sleep_pid" 2>/dev/null; exit 0' SIGTERM SIGINT
