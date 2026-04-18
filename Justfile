@@ -7,7 +7,7 @@
 set shell := ["bash", "-eo", "pipefail", "-c"]
 set dotenv-load
 
-export CONTAINER_CLI := `command -v podman >/dev/null 2>&1 && echo podman || echo docker`
+export CONTAINER_CLI := env('CONTAINER_CLI', `command -v podman >/dev/null 2>&1 && echo podman || echo docker`)
 compose := CONTAINER_CLI + " compose"
 project_dir := justfile_directory()
 
@@ -59,7 +59,7 @@ status:
     @{{ compose }} ps -a
     @echo ""
     @echo "── Health ──"
-    @{{ CONTAINER_CLI }} inspect influxdb grafana chronograf telegraf speedtest-cron 2>/dev/null | jq -r '.[] | "  \(.Name | ltrimstr("/")): \(.State.Health.Status)"'
+    @{{ CONTAINER_CLI }} inspect influxdb grafana chronograf telegraf speedtest-cron 2>/dev/null | jq -r '.[] | "  \(.Name | ltrimstr("/")): \(.State.Health.Status)"' || true
 
 # Show versions of all services
 versions:
