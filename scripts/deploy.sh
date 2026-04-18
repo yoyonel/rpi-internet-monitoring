@@ -126,8 +126,21 @@ _run_migrations
 
 _log "Post-deploy verification"
 
-echo "  Waiting 10s for services to stabilize..."
-sleep 10
+# Wait for all healthchecks to settle (compose up may restart containers
+# whose deps like influxdb take ~30s to become healthy).
+MAX_WAIT=90
+INTERVAL=10
+elapsed=0
+while ((elapsed < MAX_WAIT)); do
+    healthy=$($COMPOSE ps --format json | grep -c '"healthy"' || true)
+    total=$($COMPOSE ps --format json | grep -c '"Health"' || true)
+    if ((total > 0 && healthy == total)); then
+        break
+    fi
+    echo "  Waiting for health checks... (${healthy}/${total} healthy, ${elapsed}s/${MAX_WAIT}s)"
+    sleep "$INTERVAL"
+    elapsed=$((elapsed + INTERVAL))
+done
 
 bash "$SCRIPT_DIR/scripts/check.sh" || true
 
