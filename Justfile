@@ -228,7 +228,10 @@ lighthouse-report preset="both":
 
 # ── RPi4 Simulation (ARM64 on x86) ─────────────────────
 
-sim_compose := compose + " -f docker-compose.yml -f sim/docker-compose.sim.yml --env-file sim/.env.sim -p rpi-sim"
+# Source sim/.env.sim BEFORE compose so sim credentials override
+# the production .env loaded by `set dotenv-load`.
+# Shell env has higher precedence than --env-file in docker compose.
+sim_compose := "set -a && . sim/.env.sim && set +a && " + compose + " -f docker-compose.yml -f sim/docker-compose.sim.yml --env-file sim/.env.sim -p rpi-sim"
 
 # Start the RPi4 simulation stack (ARM64 emulated via QEMU)
 sim-up:
@@ -285,8 +288,8 @@ sim-stats:
         echo ""; \
     done
     @echo "── Data Counts ──"
-    @printf "  Speedtest points: %s\n" "$(docker exec influxdb influx -username admin -password simpass -execute 'SELECT COUNT(download_bandwidth) FROM speedtest' -database speedtest 2>/dev/null | tail -1 | awk '{print $2}')"
-    @printf "  Telegraf cpu (last 1h): %s\n" "$(docker exec influxdb influx -username admin -password simpass -execute 'SELECT COUNT(usage_idle) FROM cpu WHERE time > now() - 1h' -database telegraf 2>/dev/null | tail -1 | awk '{print $2}')"
+    @printf "  Speedtest points: %s\n" "$({{ CONTAINER_CLI }} exec influxdb influx -username admin -password simpass -execute 'SELECT COUNT(download_bandwidth) FROM speedtest' -database speedtest 2>/dev/null | tail -1 | awk '{print $2}')"
+    @printf "  Telegraf cpu (last 1h): %s\n" "$({{ CONTAINER_CLI }} exec influxdb influx -username admin -password simpass -execute 'SELECT COUNT(usage_idle) FROM cpu WHERE time > now() - 1h' -database telegraf 2>/dev/null | tail -1 | awk '{print $2}')"
 
 # Register QEMU user-static (needed once per host reboot)
 sim-binfmt:
