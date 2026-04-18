@@ -31,12 +31,18 @@ repos:
         types: [yaml]
         args: [-c, .yamllint.yml]
 
-  # ── Prettier (HTML, CSS, JS, JSON, MD, YAML) ──────────
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v4.0.0-alpha.8
-    hooks:
+      # ── Prettier (Matched with CI v3.8.3) ──────────────────
       - id: prettier
-        args: [--write, --ignore-unknown]
+        name: prettier
+        entry: npx -y prettier@3.8.3 --write --ignore-unknown
+        language: system
+        types_or:
+          - html
+          - css
+          - javascript
+          - json
+          - markdown
+          - yaml
         exclude: ^(grafana|speedtest|telegraf)/
 
   # ── Python ─────────────────────────────────────────────
