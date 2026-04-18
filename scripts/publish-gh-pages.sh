@@ -141,19 +141,30 @@ else
     echo ""
     echo "── Pushing to gh-pages branch ──"
 
-    cd "$BUILD_DIR"
+    DEPLOY_DIR="/tmp/gh-pages-deploy"
+    rm -rf "$DEPLOY_DIR"
+    git clone --depth 1 --branch gh-pages "$REPO_URL" "$DEPLOY_DIR" 2>/dev/null || {
+        mkdir -p "$DEPLOY_DIR" && cd "$DEPLOY_DIR" && git init -q && git checkout -q -b gh-pages
+        git remote add origin "$REPO_URL"
+    }
+    cd "$DEPLOY_DIR"
+
+    # Update site files (preserves badges/ and other extra content)
+    cp "$BUILD_DIR"/index.html "$BUILD_DIR"/style.css "$BUILD_DIR"/app.js .
+    cp "$BUILD_DIR"/data.json "$BUILD_DIR"/alerts.json .
+    cp -r "$BUILD_DIR"/fonts .
     touch .nojekyll
-    git init -q
+
     git config user.email "gh-pages-bot@users.noreply.github.com"
     git config user.name "GitHub Pages Bot"
-    git checkout -q -b gh-pages
-    git add index.html style.css app.js data.json alerts.json fonts/ .nojekyll
-    git commit -q -m "Update monitoring data — $NOW"
-    git remote add origin "$REPO_URL"
-    git fetch origin gh-pages --depth=1 2>/dev/null || true
-    git push --force-with-lease -q origin gh-pages
-
-    echo "  → Pushed to gh-pages branch"
+    git add -A
+    if git diff --cached --quiet; then
+        echo "  → No changes to push"
+    else
+        git commit -q -m "Update monitoring data — $NOW"
+        git push -q origin gh-pages
+        echo "  → Pushed to gh-pages branch"
+    fi
     echo ""
     echo "── Done! ──"
     echo "  Page will be available at:"

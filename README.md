@@ -6,6 +6,12 @@
 [![Deploy GitHub Pages](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/deploy-gh-pages.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/deploy-gh-pages.yml)
 [![GitHub Pages](https://img.shields.io/website?url=https%3A%2F%2Fyoyonel.github.io%2Frpi-internet-monitoring%2F&label=GitHub%20Pages)](https://yoyonel.github.io/rpi-internet-monitoring/)
 
+[![Lighthouse Performance (mobile)](https://img.shields.io/endpoint?url=https://yoyonel.github.io/rpi-internet-monitoring/badges/lighthouse-performance-mobile.json)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/lighthouse.yml)
+[![Lighthouse Performance (desktop)](https://img.shields.io/endpoint?url=https://yoyonel.github.io/rpi-internet-monitoring/badges/lighthouse-performance-desktop.json)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/lighthouse.yml)
+[![Lighthouse Accessibility](https://img.shields.io/endpoint?url=https://yoyonel.github.io/rpi-internet-monitoring/badges/lighthouse-accessibility-desktop.json)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/lighthouse.yml)
+[![Lighthouse Best Practices](https://img.shields.io/endpoint?url=https://yoyonel.github.io/rpi-internet-monitoring/badges/lighthouse-best-practices-desktop.json)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/lighthouse.yml)
+[![Lighthouse SEO](https://img.shields.io/endpoint?url=https://yoyonel.github.io/rpi-internet-monitoring/badges/lighthouse-seo-desktop.json)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/lighthouse.yml)
+
 Stack Docker pour monitorer le débit internet (download, upload, ping) via [Ookla Speedtest CLI](https://www.speedtest.net/apps/cli), avec stockage dans InfluxDB et visualisation dans Grafana.
 
 ## Architecture
