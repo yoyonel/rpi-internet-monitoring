@@ -36,7 +36,9 @@ _dataReady.then(([, ALERTS]) => {
     if (isNaN(d)) return null;
     const p = (n) => (n < 10 ? '0' + n : '' + n);
     const tz = d.toLocaleTimeString('fr-FR', { timeZoneName: 'short' }).split(' ').pop();
-    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())} (${tz})`;
+    return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(
+      d.getMinutes(),
+    )}:${p(d.getSeconds())} (${tz})`;
   };
   const evalStr = fmtEval(lastEval);
   const evalHtml = evalStr
@@ -217,7 +219,9 @@ _dataReady.then(async ([RAW_DATA]) => {
   const tzAbbr = new Date().toLocaleTimeString('fr-FR', { timeZoneName: 'short' }).split(' ').pop();
   const fmtDate = (t) => {
     const d = new Date(t);
-    return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+    return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(
+      d.getMinutes(),
+    )}`;
   };
   const fmtDateTz = (t) => `${fmtDate(t)} ${tzAbbr}`;
   const fmtSpd = (v) =>
@@ -673,8 +677,9 @@ _dataReady.then(async ([RAW_DATA]) => {
     piChart.options.scales.x.min = rangeStart;
     piChart.options.scales.x.max = rangeEnd;
 
-    document.getElementById('rangeLabel').textContent =
-      `${fmtDateTz(rangeStart)}  \u2192  ${fmtDateTz(rangeEnd)}`;
+    document.getElementById('rangeLabel').textContent = `${fmtDateTz(
+      rangeStart,
+    )}  \u2192  ${fmtDateTz(rangeEnd)}`;
     document
       .querySelectorAll('.rb')
       .forEach((b) => b.classList.toggle('on', parseInt(b.dataset.hours) === currentH));

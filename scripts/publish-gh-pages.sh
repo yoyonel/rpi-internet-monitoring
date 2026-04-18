@@ -7,7 +7,6 @@
 set -euo pipefail
 DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
 
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
 TEMPLATE="$SCRIPT_DIR/gh-pages/index.template.html"
 
