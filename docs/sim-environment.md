@@ -42,15 +42,21 @@ sim/speedtest-loop.sh         ← periodic speedtest loop (replaces systemd time
 docker-compose.yml            ← base compose (shared with production)
 ```
 
-The simulation uses Docker Compose's override mechanism:
+The simulation uses Docker Compose's override mechanism. Because the
+Justfile uses `set dotenv-load` (which loads `.env` prod credentials
+into the shell), the sim recipes first source `sim/.env.sim` to
+override them — shell env vars have higher precedence than
+`--env-file` in Docker Compose:
 
 ```bash
-docker compose \
-  -f docker-compose.yml \
-  -f sim/docker-compose.sim.yml \
-  --env-file sim/.env.sim \
-  -p rpi-sim \
-  up -d
+# What `just sim-up` expands to:
+set -a && . sim/.env.sim && set +a && \
+  docker compose \
+    -f docker-compose.yml \
+    -f sim/docker-compose.sim.yml \
+    --env-file sim/.env.sim \
+    -p rpi-sim \
+    up -d
 ```
 
 The `-p rpi-sim` project name isolates containers and volumes from any
@@ -58,17 +64,17 @@ production deployment on the same host.
 
 ### What the sim overlay changes
 
-| Service      | Override                                                      | Why                                                                                |
-| ------------ | ------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| All services | `platform: linux/arm64`                                       | Force ARM64 emulation via QEMU                                                     |
-| All services | `mem_limit` / `memswap_limit`                                 | Simulate RPi4 4 GB memory budget                                                   |
-| influxdb     | `cap_add: CHOWN, DAC_OVERRIDE, SETUID, SETGID, FOWNER`        | Entrypoint needs these to init data dir (base compose has `cap_drop: ALL`)         |
-| influxdb     | Healthcheck: `timeout 30s, retries 10, start_period 120s`     | QEMU emulation is ~10× slower than native                                          |
-| influxdb     | `ports: 127.0.0.1:8086:8086`                                  | Expose for external tooling                                                        |
-| influxdb     | `INFLUXDB_MONITOR_STORE_ENABLED: false`                       | Skip `_internal` database to save resources                                        |
-| telegraf     | `hostname: rpi-sim`, custom `telegraf-sim.conf`               | x86-compatible inputs (thermal_zone0 instead of BCM2711, wildcard net interfaces)  |
-| influxdb     | `influxdb-init.iql` mounted in `/docker-entrypoint-initdb.d/` | Creates `telegraf` + `speedtest` databases and grants on first boot (empty volume) |
-| speedtest    | `platform: linux/arm64` + ARM64 build + admin credentials     | Build the speedtest image for ARM64; use admin creds for `CREATE DATABASE`         |
+| Service      | Override                                                                | Why                                                                                |
+| ------------ | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| All services | `platform: linux/arm64`                                                 | Force ARM64 emulation via QEMU                                                     |
+| All services | `mem_limit` / `memswap_limit`                                           | Simulate RPi4 4 GB memory budget                                                   |
+| influxdb     | `cap_add: CHOWN, DAC_OVERRIDE, SETUID, SETGID, FOWNER`                  | Entrypoint needs these to init data dir (base compose has `cap_drop: ALL`)         |
+| influxdb     | Healthcheck: `curl /ping`, `timeout 15s, retries 20, start_period 300s` | QEMU emulation is ~10× slower; lightweight HTTP ping instead of heavy `influx` CLI |
+| influxdb     | `ports: 127.0.0.1:8086:8086`                                            | Expose for external tooling                                                        |
+| influxdb     | `INFLUXDB_MONITOR_STORE_ENABLED: false`                                 | Skip `_internal` database to save resources                                        |
+| telegraf     | `hostname: rpi-sim`, custom `telegraf-sim.conf`                         | x86-compatible inputs (thermal_zone0 instead of BCM2711, wildcard net interfaces)  |
+| influxdb     | `influxdb-init.iql` mounted in `/docker-entrypoint-initdb.d/`           | Creates `telegraf` + `speedtest` databases and grants on first boot (empty volume) |
+| speedtest    | `platform: linux/arm64` + ARM64 build + admin credentials               | Build the speedtest image for ARM64; use admin creds for `CREATE DATABASE`         |
 
 ### Memory budget (RPi4 — 4 GB)
 
@@ -227,9 +233,14 @@ back the minimum capabilities needed (`CHOWN`, `DAC_OVERRIDE`, `SETUID`,
 
 ### InfluxDB healthcheck timeout under QEMU
 
-ARM64 emulation on x86 is ~10× slower. The sim overlay increases
-`start_period` to 120s and `retries` to 10. First startup can take
-2-3 minutes.
+ARM64 emulation on x86 is ~10× slower. The original healthcheck used
+the `influx` CLI (a full Go binary), which took 60-90s per invocation
+under QEMU — causing cascading timeouts after 405s+.
+
+The fix replaces the CLI check with `curl -sf http://localhost:8086/ping`,
+which responds in <100ms. The sim overlay sets `start_period: 300s` and
+`retries: 20` for a generous 900s total budget. In practice, InfluxDB
+becomes healthy in ~6s.
 
 ### Empty dashboards after first boot
 
