@@ -38,6 +38,10 @@ deploy:
     {{ compose }} build speedtest
     {{ compose }} up -d --pull always --remove-orphans
 
+# Smart deploy: pull, auto-detect changes, backup, rebuild/restart, run migrations
+deploy-smart:
+    bash scripts/deploy.sh
+
 # Build the speedtest image only
 build:
     {{ compose }} build speedtest
@@ -199,7 +203,7 @@ cron:
 
 # Lint all source files
 lint:
-    shellcheck scripts/*.sh sim/*.sh docker-entrypoint.sh test-stack.sh
+    shellcheck scripts/*.sh sim/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
     hadolint Dockerfile
     yamllint docker-compose.yml .github/workflows/*.yml grafana/provisioning/alerting/alerts.yml .yamllint.yml .hadolint.yaml
     npx prettier --check 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
@@ -209,7 +213,7 @@ lint:
 
 # Auto-format all source files
 fmt:
-    shfmt -w -i 4 -ci scripts/*.sh sim/*.sh docker-entrypoint.sh test-stack.sh
+    shfmt -w -i 4 -ci scripts/*.sh sim/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
     npx prettier --write 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
     ruff format scripts/*.py
     @echo "All files formatted ✅"
