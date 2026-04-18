@@ -4,13 +4,13 @@
 set -euo pipefail
 
 echo "▶ Checking if preview server is running on :8080 ..."
-if ! curl -sf -o /dev/null http://localhost:8080 2>/dev/null; then
+if ! curl -sf -o /dev/null http://127.0.0.1:8080 2>/dev/null; then
     echo "⚠  No preview server on :8080 — starting one in background ..."
     just preview-dev 8080 &
     PREVIEW_PID=$!
     # Wait for server to be ready (max 30s)
     for i in $(seq 1 30); do
-        if curl -sf -o /dev/null http://localhost:8080 2>/dev/null; then
+        if curl -sf -o /dev/null http://127.0.0.1:8080 2>/dev/null; then
             break
         fi
         if [[ "$i" -eq 30 ]]; then
