@@ -133,7 +133,7 @@ INTERVAL=10
 elapsed=0
 while ((elapsed < MAX_WAIT)); do
     healthy=$($COMPOSE ps --format json | grep -c '"healthy"' || true)
-    total=$($COMPOSE ps --format json | grep -c '"Health"' || true)
+    total=$($COMPOSE ps --format json | grep -cE '"Health"\s*:\s*"(healthy|unhealthy|starting)"' || true)
     if ((total > 0 && healthy == total)); then
         break
     fi
