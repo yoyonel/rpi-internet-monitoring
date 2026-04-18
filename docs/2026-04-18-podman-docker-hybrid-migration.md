@@ -78,7 +78,21 @@ Moved from containerized pre-commit hooks to **System-based hooks** (`language: 
 
 ---
 
-## 🌐 5. Network Stability
+## 🔄 5. 100% ISO CI/Local Unification
+
+### Choice: `pre-commit` as the Single Source of Truth
+
+We refactored the GitHub Actions workflow (`.github/workflows/lint.yml`) to remove all manual linter steps and replaced them with the official `pre-commit/action`.
+
+### Justification
+
+- **Zero Divergence**: Since both the developer's machine and the GitHub runner use the exact same `.pre-commit-config.yaml`, there is zero risk of "Linter Wars" (where one tool passes locally but fails on CI).
+- **Maintenance**: Adding or modifying a check only requires an update in one place (the config file) instead of synchronized changes across multiple scripts and workflows.
+- **Portability**: This architecture makes the project engine-agnostic; as long as `pre-commit` is installed, the quality gate is identical on any host.
+
+---
+
+## 🌐 6. Network Stability
 
 ### Choice: IPv4 (127.0.0.1) over `localhost`
 
