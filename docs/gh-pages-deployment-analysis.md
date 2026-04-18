@@ -41,12 +41,10 @@ Le workflow CI utilise `extract-live-data.py` pour récupérer les données depu
 ## Questions ouvertes
 
 1. **Quel est le rôle voulu du workflow CI ?**
-
    - Option A : rebuild du template seulement (quand `gh-pages/**` change sur master) → ne touche pas aux données, re-render HTML/CSS/JS avec les données existantes sur la branche `gh-pages`
    - Option B : déploiement complet indépendant → doit passer en mode `git push` sur la branche (comme le RPI), mais race condition avec le timer 10 min
 
 2. **Le CI doit-il utiliser des données locales ou distantes ?**
-
    - Le RPI a les données fraîches (InfluxDB + Grafana)
    - Le CI n'a pas accès à InfluxDB → il dépend forcément de données existantes (site live ou branche gh-pages)
    - Faut-il que le CI récupère `data.json`/`alerts.json` depuis la branche `gh-pages` directement (git checkout) au lieu de curl le site ?

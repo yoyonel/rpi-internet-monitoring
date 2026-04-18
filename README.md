@@ -388,9 +388,9 @@ Page statique publique avec les résultats speedtest des 30 derniers jours :
 
 ### Rendu dual-mode adaptatif
 
-| Fenêtre                  | Mode               | Détail                                                                                         |
-| ------------------------ | ------------------ | ---------------------------------------------------------------------------------------------- |
-| ≤ 48h (6h, 12h, 24h, 2j) | **Line chart**     | Courbes LTTB (600 pts max) avec gradient fill                                                  |
+| Fenêtre                  | Mode               | Détail                                                                                        |
+| ------------------------ | ------------------ | --------------------------------------------------------------------------------------------- |
+| ≤ 48h (6h, 12h, 24h, 2j) | **Line chart**     | Courbes LTTB (600 pts max) avec gradient fill                                                 |
 | > 48h (7j, 30j)          | **Band chart IQR** | Bandes Q1↔Q3 + ligne médiane + whiskers min/max par bucket temporel (2h pour 7j, 6h pour 30j) |
 
 Le mode band chart est inspiré des boxplots : au lieu de tracer des milliers de points illisibles, les données sont agrégées en buckets temporels et chaque bucket affiche sa distribution statistique. Résultat : rendu instantané même sur 30 jours, et visualisation immédiate de la dispersion et des anomalies.
