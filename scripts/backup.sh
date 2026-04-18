@@ -2,14 +2,17 @@
 # Backup Grafana dashboards, datasources, and InfluxDB data.
 # Creates a timestamped directory under backups/.
 set -euo pipefail
+DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKUP_DIR="$SCRIPT_DIR/backups/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 
-# Load credentials from .env
-if [[ -f "$SCRIPT_DIR/.env" ]]; then
+# Load credentials: prefer env vars (set by Justfile dotenv-load), fallback to .env file
+if [[ -z "${GF_SECURITY_ADMIN_USER:-}" ]] && [[ -f "$SCRIPT_DIR/.env" ]]; then
     GF_SECURITY_ADMIN_USER=$(grep '^GF_SECURITY_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+fi
+if [[ -z "${GF_SECURITY_ADMIN_PASSWORD:-}" ]] && [[ -f "$SCRIPT_DIR/.env" ]]; then
     GF_SECURITY_ADMIN_PASSWORD=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
 fi
 GRAFANA_CREDS="${GF_SECURITY_ADMIN_USER:-admin}:${GF_SECURITY_ADMIN_PASSWORD:?GF_SECURITY_ADMIN_PASSWORD not set in .env}"
@@ -41,9 +44,9 @@ echo "  → datasources.json ($(wc -c <"$BACKUP_DIR/datasources.json") bytes)"
 # ── InfluxDB ──
 echo ""
 echo "── InfluxDB portable backup ──"
-docker exec influxdb sh -c "rm -rf /tmp/backup && influxd backup -portable /tmp/backup" 2>&1
-docker cp influxdb:/tmp/backup "$BACKUP_DIR/influxdb-backup"
-docker exec influxdb rm -rf /tmp/backup
+"$DOCKER" exec influxdb sh -c "rm -rf /tmp/backup && influxd backup -portable /tmp/backup" 2>&1
+"$DOCKER" cp influxdb:/tmp/backup "$BACKUP_DIR/influxdb-backup"
+"$DOCKER" exec influxdb rm -rf /tmp/backup
 echo "  → influxdb-backup/ ($(du -sh "$BACKUP_DIR/influxdb-backup" | awk '{print $1}'))"
 
 # ── Summary ──

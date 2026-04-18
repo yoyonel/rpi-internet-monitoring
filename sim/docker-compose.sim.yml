@@ -28,20 +28,15 @@ services:
       - SETUID
       - SETGID
       - FOWNER
-    # QEMU emulation is ~10x slower — increase healthcheck timeouts
+    # QEMU emulation is ~10x slower — use lightweight HTTP ping instead of
+    # the heavy influx CLI, and increase timeouts generously.
+    # Budget: start_period(300s) + retries(20) × interval(30s) = 900s max
     healthcheck:
-      test:
-        - CMD-SHELL
-        - >-
-          influx
-          -username "$INFLUXDB_ADMIN_USER"
-          -password "$INFLUXDB_ADMIN_PASSWORD"
-          -execute 'SHOW DATABASES'
-          >/dev/null 2>&1 || exit 1
+      test: ['CMD-SHELL', 'curl -sf http://localhost:8086/ping || exit 1']
       interval: 30s
-      timeout: 30s
-      retries: 10
-      start_period: 120s
+      timeout: 15s
+      retries: 20
+      start_period: 300s
     # Expose InfluxDB for external access (CQ migration from laptop, etc.)
     ports:
       - '127.0.0.1:8086:8086'
@@ -109,7 +104,5 @@ services:
       - ./sim/speedtest-loop.sh:/usr/local/bin/speedtest-loop.sh:ro
     entrypoint: ['/bin/bash', '/usr/local/bin/speedtest-loop.sh']
     restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
     cap_drop:
       - ALL

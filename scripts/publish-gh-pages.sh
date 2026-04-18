@@ -5,6 +5,7 @@
 #   --preview  Build locally and serve on http://localhost:8080 (no push)
 #   days       Number of days of history to export (default: 30)
 set -euo pipefail
+DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
 TEMPLATE="$SCRIPT_DIR/gh-pages/index.template.html"
@@ -31,9 +32,9 @@ echo ""
 NOW=$(date -Iseconds)
 REPO_URL=$(git -C "$SCRIPT_DIR" remote get-url origin 2>/dev/null || echo "https://github.com/yoyonel/rpi-internet-monitoring.git")
 
-# Load InfluxDB credentials
-_influx_admin=$(grep '^INFLUXDB_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
-_influx_admin_pass=$(grep '^INFLUXDB_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+# Load InfluxDB credentials: prefer env vars (set by Justfile dotenv-load), fallback to .env
+_influx_admin="${INFLUXDB_ADMIN_USER:-$(grep '^INFLUXDB_ADMIN_USER=' "$SCRIPT_DIR/.env" 2>/dev/null | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")}"
+_influx_admin_pass="${INFLUXDB_ADMIN_PASSWORD:-$(grep '^INFLUXDB_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" 2>/dev/null | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")}"
 
 echo "╔══════════════════════════════════════════╗"
 echo "║  Publish GitHub Pages — $NOW"
@@ -45,7 +46,7 @@ echo "── Exporting last ${DAYS}d of speedtest data from InfluxDB ──"
 
 QUERY="SELECT download_bandwidth, upload_bandwidth, ping_latency FROM speedtest WHERE time > now() - ${DAYS}d ORDER BY time ASC"
 
-JSON_DATA=$(docker exec influxdb influx \
+JSON_DATA=$("$DOCKER" exec influxdb influx \
     -username "${_influx_admin:-admin}" -password "${_influx_admin_pass}" \
     -execute "$QUERY" \
     -database speedtest \
@@ -69,11 +70,9 @@ fi
 echo ""
 echo "── Exporting alert status from Grafana ──"
 
-# Load Grafana credentials
-if [[ -f "$SCRIPT_DIR/.env" ]]; then
-    _gf_user=$(grep '^GF_SECURITY_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
-    _gf_pass=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
-fi
+# Load Grafana credentials: prefer env vars, fallback to .env
+_gf_user="${GF_SECURITY_ADMIN_USER:-$(grep '^GF_SECURITY_ADMIN_USER=' "$SCRIPT_DIR/.env" 2>/dev/null | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")}"
+_gf_pass="${GF_SECURITY_ADMIN_PASSWORD:-$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" 2>/dev/null | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")}"
 GF_CREDS="${_gf_user:-admin}:${_gf_pass:?GF_SECURITY_ADMIN_PASSWORD not set}"
 
 ALERTS_JSON=$(curl -sf -K <(printf 'user = "%s"\n' "$GF_CREDS") "http://localhost:3000/api/prometheus/grafana/api/v1/rules" 2>/dev/null || echo '{}')

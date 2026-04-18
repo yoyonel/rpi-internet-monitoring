@@ -3,6 +3,7 @@
 # Run BEFORE and AFTER any upgrade to detect regressions.
 # Usage: ./test-stack.sh
 set -uo pipefail
+DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _user=$(grep '^GF_SECURITY_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
@@ -34,7 +35,7 @@ warn() {
 }
 
 influx_query() {
-    docker exec "$INFLUXDB_CONTAINER" influx -username "${_influx_admin:-admin}" -password "${_influx_admin_pass}" -execute "$1" -database "${2:-}" 2>/dev/null
+    "$DOCKER" exec "$INFLUXDB_CONTAINER" influx -username "${_influx_admin:-admin}" -password "${_influx_admin_pass}" -execute "$1" -database "${2:-}" 2>/dev/null
 }
 
 echo "╔══════════════════════════════════════════════════════════╗"
@@ -155,14 +156,14 @@ echo ""
 echo "── 5. Container State ──"
 
 for svc in grafana influxdb chronograf telegraf; do
-    if docker ps --format '{{.Names}}' 2>/dev/null | grep -qi "$svc"; then
+    if "$DOCKER" ps --format '{{.Names}}' 2>/dev/null | grep -qi "$svc"; then
         pass "Container '$svc' running"
     else
         fail "Container '$svc' not running"
     fi
 done
 
-STOPPED=$(docker ps -a --filter status=exited --format '{{.Names}}' 2>/dev/null | wc -l)
+STOPPED=$("$DOCKER" ps -a --filter status=exited --format '{{.Names}}' 2>/dev/null | wc -l)
 if [[ "$STOPPED" -gt 0 ]]; then
     warn "$STOPPED stopped container(s) (cleanup recommended)"
 else

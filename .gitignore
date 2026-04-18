@@ -25,3 +25,6 @@ Thumbs.db
 
 # Legacy backup files
 *.bak
+
+# Deploy migrations tracking (machine-local state)
+.migrations-applied

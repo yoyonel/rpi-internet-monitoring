@@ -5,8 +5,8 @@ set -eo pipefail
 
 PROJECT_DIR="${1:-.}"
 
-_user=$(grep '^GF_SECURITY_ADMIN_USER=' "$PROJECT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
-_pass=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$PROJECT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+_user="${GF_SECURITY_ADMIN_USER:-$(grep '^GF_SECURITY_ADMIN_USER=' "$PROJECT_DIR/.env" 2>/dev/null | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")}"
+_pass="${GF_SECURITY_ADMIN_PASSWORD:-$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$PROJECT_DIR/.env" 2>/dev/null | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")}"
 CREDS="${_user:-admin}:${_pass}"
 
 echo "── Alert Rules ──"

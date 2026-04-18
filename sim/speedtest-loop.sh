@@ -6,7 +6,7 @@ set -euo pipefail
 
 interval="${SPEEDTEST_INTERVAL:-600}"
 
-# Trap SIGTERM so docker stop doesn't wait for the full stop timeout.
+# Trap SIGTERM so "$DOCKER" stop doesn't wait for the full stop timeout.
 # Kill the sleep process (if running) and exit cleanly.
 sleep_pid=
 trap 'echo "[$(date -Iseconds)] Shutting down"; [[ -n "$sleep_pid" ]] && kill "$sleep_pid" 2>/dev/null; exit 0' SIGTERM SIGINT
