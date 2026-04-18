@@ -8,9 +8,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BACKUP_DIR="$SCRIPT_DIR/backups/$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 
-# Load credentials from .env
-if [[ -f "$SCRIPT_DIR/.env" ]]; then
+# Load credentials: prefer env vars (set by Justfile dotenv-load), fallback to .env file
+if [[ -z "${GF_SECURITY_ADMIN_USER:-}" ]] && [[ -f "$SCRIPT_DIR/.env" ]]; then
     GF_SECURITY_ADMIN_USER=$(grep '^GF_SECURITY_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+fi
+if [[ -z "${GF_SECURITY_ADMIN_PASSWORD:-}" ]] && [[ -f "$SCRIPT_DIR/.env" ]]; then
     GF_SECURITY_ADMIN_PASSWORD=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
 fi
 GRAFANA_CREDS="${GF_SECURITY_ADMIN_USER:-admin}:${GF_SECURITY_ADMIN_PASSWORD:?GF_SECURITY_ADMIN_PASSWORD not set in .env}"

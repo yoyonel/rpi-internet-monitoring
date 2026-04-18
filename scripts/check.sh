@@ -4,8 +4,8 @@ set -eo pipefail
 DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
-_influx_admin=$(grep '^INFLUXDB_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
-_influx_admin_pass=$(grep '^INFLUXDB_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+_influx_admin="${INFLUXDB_ADMIN_USER:-$(grep '^INFLUXDB_ADMIN_USER=' "$SCRIPT_DIR/.env" 2>/dev/null | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")}"
+_influx_admin_pass="${INFLUXDB_ADMIN_PASSWORD:-$(grep '^INFLUXDB_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" 2>/dev/null | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")}"
 
 PASS=0
 FAIL=0

@@ -4,8 +4,8 @@ set -eo pipefail
 DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
-_influx_admin=$(grep '^INFLUXDB_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
-_influx_admin_pass=$(grep '^INFLUXDB_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+_influx_admin="${INFLUXDB_ADMIN_USER:-$(grep '^INFLUXDB_ADMIN_USER=' "$SCRIPT_DIR/.env" 2>/dev/null | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")}"
+_influx_admin_pass="${INFLUXDB_ADMIN_PASSWORD:-$(grep '^INFLUXDB_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" 2>/dev/null | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")}"
 INFLUX_AUTH="-username ${_influx_admin:-admin} -password ${_influx_admin_pass}"
 
 echo "── Databases ──"
@@ -17,7 +17,7 @@ echo "── Retention Policies ──"
 for db in speedtest telegraf _internal; do
     echo "  $db:"
     # shellcheck disable=SC2086
-    "$DOCKER" exec influxdb influx $INFLUX_AUTH -execute "SHOW RETENTION POLICIES ON $db" 2>/dev/null | tail -2
+    "$DOCKER" exec influxdb influx $INFLUX_AUTH -execute "SHOW RETENTION POLICIES ON $db" 2>/dev/null | tail -2 || echo "    (not available)"
     echo ""
 done
 
