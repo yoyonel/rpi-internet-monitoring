@@ -122,9 +122,9 @@ display_snapshot() {
 
     # OOM kills
     echo -e "${YELLOW}Recent Issues:${NC}"
-    local oom_count
-    if command -v dmesg &>/dev/null; then
-        oom_count=$(dmesg 2>/dev/null | grep -ic "killed process\|out of memory" || echo "0")
+    local dmesg_output oom_count
+    if dmesg_output=$(dmesg 2>/dev/null); then
+        oom_count=$(echo "$dmesg_output" | grep -ic "killed process\|out of memory" || echo "0")
     else
         oom_count="(unavailable)"
     fi
