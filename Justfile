@@ -191,6 +191,22 @@ apply-sysctl:
 check-sysctl:
     bash scripts/apply-sysctl.sh --check
 
+# Collect single snapshot for R3 validation (memory/swap tuning)
+monitor-r3:
+    bash scripts/monitor-r3.sh
+
+# Start continuous R3 monitoring (5 min interval, Ctrl+C to stop)
+monitor-r3-continuous:
+    bash scripts/monitor-r3.sh --continuous
+
+# Generate R3 validation report from collected data (default: last 7 days)
+validate-r3:
+    bash scripts/monitor-r3.sh --report 7
+
+# Clean up R3 monitoring data
+cleanup-r3-monitoring:
+    bash scripts/monitor-r3.sh --cleanup
+
 # Show systemd timer status and recent logs
 timer-status:
     bash scripts/timer-status.sh

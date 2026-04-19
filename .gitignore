@@ -1,6 +1,9 @@
 # Backups
 backups/
 
+# R3 monitoring data (temporary, local to each host)
+.r3-monitoring/
+
 # Environment (contains secrets)
 .env
 
