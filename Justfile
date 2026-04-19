@@ -183,6 +183,14 @@ install-timers:
 uninstall-timers:
     bash scripts/uninstall-timers.sh
 
+# Apply kernel sysctl tuning (swappiness=10) — requires sudo
+apply-sysctl:
+    sudo bash scripts/apply-sysctl.sh
+
+# Check current swappiness without applying changes
+check-sysctl:
+    bash scripts/apply-sysctl.sh --check
+
 # Show systemd timer status and recent logs
 timer-status:
     bash scripts/timer-status.sh
