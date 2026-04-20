@@ -106,20 +106,7 @@ backup:
 
 # Rotate old backups, keeping the N most recent (default 5, override with BACKUP_KEEP=N)
 backup-rotate keep="5":
-    #!/usr/bin/env bash
-    set -euo pipefail
-    root="backups"
-    mapfile -t all < <(find "$root" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -r)
-    echo "Found ${#all[@]} backup(s), keeping {{ keep }}"
-    if [[ ${#all[@]} -gt {{ keep }} ]]; then
-        for old in "${all[@]:{{ keep }}}"; do
-            echo "  🗑  Removing $old"
-            rm -rf "${root:?}/$old"
-        done
-        echo "Pruned $(( ${#all[@]} - {{ keep }} )) old backup(s)"
-    else
-        echo "Nothing to prune"
-    fi
+    bash scripts/backup-rotate.sh {{ keep }}
 
 # Offline integrity check on a backup dir (no stack needed)
 backup-check dir:
