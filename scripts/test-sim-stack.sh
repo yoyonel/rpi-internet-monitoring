@@ -28,7 +28,7 @@ GRAFANA_CREDS="${_user:-admin}:${_pass}"
 _gcurl() { curl -sf -K <(printf 'user = "%s"\n' "$GRAFANA_CREDS") "$@"; }
 CHRONOGRAF_URL="http://localhost:8888"
 INFLUXDB_URL="http://localhost:8086"
-INFLUXDB_CONTAINER="influxdb"
+INFLUXDB_CONTAINER="rpi-sim-influxdb"
 
 PASS=0
 FAIL=0
