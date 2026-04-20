@@ -5,7 +5,9 @@ set -euo pipefail
 DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BACKUP_DIR="$SCRIPT_DIR/backups/$(date +%Y%m%d-%H%M%S)"
+BACKUPS_ROOT="$SCRIPT_DIR/backups"
+BACKUP_DIR="$BACKUPS_ROOT/$(date +%Y%m%d-%H%M%S)"
+BACKUP_KEEP="${BACKUP_KEEP:-5}"
 mkdir -p "$BACKUP_DIR"
 
 # Load credentials: prefer env vars (set by Justfile dotenv-load), fallback to .env file
@@ -55,3 +57,19 @@ echo "── Summary ──"
 echo "  Location: $BACKUP_DIR"
 echo "  Total:    $(du -sh "$BACKUP_DIR" | awk '{print $1}')"
 ls -lh "$BACKUP_DIR/"
+
+# ── Rotation ──
+# Keep the N most recent backups (BACKUP_KEEP, default 5), remove older ones.
+mapfile -t ALL_BACKUPS < <(find "$BACKUPS_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -r)
+if [[ ${#ALL_BACKUPS[@]} -gt $BACKUP_KEEP ]]; then
+    echo ""
+    echo "── Rotation (keeping $BACKUP_KEEP most recent) ──"
+    for old in "${ALL_BACKUPS[@]:$BACKUP_KEEP}"; do
+        echo "  🗑  Removing $old"
+        rm -rf "${BACKUPS_ROOT:?}/$old"
+    done
+    echo "  Pruned $((${#ALL_BACKUPS[@]} - BACKUP_KEEP)) old backup(s)"
+else
+    echo ""
+    echo "── Rotation: ${#ALL_BACKUPS[@]}/$BACKUP_KEEP slots used, nothing to prune ──"
+fi
