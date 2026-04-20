@@ -8,7 +8,8 @@
 #
 # Prerequisites: sim stack running, jq + curl available.
 set -uo pipefail
-DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
+# In CI we start the stack with docker compose, so prefer docker when both CLIs exist.
+DOCKER=${CONTAINER_CLI:-$(command -v docker >/dev/null 2>&1 && echo docker || command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
