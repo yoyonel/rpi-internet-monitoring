@@ -100,11 +100,12 @@ just install-timers
 
 ### Data
 
-| Commande                | Description                                    |
-| ----------------------- | ---------------------------------------------- |
-| `just speedtest`        | Lancer un speedtest manuellement (hors cron)   |
-| `just last-results [N]` | Derniers N résultats speedtest (défaut: 5)     |
-| `just backup`           | Backup complet : dashboards Grafana + InfluxDB |
+| Commande                  | Description                                    |
+| ------------------------- | ---------------------------------------------- |
+| `just speedtest`          | Lancer un speedtest manuellement (hors cron)   |
+| `just last-results [N]`   | Derniers N résultats speedtest (défaut: 5)     |
+| `just backup`             | Backup complet : dashboards Grafana + InfluxDB |
+| `just backup-check <dir>` | Vérification intégrité offline (gzip -t, JSON) |
 
 ### Build & Cleanup
 
@@ -152,19 +153,22 @@ Les timers remplacent le crontab : la configuration est versionnée dans `system
 
 Stack de simulation locale : tous les containers tournent en ARM64 via QEMU, reproduisant l'architecture du RPi4 de production. Voir [docs/sim-environment.md](docs/sim-environment.md) pour le détail complet.
 
-| Commande             | Description                                         |
-| -------------------- | --------------------------------------------------- |
-| `just sim-binfmt`    | Enregistrer les handlers QEMU (1× par reboot)       |
-| `just sim-up`        | Démarrer la stack sim complète                      |
-| `just sim-stop`      | Arrêter (préserve l'état)                           |
-| `just sim-down`      | Supprimer les containers (préserve les volumes)     |
-| `just sim-nuke`      | Supprimer containers **et** volumes (⚠️ destructif) |
-| `just sim-status`    | État des containers + health checks                 |
-| `just sim-logs`      | Dernières 50 lignes de logs                         |
-| `just sim-build`     | Build l'image speedtest pour ARM64                  |
-| `just sim-speedtest` | Lancer un speedtest manuellement                    |
-| `just sim-test`      | Suite de smoke tests (25 checks)                    |
-| `just sim-stats`     | Bases de données, rétention, compteurs              |
+| Commande                        | Description                                         |
+| ------------------------------- | --------------------------------------------------- |
+| `just sim-binfmt`               | Enregistrer les handlers QEMU (1× par reboot)       |
+| `just sim-up`                   | Démarrer la stack sim complète                      |
+| `just sim-stop`                 | Arrêter (préserve l'état)                           |
+| `just sim-down`                 | Supprimer les containers (préserve les volumes)     |
+| `just sim-nuke`                 | Supprimer containers **et** volumes (⚠️ destructif) |
+| `just sim-status`               | État des containers + health checks                 |
+| `just sim-logs`                 | Dernières 50 lignes de logs                         |
+| `just sim-build`                | Build l'image speedtest pour ARM64                  |
+| `just sim-speedtest`            | Lancer un speedtest manuellement                    |
+| `just sim-test`                 | Suite de smoke tests (25 checks)                    |
+| `just sim-stats`                | Bases de données, rétention, compteurs              |
+| `just sim-restore-backup <dir>` | Restaurer un backup RPi dans la sim                 |
+| `just sim-verify-backup`        | Vérifier l'intégrité des données restaurées         |
+| `just sim-test-backup <dir>`    | Pipeline complet : nuke → restore → verify          |
 
 Grafana : <http://localhost:3000> (admin / simpass) — Chronograf : <http://localhost:8888>
 
@@ -229,6 +233,22 @@ Visibles dans Grafana → Alerting → Alert rules, ou via `just alerts`.
 
 ```bash
 just backup    # Crée un dossier horodaté dans backups/ avec dashboards + InfluxDB
+```
+
+### Validation et restauration
+
+Outils pour vérifier et restaurer des backups RPi dans la stack sim locale. Voir [docs/backup-restore-tooling.md](docs/backup-restore-tooling.md) pour le détail complet.
+
+```bash
+# Vérification offline (pas besoin de stack)
+just backup-check backups-rpi/20260416-205640
+
+# Restauration dans la sim
+just sim-restore-backup backups-rpi/20260416-205640
+just sim-verify-backup
+
+# Pipeline complet (nuke + start + check + restore + verify)
+just sim-test-backup backups-rpi/20260416-205640
 ```
 
 ## Tests
