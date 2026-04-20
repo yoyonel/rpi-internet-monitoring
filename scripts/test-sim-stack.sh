@@ -249,9 +249,8 @@ echo ""
 # ── 7. Container State ───────────────────────────────────────
 echo "── 7. Container State ──"
 
-RUNNING_CONTAINERS=$("$DOCKER" ps --format '{{.Names}}' 2>/dev/null)
 for svc in "${SIM_CONTAINERS[@]}"; do
-    if echo "$RUNNING_CONTAINERS" | grep -qx "$svc"; then
+    if "$DOCKER" inspect --format '{{.State.Running}}' "$svc" 2>/dev/null | grep -q 'true'; then
         pass "Container '$svc' running"
     else
         fail "Container '$svc' not running"
