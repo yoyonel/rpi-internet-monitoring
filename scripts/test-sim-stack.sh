@@ -28,7 +28,14 @@ GRAFANA_CREDS="${_user:-admin}:${_pass}"
 _gcurl() { curl -sf -K <(printf 'user = "%s"\n' "$GRAFANA_CREDS") "$@"; }
 CHRONOGRAF_URL="http://localhost:8888"
 INFLUXDB_URL="http://localhost:8086"
-INFLUXDB_CONTAINER="rpi-sim-influxdb"
+SIM_CONTAINERS=(
+    rpi-sim-grafana
+    rpi-sim-influxdb
+    rpi-sim-chronograf
+    rpi-sim-telegraf
+    rpi-sim-docker-socket-proxy
+    rpi-sim-speedtest-cron
+)
 
 PASS=0
 FAIL=0
@@ -48,10 +55,38 @@ warn() {
 }
 
 influx_query() {
-    "$DOCKER" exec "$INFLUXDB_CONTAINER" influx \
-        -username "${_influx_admin:-admin}" \
-        -password "${_influx_admin_pass}" \
-        -execute "$1" -database "${2:-}" 2>/dev/null
+    local query="$1" database="${2:-}"
+
+    curl -sfG \
+        -u "${_influx_admin:-admin}:${_influx_admin_pass}" \
+        --data-urlencode "q=$query" \
+        ${database:+--data-urlencode "db=$database"} \
+        "$INFLUXDB_URL/query"
+}
+
+influx_count_value() {
+    local json="$1"
+    echo "$json" | jq -r '
+        .results[]?.series[]?.values[]?[1] // empty
+    ' | tail -1
+}
+
+wait_for_influx_values() {
+    local query="$1" database="${2:-}"
+    local attempts="${3:-12}"
+    local json
+
+    for _ in $(seq 1 "$attempts"); do
+        json=$(influx_query "$query" "$database" 2>/dev/null || echo '{}')
+        if echo "$json" | jq -e '.results[]?.series[]?.values[]?' >/dev/null 2>&1; then
+            printf '%s\n' "$json"
+            return 0
+        fi
+        sleep 5
+    done
+
+    printf '%s\n' "${json:-{}}"
+    return 1
 }
 
 check_dashboard() {
@@ -78,7 +113,9 @@ else
     fail "Grafana not responding on :3000"
 fi
 
-if influx_query "SHOW DATABASES" | grep -q speedtest; then
+DATABASES_JSON=$(wait_for_influx_values "SHOW DATABASES" "" 3 || echo '{}')
+DATABASES=$(echo "$DATABASES_JSON" | jq -r '.results[]?.series[]?.values[]?[0] // empty')
+if echo "$DATABASES" | grep -qx 'speedtest'; then
     pass "InfluxDB responds (speedtest DB exists)"
 else
     fail "InfluxDB not responding or speedtest DB missing"
@@ -135,17 +172,32 @@ echo ""
 # ── 4. InfluxDB Schema ───────────────────────────────────────
 echo "── 4. InfluxDB Schema ──"
 
+DATABASES_JSON=$(wait_for_influx_values "SHOW DATABASES" "" 12 || echo '{}')
+DATABASES=$(echo "$DATABASES_JSON" | jq -r '.results[]?.series[]?.values[]?[0] // empty')
+
 for db in speedtest telegraf; do
-    if influx_query "SHOW DATABASES" | grep -q "^${db}$"; then
+    if echo "$DATABASES" | grep -qx "$db"; then
         pass "Database '$db' exists"
     else
         fail "Database '$db' missing"
     fi
 done
 
-GRANTS=$(influx_query "SHOW GRANTS FOR \"telegraf\"" 2>/dev/null)
+GRANTS=$(influx_query "SHOW GRANTS FOR \"telegraf\"" 2>/dev/null || echo '{}')
+GRANT_LINES=$(echo "$GRANTS" | jq -r '.results[]?.series[]?.values[]? | @tsv')
+if ! echo "$GRANT_LINES" | grep -qx $'telegraf\tALL PRIVILEGES'; then
+    for _ in $(seq 1 12); do
+        sleep 5
+        GRANTS=$(influx_query "SHOW GRANTS FOR \"telegraf\"" 2>/dev/null || echo '{}')
+        GRANT_LINES=$(echo "$GRANTS" | jq -r '.results[]?.series[]?.values[]? | @tsv')
+        if echo "$GRANT_LINES" | grep -qx $'telegraf\tALL PRIVILEGES'; then
+            break
+        fi
+    done
+fi
+
 for db in speedtest telegraf; do
-    if echo "$GRANTS" | grep -q "$db.*ALL"; then
+    if echo "$GRANT_LINES" | grep -qx "$db"$'\t''ALL PRIVILEGES'; then
         pass "User 'telegraf' has ALL on '$db'"
     else
         fail "User 'telegraf' missing privileges on '$db'"
@@ -157,7 +209,7 @@ echo ""
 # ── 5. Telegraf Pipeline ─────────────────────────────────────
 echo "── 5. Telegraf Pipeline ──"
 
-TELEGRAF_COUNT=$(influx_query "SELECT COUNT(usage_idle) FROM cpu WHERE time > now() - 5m" telegraf 2>/dev/null | tail -1 | awk '{print $2}')
+TELEGRAF_COUNT=$(influx_count_value "$(influx_query "SELECT COUNT(usage_idle) FROM cpu WHERE time > now() - 5m" telegraf 2>/dev/null)")
 if [[ -n "$TELEGRAF_COUNT" && "$TELEGRAF_COUNT" =~ ^[0-9]+$ && "$TELEGRAF_COUNT" -gt 0 ]]; then
     pass "Telegraf → InfluxDB pipeline active ($TELEGRAF_COUNT cpu points in last 5 min)"
 else
@@ -181,7 +233,7 @@ else
 fi
 
 # Verify the injected point is queryable
-QUERY_COUNT=$(influx_query "SELECT COUNT(download_bandwidth) FROM speedtest WHERE \"result_id\" = 'ci-smoke-test'" speedtest 2>/dev/null | tail -1 | awk '{print $2}')
+QUERY_COUNT=$(influx_count_value "$(influx_query "SELECT COUNT(download_bandwidth) FROM speedtest WHERE \"result_id\" = 'ci-smoke-test'" speedtest 2>/dev/null)")
 if [[ -n "$QUERY_COUNT" && "$QUERY_COUNT" =~ ^[0-9]+$ && "$QUERY_COUNT" -ge 1 ]]; then
     pass "Injected test point is queryable ($QUERY_COUNT point(s))"
 else
@@ -196,8 +248,9 @@ echo ""
 # ── 7. Container State ───────────────────────────────────────
 echo "── 7. Container State ──"
 
-for svc in grafana influxdb chronograf telegraf docker-socket-proxy speedtest-cron; do
-    if "$DOCKER" ps --format '{{.Names}}' 2>/dev/null | grep -qi "$svc"; then
+RUNNING_CONTAINERS=$("$DOCKER" ps --format '{{.Names}}' 2>/dev/null)
+for svc in "${SIM_CONTAINERS[@]}"; do
+    if echo "$RUNNING_CONTAINERS" | grep -qx "$svc"; then
         pass "Container '$svc' running"
     else
         fail "Container '$svc' not running"
