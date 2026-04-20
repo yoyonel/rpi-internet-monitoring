@@ -8,8 +8,17 @@
 #
 # Prerequisites: sim stack running, jq + curl available.
 set -uo pipefail
-# In CI we start the stack with docker compose, so prefer docker when both CLIs exist.
-DOCKER=${CONTAINER_CLI:-$(command -v docker >/dev/null 2>&1 && echo docker || command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
+# Detect container CLI.  Use if/elif to avoid bash operator-precedence pitfalls
+# that caused && / || chains to concatenate both "docker" and "podman".
+if [[ -n "${CONTAINER_CLI:-}" ]]; then
+    DOCKER="$CONTAINER_CLI"
+elif command -v docker >/dev/null 2>&1; then
+    DOCKER=docker
+elif command -v podman >/dev/null 2>&1; then
+    DOCKER=podman
+else
+    DOCKER=docker
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
