@@ -1,5 +1,6 @@
 # Backups
 backups/
+backups-rpi/
 
 # Environment (contains secrets)
 .env

@@ -100,9 +100,17 @@ last-results n="5":
 
 # ── Backup & Restore ───────────────────────────────────
 
-# Create a full backup (dashboards + InfluxDB)
+# Create a full backup (dashboards + InfluxDB) with rotation (keep BACKUP_KEEP, default 5)
 backup:
     bash scripts/backup.sh
+
+# Rotate old backups, keeping the N most recent (default 5, override with BACKUP_KEEP=N)
+backup-rotate keep="5":
+    bash scripts/backup-rotate.sh {{ keep }}
+
+# Offline integrity check on a backup dir (no stack needed)
+backup-check dir:
+    bash scripts/backup-check.sh {{ dir }}
 
 # ── Build ───────────────────────────────────────────────
 
@@ -294,6 +302,46 @@ sim-stats:
     @echo "── Data Counts ──"
     @printf "  Speedtest points: %s\n" "$({{ CONTAINER_CLI }} exec rpi-sim-influxdb influx -username admin -password simpass -execute 'SELECT COUNT(download_bandwidth) FROM speedtest' -database speedtest 2>/dev/null | tail -1 | awk '{print $2}')"
     @printf "  Telegraf cpu (last 1h): %s\n" "$({{ CONTAINER_CLI }} exec rpi-sim-influxdb influx -username admin -password simpass -execute 'SELECT COUNT(usage_idle) FROM cpu WHERE time > now() - 1h' -database telegraf 2>/dev/null | tail -1 | awk '{print $2}')"
+
+# Restore an RPi backup into the sim stack (e.g. just sim-restore-backup backups-rpi/20260416-205640)
+sim-restore-backup dir:
+    bash scripts/sim-restore-backup.sh {{ dir }}
+
+# Verify that restored backup data is intact and exploitable
+sim-verify-backup:
+    bash scripts/sim-verify-backup.sh
+
+# Full backup test: nuke sim, restart, restore, verify (e.g. just sim-test-backup backups-rpi/20260416-205640)
+sim-test-backup dir:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    echo "── Step 0/5: Offline integrity check ──"
+    bash scripts/backup-check.sh {{ dir }}
+    echo ""
+    echo "── Step 1/5: Nuke sim stack ──"
+    {{ sim_compose }} down -v 2>/dev/null || true
+    echo ""
+    echo "── Step 2/5: Start fresh sim stack ──"
+    {{ sim_compose }} up -d
+    echo ""
+    echo "── Step 3/5: Wait for InfluxDB healthy ──"
+    for i in $(seq 1 60); do
+        if curl -sf "http://localhost:8086/ping" >/dev/null 2>&1; then
+            echo "  ✅ InfluxDB healthy after ~$((i * 5))s"
+            break
+        fi
+        if [[ "$i" -eq 60 ]]; then
+            echo "  ❌ InfluxDB not healthy after 300s"
+            exit 1
+        fi
+        sleep 5
+    done
+    echo ""
+    echo "── Step 4/5: Restore ──"
+    bash scripts/sim-restore-backup.sh {{ dir }}
+    echo ""
+    echo "── Step 5/5: Verify ──"
+    bash scripts/sim-verify-backup.sh
 
 # Register QEMU user-static (needed once per host reboot)
 sim-binfmt:
