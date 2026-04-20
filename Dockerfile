@@ -22,8 +22,8 @@ RUN install -d /usr/share/keyrings \
     && apt-get install -y --no-install-recommends speedtest \
     && rm -rf /var/lib/apt/lists/*
 
-# Run as non-root user
-RUN useradd -r -s /bin/false speedtest-user
+# Run as non-root user (with home dir so speedtest CLI can persist settings)
+RUN useradd -r -m -s /bin/false speedtest-user
 
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

@@ -30,7 +30,7 @@ jobs:
         run: |
           echo "Waiting for InfluxDB healthy (QEMU ~2-3 min)..."
           timeout 180 bash -c '
-            until docker inspect influxdb \
+            until docker inspect rpi-sim-influxdb \
               --format "{{.State.Health.Status}}" 2>/dev/null \
               | grep -q healthy; do
               sleep 5

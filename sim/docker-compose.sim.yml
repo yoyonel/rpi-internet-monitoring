@@ -12,11 +12,13 @@
 
 services:
   grafana:
+    container_name: rpi-sim-grafana
     platform: linux/arm64
     mem_limit: 512m
     memswap_limit: 768m
 
   influxdb:
+    container_name: rpi-sim-influxdb
     platform: linux/arm64
     mem_limit: 1g
     memswap_limit: 1536m
@@ -48,16 +50,19 @@ services:
       INFLUXDB_MONITOR_STORE_ENABLED: 'false'
 
   chronograf:
+    container_name: rpi-sim-chronograf
     platform: linux/arm64
     mem_limit: 256m
     memswap_limit: 384m
 
   docker-socket-proxy:
+    container_name: rpi-sim-docker-socket-proxy
     platform: linux/arm64
     mem_limit: 64m
     memswap_limit: 64m
 
   telegraf:
+    container_name: rpi-sim-telegraf
     platform: linux/arm64
     mem_limit: 256m
     memswap_limit: 384m
@@ -69,6 +74,7 @@ services:
       - /var/run/utmp:/var/run/utmp:ro
 
   speedtest:
+    container_name: rpi-sim-speedtest
     platform: linux/arm64
     build:
       context: .
@@ -82,7 +88,7 @@ services:
   # Periodic speedtest — replaces the systemd timer from production.
   # Runs every SPEEDTEST_INTERVAL seconds (default 600 = 10 min).
   speedtest-cron:
-    container_name: speedtest-cron
+    container_name: rpi-sim-speedtest-cron
     build:
       context: .
       dockerfile: Dockerfile

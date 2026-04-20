@@ -58,7 +58,7 @@ speedtest.timer (systemd user timer)
 ```
 speedtest.service
   → docker compose run --rm speedtest
-  → Container éphémère (non-root, UID 1001)
+  → Container éphémère (non-root, user speedtest-user)
 ```
 
 Le container `speedtest` :
