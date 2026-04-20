@@ -100,12 +100,13 @@ just install-timers
 
 ### Data
 
-| Commande                  | Description                                    |
-| ------------------------- | ---------------------------------------------- |
-| `just speedtest`          | Lancer un speedtest manuellement (hors cron)   |
-| `just last-results [N]`   | Derniers N résultats speedtest (défaut: 5)     |
-| `just backup`             | Backup complet : dashboards Grafana + InfluxDB |
-| `just backup-check <dir>` | Vérification intégrité offline (gzip -t, JSON) |
+| Commande                  | Description                                               |
+| ------------------------- | --------------------------------------------------------- |
+| `just speedtest`          | Lancer un speedtest manuellement (hors cron)              |
+| `just last-results [N]`   | Derniers N résultats speedtest (défaut: 5)                |
+| `just backup`             | Backup complet + rotation auto (garde les 5 derniers)     |
+| `just backup-rotate [N]`  | Rotation manuelle : garder les N plus récents (défaut: 5) |
+| `just backup-check <dir>` | Vérification intégrité offline (gzip -t, JSON)            |
 
 ### Build & Cleanup
 
@@ -233,6 +234,10 @@ Visibles dans Grafana → Alerting → Alert rules, ou via `just alerts`.
 
 ```bash
 just backup    # Crée un dossier horodaté dans backups/ avec dashboards + InfluxDB
+               # + rotation automatique (garde les 5 derniers, configurable via BACKUP_KEEP)
+
+just backup-rotate      # Rotation manuelle (garde 5)
+just backup-rotate 3    # Rotation manuelle (garde 3)
 ```
 
 ### Validation et restauration

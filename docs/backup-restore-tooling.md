@@ -36,6 +36,8 @@ backups-rpi/
 
 | Recipe                          | Stack needed | Description                                            |
 | ------------------------------- | ------------ | ------------------------------------------------------ |
+| `just backup`                   | yes          | Full backup + automatic rotation (keep last 5)         |
+| `just backup-rotate [N]`        | no           | Standalone rotation: keep N most recent (default 5)    |
 | `just backup-check <dir>`       | no           | Offline integrity: gzip -t on all shards, JSON valid   |
 | `just sim-restore-backup <dir>` | yes          | Drop DBs, restore InfluxDB, import dashboards          |
 | `just sim-verify-backup`        | yes          | 10 checks: counts, date range, Grafana connectivity    |
@@ -45,6 +47,7 @@ backups-rpi/
 
 | Script                          | Purpose                                            |
 | ------------------------------- | -------------------------------------------------- |
+| `scripts/backup.sh`             | Full backup + automatic rotation                   |
 | `scripts/backup-check.sh`       | Offline validation (manifest, meta, gzip -t, JSON) |
 | `scripts/sim-restore-backup.sh` | Restore backup into running sim stack              |
 | `scripts/sim-verify-backup.sh`  | Verify restored data integrity and Grafana state   |
@@ -128,6 +131,23 @@ is `InfluxDB-Speedtest` (database: `speedtest`). In the sim stack, the
 default is `InfluxDB` (database: `telegraf`), causing "No data" in dashboards.
 
 The restore script automatically patches these panels during import.
+
+## Backup rotation
+
+Rotation is built into `scripts/backup.sh` and runs automatically after
+each backup. The `BACKUP_KEEP` environment variable controls how many
+backups to retain (default: **5**). Older backups are deleted by
+chronological directory name (`YYYYMMDD-HHMMSS`).
+
+```bash
+# Automatic: rotation runs at the end of every backup
+just backup
+
+# Manual: rotate without creating a new backup
+just backup-rotate      # keep 5 (default)
+just backup-rotate 3    # keep 3
+BACKUP_KEEP=10 just backup   # override during backup
+```
 
 ### QEMU query performance
 
