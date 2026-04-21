@@ -189,7 +189,9 @@ Installer avec `just install-hooks`. Deux hooks sont fournis :
 | Hook         | Déclencheur  | Action                                                                                          |
 | ------------ | ------------ | ----------------------------------------------------------------------------------------------- |
 | `pre-commit` | `git commit` | Lint & format check sur les fichiers stagés (sh, py, yaml, html, css, js, json, md, Dockerfile) |
-| `pre-push`   | `git push`   | E2E tests Playwright (démarre un serveur preview si nécessaire)                                 |
+| `pre-push`   | `git push`   | E2E tests Playwright (démarre un serveur preview sur un port libre auto-détecté)                |
+
+Le hook `pre-push` détecte automatiquement un port disponible pour éviter les conflits avec d'autres services (ex: port 8080 déjà occupé). Il démarre toujours son propre serveur preview isolé.
 
 ## Configuration
 
