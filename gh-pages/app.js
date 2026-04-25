@@ -202,15 +202,27 @@ _dataReady.then(async ([RAW_DATA]) => {
     return lo === hi ? s[lo] : s[lo] + (s[hi] - s[lo]) * (idx - lo);
   };
 
-  // ── Decile distribution chart (SVG) ────────────────────────
-  const computeDeciles = (sorted) => {
-    const d = [];
-    for (let p = 10; p <= 90; p += 10) d.push(pctOf(sorted, p));
-    return d;
+  // ── Histogram distribution chart (SVG) ───────────────────
+  // Splits [min, max] into 10 equal-width bins, counts samples per bin.
+  const computeHistogram = (sorted, min, max) => {
+    const NBINS = 10;
+    const range = max - min || 1;
+    const binW = range / NBINS;
+    const bins = Array.from({ length: NBINS }, (_, i) => ({
+      lo: min + i * binW,
+      hi: min + (i + 1) * binW,
+      count: 0,
+    }));
+    for (const v of sorted) {
+      let idx = Math.floor((v - min) / binW);
+      if (idx >= NBINS) idx = NBINS - 1; // max value goes in last bin
+      if (idx < 0) idx = 0;
+      bins[idx].count++;
+    }
+    return bins;
   };
 
-  const decileChartSVG = (deciles, min, max, avg, color, unit, refs) => {
-    // Layout constants
+  const histogramSVG = (bins, avg, median, color, unit, nSamples) => {
     const W = 260,
       H = 76;
     const PAD_T = 10,
@@ -219,92 +231,57 @@ _dataReady.then(async ([RAW_DATA]) => {
       PAD_R = 2;
     const plotH = H - PAD_T - PAD_B;
     const plotW = W - PAD_L - PAD_R;
-    const BAR_GAP = 3;
-    const barW = (plotW - BAR_GAP * (deciles.length + 1)) / deciles.length;
+    const BAR_GAP = 2;
+    const barW = (plotW - BAR_GAP * (bins.length + 1)) / bins.length;
     const bot = PAD_T + plotH;
 
-    // Y-axis scale: based on decile range (D1–D9) with padding,
-    // so outlier min/max don't compress the distribution visually.
-    const SCALE_PAD = 0.18;
-    const dLo = deciles[0],
-      dHi = deciles[deciles.length - 1];
-    const dSpread = dHi - dLo || 1;
-    const yLo = Math.max(0, dLo - dSpread * SCALE_PAD);
-    const yHi = dHi + dSpread * SCALE_PAD;
-    const yRange = yHi - yLo || 1;
+    const maxCount = Math.max(...bins.map((b) => b.count), 1);
+    const toY = (count) => PAD_T + plotH * (1 - count / maxCount);
 
-    const toY = (v) => PAD_T + plotH * (1 - (v - yLo) / yRange);
-    const CLAMP_OVERFLOW = 4;
-    const clampY = (v) => Math.max(PAD_T - CLAMP_OVERFLOW, Math.min(bot + CLAMP_OVERFLOW, toY(v)));
-
-    // ── SVG helpers ──────────────────────────────────────────
-    const refLine = (y, stroke, opts = '') =>
-      `<line x1="${PAD_L}" y1="${y.toFixed(1)}" x2="${W - PAD_R}" y2="${y.toFixed(1)}" stroke="${stroke}" ${opts}/>`;
-
-    const label = (x, y, fill, text, attrs = '') =>
-      `<text x="${x}" y="${y.toFixed(1)}" fill="${fill}" font-size="7" ${attrs}>${text}</text>`;
+    const fmtVal = (v) => (unit === 'ms' ? v.toFixed(1) : v.toFixed(0));
 
     // ── Build SVG ────────────────────────────────────────────
     let s = `<svg class="dcl-svg" viewBox="0 0 ${W} ${H}">`;
 
-    // Min / max reference lines (clamped, with arrows if clipped)
-    const mnY = clampY(min),
-      mxY = clampY(max);
-    const mnClipped = min < yLo,
-      mxClipped = max > yHi;
-    s += refLine(mxY, 'var(--text3)', 'stroke-width=".5" stroke-dasharray="2,3" opacity=".4"');
-    s += refLine(mnY, 'var(--text3)', 'stroke-width=".5" stroke-dasharray="2,3" opacity=".4"');
-    s += label(
-      W - PAD_R - 1,
-      mxY - 2,
-      'var(--text3)',
-      `max${mxClipped ? ' \u25B2' : ''}`,
-      'text-anchor="end"',
-    );
-    s += label(
-      W - PAD_R - 1,
-      mnY + 8,
-      'var(--text3)',
-      `min${mnClipped ? ' \u25BC' : ''}`,
-      'text-anchor="end"',
-    );
+    const range = bins[bins.length - 1].hi - bins[0].lo || 1;
+    const valToX = (v) => PAD_L + BAR_GAP + ((v - bins[0].lo) / range) * (plotW - BAR_GAP * 2);
 
-    // Avg reference line
-    s += refLine(clampY(avg), color, 'stroke-width=".75" stroke-dasharray="4,3" opacity=".6"');
-    s += label(PAD_L + 1, clampY(avg) - 2, color, 'avg', 'opacity=".8"');
-
-    // Extra reference lines (e.g. P95 for ping)
-    if (refs) {
-      refs.forEach(({ val, label: lb }) => {
-        const ry = clampY(val);
-        s += refLine(ry, color, 'stroke-width=".75" stroke-dasharray="2,2" opacity=".5"');
-        s += label(PAD_L + 1, ry - 2, color, lb, 'opacity=".7"');
-      });
-    }
-
-    // Decile bars with click-to-inspect hit areas
-    deciles.forEach((v, i) => {
+    // Histogram bars (drawn first so markers render on top)
+    bins.forEach((bin, i) => {
       const x = PAD_L + BAR_GAP + i * (barW + BAR_GAP);
-      const barY = toY(v);
-      const barH = Math.max(1, bot - barY);
-      const isP50 = i === 4;
-      const tipLabel = isP50 ? 'P50 (m\u00e9diane)' : `D${i + 1} (P${(i + 1) * 10})`;
-      const tipVal = unit === 'ms' ? v.toFixed(1) : v.toFixed(0);
-      const HIT_PAD = 2;
+      const barY = toY(bin.count);
+      const barH = Math.max(bin.count > 0 ? 1 : 0, bot - barY);
+      const pct = nSamples > 0 ? ((bin.count / nSamples) * 100).toFixed(0) : 0;
+      const tipMain = `${bin.count} mesure${bin.count > 1 ? 's' : ''} (${pct}%)`;
+      const tipSub = `${fmtVal(bin.lo)} \u2013 ${fmtVal(bin.hi)} ${unit}`;
+      const HIT_PAD = 1;
 
-      // Transparent hit area (wider than bar for easier clicking)
-      s += `<rect x="${(x - HIT_PAD).toFixed(1)}" y="${PAD_T}" width="${(barW + HIT_PAD * 2).toFixed(1)}" height="${plotH}" fill="transparent" class="dcl-hit" data-tip="${tipLabel}: ${tipVal} ${unit}"/>`;
-      // Visible bar (pointer-events disabled, styled via CSS classes)
-      s += `<rect x="${x.toFixed(1)}" y="${barY.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="1.5" fill="${color}" class="dcl-bar${isP50 ? ' dcl-p50' : ''}" pointer-events="none"/>`;
+      // Transparent hit area
+      s += `<rect x="${(x - HIT_PAD).toFixed(1)}" y="${PAD_T}" width="${(barW + HIT_PAD * 2).toFixed(1)}" height="${plotH}" fill="transparent" class="dcl-hit" data-tip="${tipMain}" data-sub="${tipSub}"/>`;
+      // Visible bar
+      s += `<rect x="${x.toFixed(1)}" y="${barY.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="1.5" fill="${color}" class="dcl-bar${bin.count === maxCount ? ' dcl-p50' : ''}" pointer-events="none"/>`;
     });
 
-    // Bottom labels: D1–D9, P50 highlighted as "méd"
-    deciles.forEach((_, i) => {
-      const cx = PAD_L + BAR_GAP + i * (barW + BAR_GAP) + barW / 2;
-      const isP50 = i === 4;
-      const lbl = isP50 ? 'm\u00e9d' : `D${i + 1}`;
-      s += `<text x="${cx.toFixed(1)}" y="${H - 1}" fill="${isP50 ? color : 'var(--text3)'}" font-size="6.5" text-anchor="middle"${isP50 ? ' font-weight="600"' : ''}>${lbl}</text>`;
-    });
+    // Avg vertical marker (on top of bars, white outline for contrast)
+    const avgX = valToX(avg);
+    s += `<line x1="${avgX.toFixed(1)}" y1="${PAD_T}" x2="${avgX.toFixed(1)}" y2="${bot}" stroke="var(--bg)" stroke-width="3" opacity=".5"/>`;
+    s += `<line x1="${avgX.toFixed(1)}" y1="${PAD_T}" x2="${avgX.toFixed(1)}" y2="${bot}" stroke="${color}" stroke-width="1.5" stroke-dasharray="4,3" opacity=".9"/>`;
+    s += `<text x="${avgX.toFixed(1)}" y="${PAD_T - 1.5}" fill="${color}" font-size="7" text-anchor="middle" opacity=".9">avg</text>`;
+
+    // Median vertical marker (on top of bars, white outline for contrast)
+    const medX = valToX(median);
+    s += `<line x1="${medX.toFixed(1)}" y1="${PAD_T}" x2="${medX.toFixed(1)}" y2="${bot}" stroke="var(--bg)" stroke-width="3" opacity=".5"/>`;
+    s += `<line x1="${medX.toFixed(1)}" y1="${PAD_T}" x2="${medX.toFixed(1)}" y2="${bot}" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="2,2" opacity=".9"/>`;
+    s += `<text x="${medX.toFixed(1)}" y="${PAD_T - 1.5}" fill="var(--text)" font-size="7" text-anchor="middle" font-weight="600">m\u00e9d</text>`;
+
+    // Bottom labels: bin range boundaries (min and max + middle tick)
+    const fmtShort = (v) =>
+      unit === 'ms' ? v.toFixed(0) : v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v.toFixed(0);
+    s += `<text x="${PAD_L + BAR_GAP}" y="${H - 1}" fill="var(--text3)" font-size="6" text-anchor="start">${fmtShort(bins[0].lo)}</text>`;
+    const midBin = Math.floor(bins.length / 2);
+    const midX = PAD_L + BAR_GAP + midBin * (barW + BAR_GAP) + barW / 2;
+    s += `<text x="${midX.toFixed(1)}" y="${H - 1}" fill="var(--text3)" font-size="6" text-anchor="middle">${fmtShort(bins[midBin].lo)}</text>`;
+    s += `<text x="${W - PAD_R - BAR_GAP}" y="${H - 1}" fill="var(--text3)" font-size="6" text-anchor="end">${fmtShort(bins[bins.length - 1].hi)}</text>`;
 
     s += '</svg>';
     return s;
@@ -332,7 +309,7 @@ _dataReady.then(async ([RAW_DATA]) => {
       dclActiveHit = hit;
       const bar = hit.nextElementSibling;
       if (bar) bar.classList.add('dcl-sel');
-      dclTip.textContent = hit.dataset.tip;
+      dclTip.innerHTML = `<strong>${hit.dataset.tip}</strong><br><span class="dcl-tip-sub">${hit.dataset.sub}</span>`;
       dclTip.style.display = 'block';
       const r = hit.getBoundingClientRect();
       dclTip.style.left = `${r.left + r.width / 2}px`;
@@ -756,16 +733,16 @@ _dataReady.then(async ([RAW_DATA]) => {
 
       const trLabel = `${fmtDateTz(rangeStart)} \u2192 ${fmtDateTz(rangeEnd)}`;
 
-      const dlDec = computeDeciles(dlSorted);
-      const ulDec = computeDeciles(ulSorted);
-      const piDec = computeDeciles(piSorted);
+      const dlHist = computeHistogram(dlSorted, dlMn, dlMx);
+      const ulHist = computeHistogram(ulSorted, ulMn, ulMx);
+      const piHist = computeHistogram(piSorted, piMn, piMx);
 
       statsEl.innerHTML =
         statCard(
           'dl',
           'Download',
           fmtSpd(dlMed),
-          decileChartSVG(dlDec, dlMn, dlMx, dlAvg, COL.dl, 'Mb/s'),
+          histogramSVG(dlHist, dlAvg, dlMed, COL.dl, 'Mb/s', n),
           `min ${fmtSpd0(dlMn)} \u00b7 avg ${fmtSpd0(dlAvg)} \u00b7 max ${fmtSpd0(dlMx)}`,
           fmtSpd0(dl[i1 - 1]),
           n,
@@ -775,7 +752,7 @@ _dataReady.then(async ([RAW_DATA]) => {
           'ul',
           'Upload',
           fmtSpd(ulMed),
-          decileChartSVG(ulDec, ulMn, ulMx, ulAvg, COL.ul, 'Mb/s'),
+          histogramSVG(ulHist, ulAvg, ulMed, COL.ul, 'Mb/s', n),
           `min ${fmtSpd0(ulMn)} \u00b7 avg ${fmtSpd0(ulAvg)} \u00b7 max ${fmtSpd0(ulMx)}`,
           fmtSpd0(ul[i1 - 1]),
           n,
@@ -785,7 +762,7 @@ _dataReady.then(async ([RAW_DATA]) => {
           'pi',
           'Ping',
           `${piMed.toFixed(1)}<span class="u">ms</span>`,
-          decileChartSVG(piDec, piMn, piMx, piAvg, COL.pi, 'ms', [{ val: piP95, label: 'p95' }]),
+          histogramSVG(piHist, piAvg, piMed, COL.pi, 'ms', n),
           `min ${piMn.toFixed(1)} \u00b7 avg ${piAvg.toFixed(1)} \u00b7 max ${piMx.toFixed(1)}`,
           pi[i1 - 1].toFixed(1),
           n,
