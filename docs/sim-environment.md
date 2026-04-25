@@ -176,7 +176,7 @@ x86-compatible inputs:
 | **CPU architecture execution** | ARM64 user-mode emulated via QEMU (~10× slower)          | Native ARM Cortex-A72                                | Startup times and query latency are not representative     |
 | **CPU temperature sensor**     | `/sys/class/thermal/thermal_zone0` (x86 CPU)             | BCM2711 thermal sensor (same sysfs path on RPi OS)   | Measurement name identical, values differ (x86 vs ARM SoC) |
 | **Network interfaces**         | Wildcard (auto-detect: `docker0`, `eth0`, `veth*`, etc.) | Hardcoded `eth0` + `wlan0`                           | Sim collects more interfaces; field names identical        |
-| **Hostname**                   | `rpi-sim`                                                | Real RPi hostname (`rpi-latty`)                      | Queries using `WHERE host = 'xxx'` need adaptation         |
+| **Hostname**                   | `rpi-sim`                                                | Real RPi hostname (`rpi-<user>`)                     | Queries using `WHERE host = 'xxx'` need adaptation         |
 | **Memory limits**              | Docker `mem_limit` constraints                           | Physical 4 GB RAM                                    | Behavior under OOM may differ (Docker OOM-kill vs kernel)  |
 | **Disk I/O**                   | Host SSD/NVMe (fast, even emulated)                      | microSD or USB SSD (slower, wear leveling)           | I/O latency and throughput not representative              |
 | **Speedtest results**          | Host network (fibre/cable, low latency)                  | RPi network (Ethernet or WiFi, different throughput) | Bandwidth and latency values differ from real ISP metrics  |

@@ -32,9 +32,9 @@ Le projet a été mis en place en novembre 2022 sur un Raspberry Pi 4 sous Debia
 La planification reposait entièrement sur **crontab user** :
 
 ```
-# crontab -l (sur le RPi, utilisateur latty)
+# crontab -l (sur le RPi, utilisateur user)
 */10 * * * * /usr/bin/docker run --rm --network speedtest docker.local/speedtest:buster-slim
-*/10 * * * * cd /home/latty/rpi-internet-monitoring && just publish >/dev/null 2>&1
+*/10 * * * * cd /home/user/rpi-internet-monitoring && just publish >/dev/null 2>&1
 ```
 
 Deux tâches, toutes les 10 minutes :
@@ -239,10 +239,10 @@ just install-timers
 Output attendu :
 
 ```
-  → /home/latty/.config/systemd/user/speedtest.service
-  → /home/latty/.config/systemd/user/speedtest.timer
-  → /home/latty/.config/systemd/user/publish-gh-pages.service
-  → /home/latty/.config/systemd/user/publish-gh-pages.timer
+  → /home/user/.config/systemd/user/speedtest.service
+  → /home/user/.config/systemd/user/speedtest.timer
+  → /home/user/.config/systemd/user/publish-gh-pages.service
+  → /home/user/.config/systemd/user/publish-gh-pages.timer
 
 ✅ Timers installed and started:
 NEXT                         LEFT     LAST PASSED UNIT                     ACTIVATES
@@ -300,7 +300,7 @@ Apr 16 15:20:33 raspberrypi publish-gh-pages[12350]: → 4317 data points export
 
 ### Pré-requis
 
-- [ ] SSH vers le RPi fonctionnel (`ssh latty@<rpi-ip>`)
+- [ ] SSH vers le RPi fonctionnel (`ssh user@<rpi-ip>`)
 - [ ] Le repo est à jour sur le RPi (`git pull` ou `git fetch && git checkout feat/gh-pages-redesign`)
 - [ ] Docker fonctionne (`docker ps`)
 - [ ] `just` est installé (`just --version`)
@@ -310,7 +310,7 @@ Apr 16 15:20:33 raspberrypi publish-gh-pages[12350]: → 4317 data points export
 
 ```bash
 # 1. Se connecter au RPi
-ssh latty@<rpi-ip>
+ssh user@<rpi-ip>
 
 # 2. Aller dans le projet
 cd ~/rpi-internet-monitoring   # ou ~/Prog/rpi-internet-monitoring selon install
@@ -326,7 +326,7 @@ just check
 
 # 5. Activer le lingering systemd (IMPORTANT, une seule fois)
 #    Sans ça, les timers user sont stoppés quand la session SSH se ferme.
-loginctl enable-linger latty
+loginctl enable-linger user
 
 # 6. Supprimer l'ancien crontab
 crontab -l                    # noter les entrées actuelles (backup)
@@ -355,10 +355,10 @@ Par défaut, systemd user services sont **stoppés quand l'utilisateur se décon
 
 ```bash
 # Activer (une seule fois, persistant après reboot)
-loginctl enable-linger latty
+loginctl enable-linger user
 
 # Vérifier
-loginctl show-user latty | grep Linger
+loginctl show-user user | grep Linger
 # Linger=yes
 ```
 
@@ -375,8 +375,8 @@ just uninstall-timers
 
 # Remettre le crontab
 crontab -e
-# */10 * * * * cd /home/latty/rpi-internet-monitoring && /usr/bin/docker compose run --rm speedtest >/dev/null 2>&1
-# */10 * * * * cd /home/latty/rpi-internet-monitoring && bash scripts/publish-gh-pages.sh 30 >/dev/null 2>&1
+# */10 * * * * cd /home/user/rpi-internet-monitoring && /usr/bin/docker compose run --rm speedtest >/dev/null 2>&1
+# */10 * * * * cd /home/user/rpi-internet-monitoring && bash scripts/publish-gh-pages.sh 30 >/dev/null 2>&1
 ```
 
 ---
@@ -446,7 +446,7 @@ systemctl --user is-active speedtest.timer     # → active
 systemctl --user start speedtest.timer
 
 # Vérifier le lingering
-loginctl show-user latty | grep Linger         # → Linger=yes
+loginctl show-user user | grep Linger         # → Linger=yes
 ```
 
 ### Le service échoue
@@ -467,10 +467,10 @@ journalctl --user -u speedtest.service -n 10
 
 ```bash
 # Le lingering n'est pas activé
-loginctl enable-linger latty
+loginctl enable-linger user
 
 # Vérifier
-loginctl show-user latty | grep Linger
+loginctl show-user user | grep Linger
 ```
 
 ### WorkingDirectory incorrect

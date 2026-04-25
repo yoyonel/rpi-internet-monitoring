@@ -1,7 +1,7 @@
 copie des sources vers le raspberry
 
 ```sh
-╰─ scp -r MONITORER\ SON\ DÉBIT\ INTERNET/ latty@<rpi-ip>:"/home/latty/Prog"
+╰─ scp -r MONITORER\ SON\ DÉBIT\ INTERNET/ user@<rpi-ip>:"/home/user/Prog"
 telegraf.conf                                                                                                                 100%   12KB   3.6MB/s   00:00
 Dockerfile                                                                                                                    100% 1314   510.5KB/s   00:00
 README.md                                                                                                                     100%   14KB   5.2MB/s   00:00
@@ -23,7 +23,7 @@ dashboard.json                                                                  
 build de l'image (custom) docker pour speedtest (+ analyse des résultats) sur le raspberry:
 
 ```sh
-latty@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ docker build -t docker.local/speedtest:buster-slim .
+user@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ docker build -t docker.local/speedtest:buster-slim .
 Sending build context to Docker daemon  29.18kB
 Step 1/10 : FROM python:3.9.13-slim-buster
 3.9.13-slim-buster: Pulling from library/python
@@ -38,7 +38,7 @@ Successfully tagged docker.local/speedtest:buster-slim
 on lance le docker-compose:
 
 ```sh
-latty@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ docker-compose up -d
+user@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ docker-compose up -d
 Creating network "speedtest" with driver "bridge"
 Creating volume "rpi_grafana-storage" with default driver
 Creating volume "rpi_influxdb-data" with default driver
@@ -84,13 +84,13 @@ Creating chronograf     ... done
 On check l'état des containers:
 
 ```sh
-latty@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ docker ps
+user@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ docker ps
 CONTAINER ID   IMAGE                   COMMAND                  CREATED          STATUS          PORTS                                       NAMES
 b3043b4ecfc0   chronograf              "/entrypoint.sh chro…"   17 seconds ago   Up 15 seconds   0.0.0.0:8888->8888/tcp, :::8888->8888/tcp   chronograf
 68017629e58d   telegraf                "/entrypoint.sh tele…"   17 seconds ago   Up 15 seconds   8092/udp, 8125/udp, 8094/tcp                telegraf
 adade3449626   influxdb:1.8.2          "/entrypoint.sh infl…"   32 seconds ago   Up 17 seconds   8086/tcp                                    rpi_influxdb_1
 c0ec069d023a   grafana/grafana:7.1.5   "/run.sh"                32 seconds ago   Up 17 seconds   0.0.0.0:3000->3000/tcp, :::3000->3000/tcp   rpi_grafana_1
-latty@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ docker-compose ps
+user@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ docker-compose ps
      Name                 Command            State                    Ports
 ---------------------------------------------------------------------------------------------
 chronograf       /entrypoint.sh chronograf   Up      0.0.0.0:8888->8888/tcp,:::8888->8888/tcp
@@ -102,7 +102,7 @@ telegraf         /entrypoint.sh telegraf     Up      8092/udp, 8094/tcp, 8125/ud
 (On peut lancer une exécution de l'image (custom) docker pour lancer notre workflow speedtest:
 
 ```sh
-latty@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ docker run --rm docker.local/speedtest:buster-slim
+user@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ docker run --rm docker.local/speedtest:buster-slim
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
                                  Dload  Upload   Total   Spent    Left  Speed
 100    60    0    33  100    27   1375   1125 --:--:-- --:--:-- --:--:--  2500
@@ -160,11 +160,11 @@ Name: "InfluxDB"
 configuration de la tâche CRON:
 
 ```sh
-latty@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ which docker
+user@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ which docker
 /usr/bin/docker
-latty@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ crontab -e
+user@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ crontab -e
 ...
-latty@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ crontab -l
+user@raspberrypi:~/Prog/MONITORER SON DÉBIT INTERNET/RPI $ crontab -l
 # Edit this file to introduce tasks to be run by cron.
 [...]
 # m h  dom mon dow   command
