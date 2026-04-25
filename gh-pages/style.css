@@ -205,27 +205,65 @@ nav .meta time {
   color: var(--purple);
 }
 
-/* stat detail grid */
-.stat .sg {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 2px 12px;
+/* decile distribution chart */
+.dcl-wrap {
   margin-top: 8px;
-  text-align: left;
 }
-.stat .sg dt {
-  font-size: 0.75rem;
+.dcl-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.dcl-svg text {
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
+}
+.stat-sum {
+  font-size: 0.7rem;
   color: var(--text3);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  margin-top: 6px;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
+  letter-spacing: 0.02em;
+}
+.stat-last {
+  font-size: 0.72rem;
+  color: var(--text3);
+  margin-top: 3px;
   font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
 }
-.stat .sg dd {
-  font-size: 0.78rem;
-  font-weight: 600;
+.stat-last strong {
   color: var(--text2);
-  margin: 0 0 2px;
+  font-weight: 600;
+}
+
+/* decile tooltip */
+.dcl-tip {
+  display: none;
+  position: fixed;
+  transform: translate(-50%, -100%);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 0.72rem;
   font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border2);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 100;
+}
+.dcl-hit {
+  cursor: pointer;
+}
+.dcl-bar {
+  opacity: 0.4;
+  transition: opacity 0.15s;
+}
+.dcl-bar.dcl-p50 {
+  opacity: 0.9;
+}
+.dcl-bar.dcl-sel {
+  opacity: 1;
+  filter: brightness(1.4) drop-shadow(0 0 4px currentColor);
 }
 .stat .pts {
   font-size: 0.75rem;

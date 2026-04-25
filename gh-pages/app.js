@@ -202,6 +202,146 @@ _dataReady.then(async ([RAW_DATA]) => {
     return lo === hi ? s[lo] : s[lo] + (s[hi] - s[lo]) * (idx - lo);
   };
 
+  // ── Decile distribution chart (SVG) ────────────────────────
+  const computeDeciles = (sorted) => {
+    const d = [];
+    for (let p = 10; p <= 90; p += 10) d.push(pctOf(sorted, p));
+    return d;
+  };
+
+  const decileChartSVG = (deciles, min, max, avg, color, unit, refs) => {
+    // Layout constants
+    const W = 260,
+      H = 76;
+    const PAD_T = 10,
+      PAD_B = 12,
+      PAD_L = 2,
+      PAD_R = 2;
+    const plotH = H - PAD_T - PAD_B;
+    const plotW = W - PAD_L - PAD_R;
+    const BAR_GAP = 3;
+    const barW = (plotW - BAR_GAP * (deciles.length + 1)) / deciles.length;
+    const bot = PAD_T + plotH;
+
+    // Y-axis scale: based on decile range (D1–D9) with padding,
+    // so outlier min/max don't compress the distribution visually.
+    const SCALE_PAD = 0.18;
+    const dLo = deciles[0],
+      dHi = deciles[deciles.length - 1];
+    const dSpread = dHi - dLo || 1;
+    const yLo = Math.max(0, dLo - dSpread * SCALE_PAD);
+    const yHi = dHi + dSpread * SCALE_PAD;
+    const yRange = yHi - yLo || 1;
+
+    const toY = (v) => PAD_T + plotH * (1 - (v - yLo) / yRange);
+    const CLAMP_OVERFLOW = 4;
+    const clampY = (v) => Math.max(PAD_T - CLAMP_OVERFLOW, Math.min(bot + CLAMP_OVERFLOW, toY(v)));
+
+    // ── SVG helpers ──────────────────────────────────────────
+    const refLine = (y, stroke, opts = '') =>
+      `<line x1="${PAD_L}" y1="${y.toFixed(1)}" x2="${W - PAD_R}" y2="${y.toFixed(1)}" stroke="${stroke}" ${opts}/>`;
+
+    const label = (x, y, fill, text, attrs = '') =>
+      `<text x="${x}" y="${y.toFixed(1)}" fill="${fill}" font-size="7" ${attrs}>${text}</text>`;
+
+    // ── Build SVG ────────────────────────────────────────────
+    let s = `<svg class="dcl-svg" viewBox="0 0 ${W} ${H}">`;
+
+    // Min / max reference lines (clamped, with arrows if clipped)
+    const mnY = clampY(min),
+      mxY = clampY(max);
+    const mnClipped = min < yLo,
+      mxClipped = max > yHi;
+    s += refLine(mxY, 'var(--text3)', 'stroke-width=".5" stroke-dasharray="2,3" opacity=".4"');
+    s += refLine(mnY, 'var(--text3)', 'stroke-width=".5" stroke-dasharray="2,3" opacity=".4"');
+    s += label(
+      W - PAD_R - 1,
+      mxY - 2,
+      'var(--text3)',
+      `max${mxClipped ? ' \u25B2' : ''}`,
+      'text-anchor="end"',
+    );
+    s += label(
+      W - PAD_R - 1,
+      mnY + 8,
+      'var(--text3)',
+      `min${mnClipped ? ' \u25BC' : ''}`,
+      'text-anchor="end"',
+    );
+
+    // Avg reference line
+    s += refLine(clampY(avg), color, 'stroke-width=".75" stroke-dasharray="4,3" opacity=".6"');
+    s += label(PAD_L + 1, clampY(avg) - 2, color, 'avg', 'opacity=".8"');
+
+    // Extra reference lines (e.g. P95 for ping)
+    if (refs) {
+      refs.forEach(({ val, label: lb }) => {
+        const ry = clampY(val);
+        s += refLine(ry, color, 'stroke-width=".75" stroke-dasharray="2,2" opacity=".5"');
+        s += label(PAD_L + 1, ry - 2, color, lb, 'opacity=".7"');
+      });
+    }
+
+    // Decile bars with click-to-inspect hit areas
+    deciles.forEach((v, i) => {
+      const x = PAD_L + BAR_GAP + i * (barW + BAR_GAP);
+      const barY = toY(v);
+      const barH = Math.max(1, bot - barY);
+      const isP50 = i === 4;
+      const tipLabel = isP50 ? 'P50 (m\u00e9diane)' : `D${i + 1} (P${(i + 1) * 10})`;
+      const tipVal = unit === 'ms' ? v.toFixed(1) : v.toFixed(0);
+      const HIT_PAD = 2;
+
+      // Transparent hit area (wider than bar for easier clicking)
+      s += `<rect x="${(x - HIT_PAD).toFixed(1)}" y="${PAD_T}" width="${(barW + HIT_PAD * 2).toFixed(1)}" height="${plotH}" fill="transparent" class="dcl-hit" data-tip="${tipLabel}: ${tipVal} ${unit}"/>`;
+      // Visible bar (pointer-events disabled, styled via CSS classes)
+      s += `<rect x="${x.toFixed(1)}" y="${barY.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="1.5" fill="${color}" class="dcl-bar${isP50 ? ' dcl-p50' : ''}" pointer-events="none"/>`;
+    });
+
+    // Bottom labels: D1–D9, P50 highlighted as "méd"
+    deciles.forEach((_, i) => {
+      const cx = PAD_L + BAR_GAP + i * (barW + BAR_GAP) + barW / 2;
+      const isP50 = i === 4;
+      const lbl = isP50 ? 'm\u00e9d' : `D${i + 1}`;
+      s += `<text x="${cx.toFixed(1)}" y="${H - 1}" fill="${isP50 ? color : 'var(--text3)'}" font-size="6.5" text-anchor="middle"${isP50 ? ' font-weight="600"' : ''}>${lbl}</text>`;
+    });
+
+    s += '</svg>';
+    return s;
+  };
+
+  // ── Decile tooltip (click to show/hide, with bar highlight) ─
+  const dclTip = document.createElement('div');
+  dclTip.className = 'dcl-tip';
+  document.body.appendChild(dclTip);
+  let dclActiveHit = null;
+
+  const dclClearSelection = () => {
+    if (dclActiveHit) {
+      const bar = dclActiveHit.nextElementSibling;
+      if (bar) bar.classList.remove('dcl-sel');
+    }
+    dclActiveHit = null;
+    dclTip.style.display = 'none';
+  };
+
+  document.addEventListener('click', (e) => {
+    const hit = e.target.closest?.('.dcl-hit');
+    if (hit && hit !== dclActiveHit) {
+      dclClearSelection();
+      dclActiveHit = hit;
+      const bar = hit.nextElementSibling;
+      if (bar) bar.classList.add('dcl-sel');
+      dclTip.textContent = hit.dataset.tip;
+      dclTip.style.display = 'block';
+      const r = hit.getBoundingClientRect();
+      dclTip.style.left = `${r.left + r.width / 2}px`;
+      dclTip.style.top = `${r.top - 4}px`;
+    } else {
+      dclClearSelection();
+    }
+  });
+
   // ── Constants ──────────────────────────────────────────────
   const HOUR = 3_600_000;
   const BAND_THRESHOLD = 48; // hours: above this → band mode
@@ -307,9 +447,36 @@ _dataReady.then(async ([RAW_DATA]) => {
     parsing: false,
     normalized: true,
     interaction: { mode: 'index', intersect: false },
+    events: ['click'],
     scales: { x: { ...scaleX } },
     plugins: { legend: { display: false } },
   });
+
+  // Plugin: click on visible tooltip dismisses it
+  const tooltipDismissPlugin = {
+    id: 'tooltipDismiss',
+    beforeEvent(chart, args) {
+      const evt = args.event;
+      if (evt.type !== 'click') return;
+      const tt = chart.tooltip;
+      if (!tt || !tt.opacity) return;
+      const { x, y, width, height } = tt;
+      const pad = 6;
+      if (
+        evt.x >= x - pad &&
+        evt.x <= x + width + pad &&
+        evt.y >= y - pad &&
+        evt.y <= y + height + pad
+      ) {
+        tt.setActiveElements([], { x: 0, y: 0 });
+        chart.update('none');
+        args.changed = true;
+        return false;
+      }
+    },
+  };
+  Chart.register(tooltipDismissPlugin);
+
   const tipStyle = {
     backgroundColor: '#141415',
     borderColor: '#2a2a2d',
@@ -499,11 +666,13 @@ _dataReady.then(async ([RAW_DATA]) => {
   ];
 
   // ── Stat card builder ──────────────────────────────────────
-  const statCard = (cls, label, mainVal, items, nPts, timeRange) =>
+  const statCard = (cls, label, mainVal, chartSVG, summary, lastVal, nPts, timeRange) =>
     `<div class="stat ${cls}">
       <div class="v">${mainVal}</div>
       <div class="l">${label} <span class="l-sub">m\u00e9diane</span></div>
-      <dl class="sg">${items.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
+      <div class="dcl-wrap">${chartSVG}</div>
+      <div class="stat-sum">${summary}</div>
+      <div class="stat-last">LAST <strong>${lastVal}</strong></div>
       <div class="pts">${timeRange} \u00b7 ${nPts} pts</div>
     </div>`;
 
@@ -529,6 +698,9 @@ _dataReady.then(async ([RAW_DATA]) => {
 
   // ── Render ─────────────────────────────────────────────────
   const doRender = () => {
+    // Dismiss any active decile tooltip (stats cards are about to be rebuilt)
+    dclClearSelection();
+
     const rng = filterRange(rangeStart, rangeEnd);
     const mode = currentH > BAND_THRESHOLD ? 'band' : 'line';
 
@@ -584,17 +756,18 @@ _dataReady.then(async ([RAW_DATA]) => {
 
       const trLabel = `${fmtDateTz(rangeStart)} \u2192 ${fmtDateTz(rangeEnd)}`;
 
+      const dlDec = computeDeciles(dlSorted);
+      const ulDec = computeDeciles(ulSorted);
+      const piDec = computeDeciles(piSorted);
+
       statsEl.innerHTML =
         statCard(
           'dl',
           'Download',
           fmtSpd(dlMed),
-          [
-            ['min', fmtSpd0(dlMn)],
-            ['avg', fmtSpd0(dlAvg)],
-            ['max', fmtSpd0(dlMx)],
-            ['last', fmtSpd0(dl[i1 - 1])],
-          ],
+          decileChartSVG(dlDec, dlMn, dlMx, dlAvg, COL.dl, 'Mb/s'),
+          `min ${fmtSpd0(dlMn)} \u00b7 avg ${fmtSpd0(dlAvg)} \u00b7 max ${fmtSpd0(dlMx)}`,
+          fmtSpd0(dl[i1 - 1]),
           n,
           trLabel,
         ) +
@@ -602,12 +775,9 @@ _dataReady.then(async ([RAW_DATA]) => {
           'ul',
           'Upload',
           fmtSpd(ulMed),
-          [
-            ['min', fmtSpd0(ulMn)],
-            ['avg', fmtSpd0(ulAvg)],
-            ['max', fmtSpd0(ulMx)],
-            ['last', fmtSpd0(ul[i1 - 1])],
-          ],
+          decileChartSVG(ulDec, ulMn, ulMx, ulAvg, COL.ul, 'Mb/s'),
+          `min ${fmtSpd0(ulMn)} \u00b7 avg ${fmtSpd0(ulAvg)} \u00b7 max ${fmtSpd0(ulMx)}`,
+          fmtSpd0(ul[i1 - 1]),
           n,
           trLabel,
         ) +
@@ -615,12 +785,9 @@ _dataReady.then(async ([RAW_DATA]) => {
           'pi',
           'Ping',
           `${piMed.toFixed(1)}<span class="u">ms</span>`,
-          [
-            ['min', piMn.toFixed(1)],
-            ['med', piMed.toFixed(1)],
-            ['p95', piP95.toFixed(1)],
-            ['max', piMx.toFixed(1)],
-          ],
+          decileChartSVG(piDec, piMn, piMx, piAvg, COL.pi, 'ms', [{ val: piP95, label: 'p95' }]),
+          `min ${piMn.toFixed(1)} \u00b7 avg ${piAvg.toFixed(1)} \u00b7 max ${piMx.toFixed(1)}`,
+          pi[i1 - 1].toFixed(1),
           n,
           trLabel,
         );
