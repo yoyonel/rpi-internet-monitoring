@@ -1,7 +1,7 @@
 copie des sources vers le raspberry
 
 ```sh
-╰─ scp -r MONITORER\ SON\ DÉBIT\ INTERNET/ latty@192.168.1.24:"/home/latty/Prog"
+╰─ scp -r MONITORER\ SON\ DÉBIT\ INTERNET/ latty@<rpi-ip>:"/home/latty/Prog"
 telegraf.conf                                                                                                                 100%   12KB   3.6MB/s   00:00
 Dockerfile                                                                                                                    100% 1314   510.5KB/s   00:00
 README.md                                                                                                                     100%   14KB   5.2MB/s   00:00
@@ -132,7 +132,7 @@ curl \
 on s'assure que la DB existe dans InfluxDB avant de send des données dedans)
 
 Connection à Grafana depuis l'extérieur:
-url: http://192.168.1.24:3000
+url: http://<rpi-ip>:3000
 
 1ère connection -> utiliser l'authent par défaut admin/admin,
 puis définir un nouveau mot de passe (stocké dans .env: GF_SECURITY_ADMIN_PASSWORD)

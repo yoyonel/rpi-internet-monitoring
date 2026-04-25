@@ -300,7 +300,7 @@ Apr 16 15:20:33 raspberrypi publish-gh-pages[12350]: → 4317 data points export
 
 ### Pré-requis
 
-- [ ] SSH vers le RPi fonctionnel (`ssh latty@192.168.1.24`)
+- [ ] SSH vers le RPi fonctionnel (`ssh latty@<rpi-ip>`)
 - [ ] Le repo est à jour sur le RPi (`git pull` ou `git fetch && git checkout feat/gh-pages-redesign`)
 - [ ] Docker fonctionne (`docker ps`)
 - [ ] `just` est installé (`just --version`)
@@ -310,7 +310,7 @@ Apr 16 15:20:33 raspberrypi publish-gh-pages[12350]: → 4317 data points export
 
 ```bash
 # 1. Se connecter au RPi
-ssh latty@192.168.1.24
+ssh latty@<rpi-ip>
 
 # 2. Aller dans le projet
 cd ~/rpi-internet-monitoring   # ou ~/Prog/rpi-internet-monitoring selon install
