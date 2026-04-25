@@ -244,12 +244,18 @@ nav .meta time {
   color: var(--text);
   font-size: 0.72rem;
   font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
-  padding: 3px 8px;
+  padding: 4px 10px;
   border-radius: 4px;
   border: 1px solid var(--border2);
   pointer-events: none;
   white-space: nowrap;
   z-index: 100;
+  text-align: center;
+  line-height: 1.4;
+}
+.dcl-tip-sub {
+  font-size: 0.62rem;
+  color: var(--text3);
 }
 .dcl-hit {
   cursor: pointer;
