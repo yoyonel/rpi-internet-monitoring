@@ -121,10 +121,11 @@ python3 "$SCRIPT_DIR/scripts/render-template.py" "$TEMPLATE" "$BUILD_DIR/data.js
 cp "$SCRIPT_DIR/gh-pages/style.css" "$BUILD_DIR/"
 cp -r "$SCRIPT_DIR/gh-pages/fonts" "$BUILD_DIR/"
 if command -v terser &>/dev/null; then
-    echo "  → Minifying app.js with terser"
-    terser "$SCRIPT_DIR/gh-pages/app.js" --compress --mangle -o "$BUILD_DIR/app.js"
+    echo "  → Minifying app.js + lib.js with terser"
+    terser "$SCRIPT_DIR/gh-pages/app.js" --compress --mangle --module -o "$BUILD_DIR/app.js"
+    terser "$SCRIPT_DIR/gh-pages/lib.js" --compress --mangle --module -o "$BUILD_DIR/lib.js"
 else
-    cp "$SCRIPT_DIR/gh-pages/app.js" "$BUILD_DIR/"
+    cp "$SCRIPT_DIR/gh-pages/app.js" "$SCRIPT_DIR/gh-pages/lib.js" "$BUILD_DIR/"
 fi
 
 # ── 3. Preview or Push ────────────────────────────────────
