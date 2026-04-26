@@ -27,11 +27,26 @@ $$p = \text{clamp}\left(\frac{\text{médiane} - \text{seuil\_bon}}{\text{seuil\_
 
 ### Stabilité (dispersion)
 
-Évalue la régularité des mesures via le **coefficient de variation (CV)**.
+Évalue la régularité des mesures via l'**écart interquartile normalisé (IQR/médiane)**.
+
+L'IQR (Interquartile Range = Q3 − Q1) mesure la largeur des 50% centraux des données. Normalisé par la médiane, il devient un ratio adimensionnel comparable entre métriques d'échelles différentes.
 
 **Score stabilité** $s \in [0, 1]$ (0 = parfaitement stable, 1 = très instable) :
 
-$$s = \text{clamp}\left(\frac{CV - CV_{\text{bon}}}{CV_{\text{mauvais}} - CV_{\text{bon}}},\ 0,\ 1\right)$$
+$$s = \text{clamp}\left(\frac{\text{IQR}/\text{médiane} - R_{\text{bon}}}{R_{\text{mauvais}} - R_{\text{bon}}},\ 0,\ 1\right)$$
+
+#### Pourquoi l'IQR et pas le coefficient de variation (CV) ?
+
+Le CV ($\sigma / \bar{x}$) est **extrêmement sensible aux outliers** car l'écart-type dépend du carré des écarts. En pratique, un seul point aberrant (ex : un speedtest à 38 Mb/s sur 4275 mesures à ~940 Mb/s) peut faire exploser σ et donc le CV, donnant un faux diagnostic d'instabilité.
+
+Exemple réel sur 30 jours de Download :
+
+| Métrique            | CV (σ/μ)                                | IQR/médiane                  |
+| ------------------- | --------------------------------------- | ---------------------------- |
+| Download (4275 pts) | **34.3%** ❌ (σ=276 à cause d'outliers) | **2.7%** ✅ (Q1=920, Q3=945) |
+| Upload (4275 pts)   | ~15%                                    | **~25%** (Q1≈550, Q3≈720)    |
+
+L'IQR est un estimateur **robuste** de la dispersion : il ignore les 25% les plus bas et les 25% les plus hauts, ne gardant que la masse centrale. C'est le concept d'[intervalle de confiance](https://fr.wikipedia.org/wiki/Intervalle_de_confiance) appliqué aux quartiles.
 
 ## Score composite
 
@@ -61,14 +76,14 @@ La stabilité est pondérée plus fortement que la performance brute car :
 
 Ces seuils sont calibrés pour une **connexion fibre 1 Gbps** (Free/Orange). Ils devraient être ajustés si le type de connexion change.
 
-### Stabilité (CV)
+### Stabilité (IQR normalisé)
 
-| Seuil            | CV           | Signification           |
-| ---------------- | ------------ | ----------------------- |
-| Vert (parfait)   | ≤ 0.05 (5%)  | Variation négligeable   |
-| Rouge (instable) | ≥ 0.25 (25%) | Variation significative |
+| Seuil            | IQR/médiane  | Signification                                |
+| ---------------- | ------------ | -------------------------------------------- |
+| Vert (parfait)   | ≤ 0.05 (5%)  | 50% centraux concentrés (très régulier)      |
+| Rouge (instable) | ≥ 0.30 (30%) | 50% centraux dispersés (connexion erratique) |
 
-Ces seuils sont **universels** et indépendants de la métrique : un CV de 5% signifie la même chose que la valeur soit en Mb/s ou en ms.
+Ces seuils sont **universels** et indépendants de la métrique. Un IQR/médiane de 5% signifie que les 50% centraux des mesures tiennent dans ±2.5% de la médiane.
 
 ## Mapping couleur (gradient HSL)
 
@@ -99,28 +114,49 @@ Valeur centrale d'un jeu de données trié. Plus robuste que la moyenne face aux
 
 Référence : [Wikipedia — Median](https://en.wikipedia.org/wiki/Median)
 
-### Écart-type (σ) et variance
+### Quartiles et écart interquartile (IQR)
 
-Mesure de dispersion des valeurs autour de la moyenne. On utilise la variance **corrigée** (diviseur $n - 1$, estimateur de Bessel) pour un échantillon :
+Les **quartiles** divisent un jeu de données trié en 4 parts égales :
 
-$$\sigma = \sqrt{\frac{1}{n-1} \sum_{i=1}^{n} (x_i - \bar{x})^2}$$
+- **Q1** (25e percentile) : 25% des données sont inférieures
+- **Q2** (médiane) : 50%
+- **Q3** (75e percentile) : 75% des données sont inférieures
 
-Référence : [Wikipedia — Standard deviation](https://en.wikipedia.org/wiki/Standard_deviation#Corrected_sample_standard_deviation)
+L'**écart interquartile (IQR)** mesure la dispersion des 50% centraux :
 
-### Coefficient de variation (CV)
+$$IQR = Q3 - Q1$$
 
-Rapport de l'écart-type sur la moyenne, exprimé en ratio (ou en %) :
+C'est un estimateur **robuste** : contrairement à l'écart-type, il est insensible aux outliers car il ignore les 25% extrêmes de chaque côté.
+
+Référence : [Wikipedia — Interquartile range](https://en.wikipedia.org/wiki/%C3%89cart_interquartile)
+
+### IQR normalisé (Quartile Coefficient of Dispersion)
+
+Pour comparer la dispersion entre métriques d'échelles différentes (Mb/s vs ms), on normalise l'IQR par la médiane :
+
+$$\text{IQR normalisé} = \frac{Q3 - Q1}{\text{médiane}}$$
+
+C'est l'analogue robuste du coefficient de variation (CV = σ/μ), parfois appelé **Quartile Coefficient of Dispersion** dans la littérature.
+
+Référence : [Wikipedia — Quartile coefficient of dispersion](https://en.wikipedia.org/wiki/Quartile_coefficient_of_dispersion)
+
+### Intervalle de confiance et robustesse
+
+L'IQR correspond à l'**intervalle de confiance à 50%** de la distribution empirique : il contient la moitié des observations centrales. Cette approche est directement liée au concept d'[intervalle de confiance](https://fr.wikipedia.org/wiki/Intervalle_de_confiance).
+
+En statistique robuste, on privilégie les estimateurs basés sur les quantiles (médiane, IQR) plutôt que sur les moments (moyenne, écart-type) dès que la distribution peut contenir des outliers — ce qui est systématiquement le cas des mesures réseau (coupures, congestion temporaire, erreurs de mesure).
+
+Référence : [Wikipedia — Robust statistics](https://en.wikipedia.org/wiki/Robust_statistics)
+
+### Pourquoi pas le CV (σ/μ) ? — Leçon apprise
+
+Le coefficient de variation a été utilisé dans la v1 mais s'est avéré inadapté :
 
 $$CV = \frac{\sigma}{\bar{x}}$$
 
-**Pourquoi le CV et pas l'écart-type seul ?**
+L'écart-type $\sigma$ dépend du **carré** des écarts à la moyenne. Un seul outlier (ex : 38 Mb/s sur 4275 mesures à ~940 Mb/s) contribue $(940-38)^2 = 813\,604$ à la variance, gonflant σ de 5.6 à 276 Mb/s et le CV de 0.6% à 34%. Le diagnostic passait de "Excellent" à "Dégradé" à cause d'un seul point.
 
-Le CV est adimensionnel et permet de comparer la variabilité entre des métriques d'échelles différentes :
-
-- Download σ = 5 Mb/s sur μ = 940 Mb/s → CV = 0.5% (très stable)
-- Ping σ = 2 ms sur μ = 12 ms → CV = 16.7% (moyennement stable)
-
-Sans le CV, on comparerait des pommes et des oranges.
+L'IQR, ne regardant que Q1-Q3, est totalement insensible à ce type d'aberration.
 
 Référence : [Wikipedia — Coefficient of variation](https://en.wikipedia.org/wiki/Coefficient_of_variation)
 
@@ -151,7 +187,8 @@ Excellent (100%)
 Performance      100%
   médiane 941.8 Mb/s (vert ≥ 800, rouge ≤ 500)
 Stabilité        100%
-  CV = 0.006 (σ = 5.6 Mb/s, vert ≤ 5%, rouge ≥ 25%)
+  IQR/méd = 2.7% (Q1=920.3, Q3=945.1, IQR=24.8 Mb/s)
+  vert ≤ 5%, rouge ≥ 30%
 Pondération      30/70
   perf × 0.3 + stab × 0.7
 ```
