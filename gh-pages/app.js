@@ -344,6 +344,32 @@ _dataReady.then(async ([RAW_DATA]) => {
     }
   });
 
+  // ── Quality dot tooltip (click to show/hide) ───────────────
+  let _qualityData = {};
+  const qTip = document.createElement('div');
+  qTip.className = 'q-tip';
+  document.body.appendChild(qTip);
+  let qTipActive = null;
+
+  document.addEventListener('click', (e) => {
+    const dot = e.target.closest?.('.q-dot');
+    if (dot && dot !== qTipActive) {
+      qTipActive = dot;
+      const metric = dot.dataset.metric;
+      const d = _qualityData[metric];
+      if (d) {
+        qTip.innerHTML = qualityTooltipHtml(metric, d.q, d.median, d.n, d.unit);
+        qTip.style.display = 'block';
+        const r = dot.getBoundingClientRect();
+        qTip.style.left = `${r.left + r.width / 2}px`;
+        qTip.style.top = `${r.bottom + 8}px`;
+      }
+    } else if (!dot || dot === qTipActive) {
+      qTipActive = null;
+      qTip.style.display = 'none';
+    }
+  });
+
   // ── Constants ──────────────────────────────────────────────
   const HOUR = 3_600_000;
   const BAND_THRESHOLD = 48; // hours: above this → band mode
@@ -668,9 +694,90 @@ _dataReady.then(async ([RAW_DATA]) => {
   ];
 
   // ── Stat card builder ──────────────────────────────────────
-  const statCard = (cls, label, mainVal, chartSVG, summary, lastVal, nPts, timeRange) =>
+  // ── Quality score (composite: performance + stability) ────
+  // Performance thresholds: { good, bad } — below bad → score=1, above good → score=0
+  // For ping: inverted (lower is better)
+  const QUALITY_THRESHOLDS = {
+    dl: { good: 800, bad: 500 },
+    ul: { good: 500, bad: 200 },
+    pi: { good: 20, bad: 50 }, // inverted: low=good
+  };
+  const PERF_WEIGHT = 0.3,
+    STAB_WEIGHT = 0.7;
+
+  const qualityScore = (metric, median, sorted, avg, nPts) => {
+    const th = QUALITY_THRESHOLDS[metric];
+    // Performance score (0=nominal, 1=critical)
+    let perf;
+    if (metric === 'pi') {
+      perf = median <= th.good ? 0 : median >= th.bad ? 1 : (median - th.good) / (th.bad - th.good);
+    } else {
+      perf = median >= th.good ? 0 : median <= th.bad ? 1 : (th.good - median) / (th.good - th.bad);
+    }
+    // Stability via IQR / median (robust to outliers)
+    // IQR = Q3 - Q1 = interquartile range (middle 50% of data)
+    // Normalized by median to be scale-independent
+    // Thresholds: ≤ 0.05 = very stable, ≥ 0.30 = very unstable
+    const q1 = pctOf(sorted, 25);
+    const q3 = pctOf(sorted, 75);
+    const iqr = q3 - q1;
+    const iqrRatio = median > 0 ? iqr / median : 0;
+    const IQR_GOOD = 0.05,
+      IQR_BAD = 0.3;
+    const stab =
+      iqrRatio <= IQR_GOOD
+        ? 0
+        : iqrRatio >= IQR_BAD
+          ? 1
+          : (iqrRatio - IQR_GOOD) / (IQR_BAD - IQR_GOOD);
+    // Composite
+    const score = Math.min(1, Math.max(0, PERF_WEIGHT * perf + STAB_WEIGHT * stab));
+    const hue = 120 * (1 - score);
+    // Boost lightness in the yellow zone (hue 40-80°) which appears dim on dark backgrounds
+    const lightness = 50 + 10 * Math.sin((hue / 120) * Math.PI);
+    const color = `hsl(${hue.toFixed(0)}, 85%, ${lightness.toFixed(0)}%)`;
+    return { score, perf, stab, q1, q3, iqr, iqrRatio, color, hue };
+  };
+
+  const fmtPct = (v) => (v * 100).toFixed(0) + '%';
+
+  const qualityTooltipHtml = (metric, q, median, nPts, unit) => {
+    const th = QUALITY_THRESHOLDS[metric];
+    const thDir = metric === 'pi' ? '\u2264' : '\u2265';
+    const thBad = metric === 'pi' ? '\u2265' : '\u2264';
+    const label =
+      q.score < 0.3
+        ? 'Excellent'
+        : q.score < 0.6
+          ? 'Correct'
+          : q.score < 0.8
+            ? 'D\u00e9grad\u00e9'
+            : 'Critique';
+    return `<div class="q-tip-title">${label} <span style="color:${q.color}">(${fmtPct(1 - q.score)})</span></div>
+<div class="q-tip-grid">
+  <span class="q-tip-label">Performance</span><span class="q-tip-val">${fmtPct(1 - q.perf)}</span>
+  <span class="q-tip-detail">m\u00e9diane ${median.toFixed(1)} ${unit} (vert ${thDir} ${th.good}, rouge ${thBad} ${th.bad})</span>
+  <span class="q-tip-label">Stabilit\u00e9</span><span class="q-tip-val">${fmtPct(1 - q.stab)}</span>
+  <span class="q-tip-detail">IQR/m\u00e9d = ${(q.iqrRatio * 100).toFixed(1)}% (Q1=${q.q1.toFixed(1)}, Q3=${q.q3.toFixed(1)}, IQR=${q.iqr.toFixed(1)} ${unit})</span>
+  <span class="q-tip-detail">vert \u2264 5%, rouge \u2265 30%</span>
+  <span class="q-tip-label">Pond\u00e9ration</span><span class="q-tip-val">${(PERF_WEIGHT * 100).toFixed(0)}/${(STAB_WEIGHT * 100).toFixed(0)}</span>
+  <span class="q-tip-detail">perf \u00d7 ${PERF_WEIGHT} + stab \u00d7 ${STAB_WEIGHT}</span>
+</div>`;
+  };
+
+  const statCard = (
+    cls,
+    label,
+    mainVal,
+    chartSVG,
+    summary,
+    lastVal,
+    nPts,
+    timeRange,
+    qualityInfo,
+  ) =>
     `<div class="stat ${cls}">
-      <div class="v">${mainVal}</div>
+      <div class="v">${mainVal}${qualityInfo ? `<span class="q-dot" data-metric="${cls}" style="background:${qualityInfo.color};box-shadow:0 0 8px 2px ${qualityInfo.color}"></span>` : ''}</div>
       <div class="l">${label} <span class="l-sub">m\u00e9diane</span></div>
       <div class="dcl-wrap">${chartSVG}</div>
       <div class="stat-sum">${summary}</div>
@@ -762,6 +869,17 @@ _dataReady.then(async ([RAW_DATA]) => {
       const ulHist = computeHistogram(ulSorted, ulMn, ulMx);
       const piHist = computeHistogram(piSorted, piMn, piMx);
 
+      const dlQ = qualityScore('dl', dlMed, dlSorted, dlAvg, n);
+      const ulQ = qualityScore('ul', ulMed, ulSorted, ulAvg, n);
+      const piQ = qualityScore('pi', piMed, piSorted, piAvg, n);
+
+      // Store quality data for tooltip on click
+      _qualityData = {
+        dl: { q: dlQ, median: dlMed, n, unit: 'Mb/s' },
+        ul: { q: ulQ, median: ulMed, n, unit: 'Mb/s' },
+        pi: { q: piQ, median: piMed, n, unit: 'ms' },
+      };
+
       statsEl.innerHTML =
         statCard(
           'dl',
@@ -772,6 +890,7 @@ _dataReady.then(async ([RAW_DATA]) => {
           fmtSpd0(dl[i1 - 1]),
           n,
           trLabel,
+          dlQ,
         ) +
         statCard(
           'ul',
@@ -782,6 +901,7 @@ _dataReady.then(async ([RAW_DATA]) => {
           fmtSpd0(ul[i1 - 1]),
           n,
           trLabel,
+          ulQ,
         ) +
         statCard(
           'pi',
@@ -792,6 +912,7 @@ _dataReady.then(async ([RAW_DATA]) => {
           pi[i1 - 1].toFixed(1),
           n,
           trLabel,
+          piQ,
         );
 
       // ── Legend ─────────────────────────────────────────────

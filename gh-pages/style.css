@@ -257,6 +257,62 @@ nav .meta time {
   font-weight: 600;
 }
 
+/* quality dot */
+.q-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-left: 8px;
+  vertical-align: middle;
+  cursor: pointer;
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  transition:
+    background 0.3s,
+    box-shadow 0.3s;
+}
+
+/* quality tooltip */
+.q-tip {
+  display: none;
+  position: fixed;
+  transform: translateX(-50%);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  white-space: nowrap;
+  z-index: 110;
+  line-height: 1.5;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+.q-tip-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.q-tip-grid {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 12px;
+}
+.q-tip-label {
+  color: var(--text3);
+}
+.q-tip-val {
+  text-align: right;
+  font-weight: 600;
+}
+.q-tip-detail {
+  grid-column: 1 / -1;
+  color: var(--text3);
+  font-size: 0.62rem;
+  margin-bottom: 4px;
+}
+
 /* decile tooltip */
 .dcl-tip {
   display: none;
