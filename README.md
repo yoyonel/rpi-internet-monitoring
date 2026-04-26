@@ -122,6 +122,8 @@ just install-timers
 | Commande                     | RPi requis | Description                                                     |
 | ---------------------------- | ---------- | --------------------------------------------------------------- |
 | `just test`                  | **oui**    | Suite de régression complète (17 checks)                        |
+| `just test-unit`             | non        | Tests unitaires `lib.js` (Node.js, 39 tests, ~300ms)            |
+| `just test-e2e`              | non        | Tests E2E Playwright (nécessite un preview actif sur :8080)     |
 | `just check`                 | **oui**    | Health check rapide des 4 services                              |
 | `just e2e [url]`             | non        | Tests E2E Playwright contre une preview (défaut: :8080)         |
 | `just sim-test`              | non        | Smoke tests de la stack sim (25 checks)                         |
@@ -226,6 +228,21 @@ cp .env.example .env
 Le dashboard **RPi Alerts Overview** affiche les 6 métriques surveillées avec les seuils d'alerte en rouge sur les graphiques, plus un panneau d'historique des alertes.
 
 Visibles dans Grafana → Alerting → Alert rules, ou via `just alerts`.
+
+## Frontend (GitHub Pages)
+
+Page statique déployée sur [yoyonel.github.io/rpi-internet-monitoring](https://yoyonel.github.io/rpi-internet-monitoring/), construite à partir de `gh-pages/`.
+
+### Architecture frontend
+
+| Fichier                        | Rôle                                                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `gh-pages/lib.js`              | Fonctions pures : LTTB downsampling, bucketisation, histogramme, score de qualité, stats, binary search |
+| `gh-pages/app.js`              | Orchestration DOM : Chart.js, rendu cartes stats, time picker, zoom/pan, alertes                        |
+| `gh-pages/style.css`           | Dark theme responsive                                                                                   |
+| `gh-pages/index.template.html` | Template HTML avec placeholders `__LAST_UPDATE__` / `__GENERATED_AT__`                                  |
+
+`app.js` importe `lib.js` via ES modules (`<script type="module">`). Les fonctions pures de `lib.js` sont testées unitairement avec `node --test` (39 tests, ~300ms, zéro dépendance).
 
 ## Données
 
