@@ -91,15 +91,27 @@ Le score composite est converti en teinte (hue) sur l'espace colorimétrique HSL
 
 $$\text{hue} = 120 \times (1 - \text{score})$$
 
-$$\text{couleur} = \text{hsl}(\text{hue},\ 85\%,\ 50\%)$$
+### Compensation de luminosité (zone jaune)
 
-| Score | Hue  | Couleur résultante |
-| ----- | ---- | ------------------ |
-| 0.00  | 120° | Vert vif           |
-| 0.25  | 90°  | Vert-jaune         |
-| 0.50  | 60°  | Jaune              |
-| 0.75  | 30°  | Orange             |
-| 1.00  | 0°   | Rouge              |
+Sur fond sombre, les teintes jaune-orange (hue 40–80°) apparaissent naturellement plus éteintes que le vert ou le rouge à lightness constante. Pour compenser, la lightness est modulée par une sinusoïde qui booste la zone jaune :
+
+$$L = 50 + 10 \times \sin\!\left(\frac{\text{hue}}{120} \times \pi\right)$$
+
+| Hue  | Lightness | Effet                         |
+| ---- | --------- | ----------------------------- |
+| 0°   | 50%       | Rouge — pas de boost          |
+| 60°  | 60%       | Jaune — boost maximal (+10pp) |
+| 120° | 50%       | Vert — pas de boost           |
+
+$$\text{couleur} = \text{hsl}(\text{hue},\ 85\%,\ L\%)$$
+
+| Score | Hue  | L   | Couleur résultante |
+| ----- | ---- | --- | ------------------ |
+| 0.00  | 120° | 50% | Vert vif           |
+| 0.25  | 90°  | 57% | Vert-jaune         |
+| 0.50  | 60°  | 60% | Jaune (boosté)     |
+| 0.75  | 30°  | 57% | Orange             |
+| 1.00  | 0°   | 50% | Rouge              |
 
 L'avantage du gradient continu vs 3 paliers discrets : les nuances intermédiaires donnent un signal plus fin sans avoir à lire les chiffres.
 
@@ -219,6 +231,15 @@ Le calcul compare le timestamp ISO 8601 injecté par `render-template.py` (`__LA
 - **`gh-pages/app.js`** — Fonctions `qualityScore()` et `qualityTooltipHtml()`, seuils dans `QUALITY_THRESHOLDS`
 - **`gh-pages/style.css`** — Classes `.q-dot`, `.q-tip`, `.q-tip-grid`
 - **`scripts/render-template.py`** — Placeholder `__LAST_UPDATE_ISO__` pour la pastille sync
+
+### Détails visuels de la pastille
+
+| Propriété         | Valeur                               |
+| ----------------- | ------------------------------------ |
+| Taille            | 12 × 12 px                           |
+| Bordure           | 1.5px solid rgba(255,255,255,0.15)   |
+| Glow (box-shadow) | 0 0 8px 2px (couleur de la pastille) |
+| Transition        | background 0.3s, box-shadow 0.3s     |
 
 ### Paramètre de simulation
 
