@@ -45,7 +45,8 @@ jobs:
           cp gh-pages/style.css "$BUILD_DIR/"
           cp -r gh-pages/fonts "$BUILD_DIR/"
           npm install -g terser
-          terser gh-pages/app.js --compress --mangle -o "$BUILD_DIR/app.js"
+          terser gh-pages/app.js --compress --mangle --module -o "$BUILD_DIR/app.js"
+          terser gh-pages/lib.js --compress --mangle --module -o "$BUILD_DIR/lib.js"
 
       - name: Push to gh-pages branch
         run: |
@@ -61,7 +62,7 @@ jobs:
           cd /tmp/gh-pages-deploy
 
           # Update site files (preserves badges/ and other extra content)
-          cp "$BUILD_DIR"/index.html "$BUILD_DIR"/style.css "$BUILD_DIR"/app.js .
+          cp "$BUILD_DIR"/index.html "$BUILD_DIR"/style.css "$BUILD_DIR"/app.js "$BUILD_DIR"/lib.js .
           cp "$BUILD_DIR"/data.json "$BUILD_DIR"/alerts.json .
           cp -r "$BUILD_DIR"/fonts .
           touch .nojekyll
