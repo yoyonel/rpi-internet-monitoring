@@ -12,6 +12,22 @@ import {
   QUALITY_THRESHOLDS,
   PERF_WEIGHT,
   STAB_WEIGHT,
+  HOUR,
+  BAND_THRESHOLD,
+  PRESETS,
+  COL,
+  pad2,
+  fmtDate,
+  fmtDateTz,
+  fmtSpd,
+  fmtSpd0,
+  fmtPct,
+  histogramSVG,
+  qualityTooltipHtml,
+  statCard,
+  DS_LINE,
+  makeBandDs,
+  makeLineDs,
 } from './lib.js';
 
 // ── Sync status indicator ─────────────────────────────────────
@@ -142,72 +158,6 @@ _dataReady.then(async ([RAW_DATA]) => {
 
   const MAX_PTS = 600;
 
-  // ── Histogram distribution chart (SVG) ───────────────────
-  const histogramSVG = (bins, avg, median, color, unit, nSamples) => {
-    const W = 260,
-      H = 76;
-    const PAD_T = 10,
-      PAD_B = 12,
-      PAD_L = 2,
-      PAD_R = 2;
-    const plotH = H - PAD_T - PAD_B;
-    const plotW = W - PAD_L - PAD_R;
-    const BAR_GAP = 2;
-    const barW = (plotW - BAR_GAP * (bins.length + 1)) / bins.length;
-    const bot = PAD_T + plotH;
-
-    const maxCount = Math.max(...bins.map((b) => b.count), 1);
-    const toY = (count) => PAD_T + plotH * (1 - count / maxCount);
-
-    const fmtVal = (v) => (unit === 'ms' ? v.toFixed(1) : v.toFixed(0));
-
-    // ── Build SVG ────────────────────────────────────────────
-    let s = `<svg class="dcl-svg" viewBox="0 0 ${W} ${H}">`;
-
-    const range = bins[bins.length - 1].hi - bins[0].lo || 1;
-    const valToX = (v) => PAD_L + BAR_GAP + ((v - bins[0].lo) / range) * (plotW - BAR_GAP * 2);
-
-    // Histogram bars (drawn first so markers render on top)
-    bins.forEach((bin, i) => {
-      const x = PAD_L + BAR_GAP + i * (barW + BAR_GAP);
-      const barY = toY(bin.count);
-      const barH = Math.max(bin.count > 0 ? 1 : 0, bot - barY);
-      const pct = nSamples > 0 ? ((bin.count / nSamples) * 100).toFixed(0) : 0;
-      const tipMain = `${bin.count} mesure${bin.count > 1 ? 's' : ''} (${pct}%)`;
-      const tipSub = `${fmtVal(bin.lo)} \u2013 ${fmtVal(bin.hi)} ${unit}`;
-      const HIT_PAD = 1;
-
-      // Transparent hit area
-      s += `<rect x="${(x - HIT_PAD).toFixed(1)}" y="${PAD_T}" width="${(barW + HIT_PAD * 2).toFixed(1)}" height="${plotH}" fill="transparent" class="dcl-hit" data-tip="${tipMain}" data-sub="${tipSub}"/>`;
-      // Visible bar
-      s += `<rect x="${x.toFixed(1)}" y="${barY.toFixed(1)}" width="${barW.toFixed(1)}" height="${barH.toFixed(1)}" rx="1.5" fill="${color}" class="dcl-bar${bin.count === maxCount ? ' dcl-p50' : ''}" pointer-events="none"/>`;
-    });
-
-    // Avg vertical marker (on top of bars, white outline for contrast)
-    const avgX = valToX(avg);
-    s += `<line x1="${avgX.toFixed(1)}" y1="${PAD_T}" x2="${avgX.toFixed(1)}" y2="${bot}" stroke="var(--bg)" stroke-width="3" opacity=".5"/>`;
-    s += `<line x1="${avgX.toFixed(1)}" y1="${PAD_T}" x2="${avgX.toFixed(1)}" y2="${bot}" stroke="${color}" stroke-width="1.5" stroke-dasharray="4,3" opacity=".9"/>`;
-    s += `<text x="${avgX.toFixed(1)}" y="${PAD_T - 1.5}" fill="${color}" font-size="7" text-anchor="middle" opacity=".9">avg</text>`;
-
-    // Median vertical marker (on top of bars, white outline for contrast)
-    const medX = valToX(median);
-    s += `<line x1="${medX.toFixed(1)}" y1="${PAD_T}" x2="${medX.toFixed(1)}" y2="${bot}" stroke="var(--bg)" stroke-width="3" opacity=".5"/>`;
-    s += `<line x1="${medX.toFixed(1)}" y1="${PAD_T}" x2="${medX.toFixed(1)}" y2="${bot}" stroke="var(--text)" stroke-width="1.5" stroke-dasharray="2,2" opacity=".9"/>`;
-    s += `<text x="${medX.toFixed(1)}" y="${PAD_T - 1.5}" fill="var(--text)" font-size="7" text-anchor="middle" font-weight="600">m\u00e9d</text>`;
-
-    // Bottom labels: bin range boundaries (min and max + middle tick)
-    const fmtShort = (v) =>
-      unit === 'ms' ? v.toFixed(0) : v >= 1000 ? (v / 1000).toFixed(1) + 'k' : v.toFixed(0);
-    s += `<text x="${PAD_L + BAR_GAP}" y="${H - 1}" fill="var(--text3)" font-size="6" text-anchor="start">${fmtShort(bins[0].lo)}</text>`;
-    const midBin = Math.floor(bins.length / 2);
-    const midX = PAD_L + BAR_GAP + midBin * (barW + BAR_GAP) + barW / 2;
-    s += `<text x="${midX.toFixed(1)}" y="${H - 1}" fill="var(--text3)" font-size="6" text-anchor="middle">${fmtShort(bins[midBin].lo)}</text>`;
-    s += `<text x="${W - PAD_R - BAR_GAP}" y="${H - 1}" fill="var(--text3)" font-size="6" text-anchor="end">${fmtShort(bins[bins.length - 1].hi)}</text>`;
-
-    s += '</svg>';
-    return s;
-  };
-
   // ── Decile tooltip (click to show/hide, with bar highlight) ─
   const dclTip = document.createElement('div');
   dclTip.className = 'dcl-tip';
@@ -267,10 +217,6 @@ _dataReady.then(async ([RAW_DATA]) => {
   });
 
   // ── Constants ──────────────────────────────────────────────
-  const HOUR = 3_600_000;
-  const BAND_THRESHOLD = 48; // hours: above this → band mode
-  const presets = [6, 12, 24, 48, 168, 720];
-  const COL = { dl: '#7eb6f6', ul: '#c982e0', pi: '#f2a93b' };
   const dataEnd = ts[LEN - 1];
   let currentH = 48,
     rangeEnd = dataEnd + 600_000;
@@ -279,23 +225,10 @@ _dataReady.then(async ([RAW_DATA]) => {
     renderRAF = 0,
     lastMode = '';
 
-  const pad2 = (n) => (n < 10 ? '0' + n : '' + n);
   const tzAbbr = new Date().toLocaleTimeString('fr-FR', { timeZoneName: 'short' }).split(' ').pop();
-  const fmtDate = (t) => {
-    const d = new Date(t);
-    return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(
-      d.getMinutes(),
-    )}`;
-  };
-  const fmtDateTz = (t) => `${fmtDate(t)} ${tzAbbr}`;
-  const fmtSpd = (v) =>
-    v >= 1000
-      ? `${(v / 1000).toFixed(1)}<span class="u">Gb/s</span>`
-      : `${v.toFixed(0)}<span class="u">Mb/s</span>`;
-  const fmtSpd0 = (v) => (v >= 1000 ? (v / 1000).toFixed(1) + ' G' : v.toFixed(0));
+  const fmtDateTzLocal = (t) => fmtDateTz(t, tzAbbr);
 
   const tsFilterRange = (s, e) => filterRange(ts, LEN, s, e);
-
   const bucketSize = () => (currentH <= 168 ? 2 * HOUR : currentH <= 720 ? 6 * HOUR : 24 * HOUR);
 
   // ── Gradient ───────────────────────────────────────────────
@@ -475,135 +408,6 @@ _dataReady.then(async ([RAW_DATA]) => {
     },
   });
 
-  // ── Dataset factories ──────────────────────────────────────
-  const dsLine = {
-    tension: 0.15,
-    pointRadius: 0,
-    pointHitRadius: 6,
-    pointHoverRadius: 3,
-    borderWidth: 1.5,
-  };
-
-  // Band datasets: Q3 fill→Q1, Q1 invisible, median solid
-  const makeBandDs = (buckets, color, label) => [
-    {
-      // Q3 upper boundary → fills down to Q1
-      ...dsLine,
-      data: buckets.map((b) => ({ x: b.x, y: b.q3 })),
-      borderColor: 'transparent',
-      borderWidth: 0,
-      pointRadius: 0,
-      backgroundColor: rgba(color, 0.15),
-      fill: '+1',
-      _isBand: true,
-      tension: 0.3,
-    },
-    {
-      // Q1 lower boundary
-      ...dsLine,
-      data: buckets.map((b) => ({ x: b.x, y: b.q1 })),
-      borderColor: rgba(color, 0.3),
-      borderWidth: 0.5,
-      pointRadius: 0,
-      fill: false,
-      _isBand: true,
-      tension: 0.3,
-    },
-    {
-      // Median line
-      ...dsLine,
-      data: buckets.map((b) => ({ x: b.x, y: b.med })),
-      borderColor: color,
-      borderWidth: 2,
-      pointRadius: 0,
-      fill: false,
-      label,
-      tension: 0.3,
-    },
-    {
-      // Min whisker (very faint)
-      ...dsLine,
-      data: buckets.map((b) => ({ x: b.x, y: b.min })),
-      borderColor: rgba(color, 0.12),
-      borderWidth: 1,
-      pointRadius: 0,
-      borderDash: [2, 3],
-      fill: false,
-      _isBand: true,
-      tension: 0.3,
-    },
-    {
-      // Max whisker (very faint)
-      ...dsLine,
-      data: buckets.map((b) => ({ x: b.x, y: b.max })),
-      borderColor: rgba(color, 0.12),
-      borderWidth: 1,
-      pointRadius: 0,
-      borderDash: [2, 3],
-      fill: false,
-      _isBand: true,
-      tension: 0.3,
-    },
-  ];
-
-  const makeLineDs = (xArr, yArr, i0, i1, color, label, ctx, h) => [
-    {
-      ...dsLine,
-      label,
-      data: lttb(xArr, yArr, i0, i1, MAX_PTS),
-      borderColor: color,
-      backgroundColor: mkGrad(ctx, color, h),
-      fill: true,
-    },
-  ];
-
-  // ── Stat card builder ──────────────────────────────────────
-  const fmtPct = (v) => (v * 100).toFixed(0) + '%';
-
-  const qualityTooltipHtml = (metric, q, median, nPts, unit) => {
-    const th = QUALITY_THRESHOLDS[metric];
-    const thDir = metric === 'pi' ? '\u2264' : '\u2265';
-    const thBad = metric === 'pi' ? '\u2265' : '\u2264';
-    const label =
-      q.score < 0.3
-        ? 'Excellent'
-        : q.score < 0.6
-          ? 'Correct'
-          : q.score < 0.8
-            ? 'D\u00e9grad\u00e9'
-            : 'Critique';
-    return `<div class="q-tip-title">${label} <span style="color:${q.color}">(${fmtPct(1 - q.score)})</span></div>
-<div class="q-tip-grid">
-  <span class="q-tip-label">Performance</span><span class="q-tip-val">${fmtPct(1 - q.perf)}</span>
-  <span class="q-tip-detail">m\u00e9diane ${median.toFixed(1)} ${unit} (vert ${thDir} ${th.good}, rouge ${thBad} ${th.bad})</span>
-  <span class="q-tip-label">Stabilit\u00e9</span><span class="q-tip-val">${fmtPct(1 - q.stab)}</span>
-  <span class="q-tip-detail">IQR/m\u00e9d = ${(q.iqrRatio * 100).toFixed(1)}% (Q1=${q.q1.toFixed(1)}, Q3=${q.q3.toFixed(1)}, IQR=${q.iqr.toFixed(1)} ${unit})</span>
-  <span class="q-tip-detail">vert \u2264 5%, rouge \u2265 30%</span>
-  <span class="q-tip-label">Pond\u00e9ration</span><span class="q-tip-val">${(PERF_WEIGHT * 100).toFixed(0)}/${(STAB_WEIGHT * 100).toFixed(0)}</span>
-  <span class="q-tip-detail">perf \u00d7 ${PERF_WEIGHT} + stab \u00d7 ${STAB_WEIGHT}</span>
-</div>`;
-  };
-
-  const statCard = (
-    cls,
-    label,
-    mainVal,
-    chartSVG,
-    summary,
-    lastVal,
-    nPts,
-    timeRange,
-    qualityInfo,
-  ) =>
-    `<div class="stat ${cls}">
-      <div class="v">${mainVal}${qualityInfo ? `<span class="q-dot" data-metric="${cls}" style="background:${qualityInfo.color};box-shadow:0 0 8px 2px ${qualityInfo.color}"></span>` : ''}</div>
-      <div class="l">${label} <span class="l-sub">m\u00e9diane</span></div>
-      <div class="dcl-wrap">${chartSVG}</div>
-      <div class="stat-sum">${summary}</div>
-      <div class="stat-last">LAST <strong>${lastVal}</strong></div>
-      <div class="pts">${timeRange} \u00b7 ${nPts} pts</div>
-    </div>`;
-
   // ── Band tooltip (shows bucket stats) ──────────────────────
   const bandTooltipBw = {
     ...tipStyle,
@@ -682,7 +486,7 @@ _dataReady.then(async ([RAW_DATA]) => {
         piMed = medianOf(piSorted);
       const piP95 = pctOf(piSorted, 95);
 
-      const trLabel = `${fmtDateTz(rangeStart)} \u2192 ${fmtDateTz(rangeEnd)}`;
+      const trLabel = `${fmtDateTzLocal(rangeStart)} \u2192 ${fmtDateTzLocal(rangeEnd)}`;
 
       const dlHist = computeHistogram(dlSorted, dlMn, dlMx);
       const ulHist = computeHistogram(ulSorted, ulMn, ulMx);
@@ -760,8 +564,8 @@ _dataReady.then(async ([RAW_DATA]) => {
         piChart.options.plugins.tooltip = bandTooltipPi;
       } else {
         bwChart.data.datasets = [
-          ...makeLineDs(ts, dl, p0, p1, COL.dl, 'download', bwCtx, bwH),
-          ...makeLineDs(ts, ul, p0, p1, COL.ul, 'upload', bwCtx, bwH),
+          ...makeLineDs(ts, dl, p0, p1, COL.dl, 'download', mkGrad(bwCtx, COL.dl, bwH)),
+          ...makeLineDs(ts, ul, p0, p1, COL.ul, 'upload', mkGrad(bwCtx, COL.ul, bwH)),
         ];
         bwChart.options.plugins.tooltip = {
           ...tipStyle,
@@ -770,7 +574,15 @@ _dataReady.then(async ([RAW_DATA]) => {
           },
         };
 
-        piChart.data.datasets = makeLineDs(ts, pi, p0, p1, COL.pi, 'latency', piCtx, piH);
+        piChart.data.datasets = makeLineDs(
+          ts,
+          pi,
+          p0,
+          p1,
+          COL.pi,
+          'latency',
+          mkGrad(piCtx, COL.pi, piH),
+        );
         piChart.options.plugins.tooltip = {
           ...tipStyle,
           callbacks: {
@@ -786,9 +598,9 @@ _dataReady.then(async ([RAW_DATA]) => {
     piChart.options.scales.x.min = rangeStart;
     piChart.options.scales.x.max = rangeEnd;
 
-    document.getElementById('rangeLabel').textContent = `${fmtDateTz(
+    document.getElementById('rangeLabel').textContent = `${fmtDateTzLocal(
       rangeStart,
-    )}  \u2192  ${fmtDateTz(rangeEnd)}`;
+    )}  \u2192  ${fmtDateTzLocal(rangeEnd)}`;
     document
       .querySelectorAll('.rb')
       .forEach((b) => b.classList.toggle('on', parseInt(b.dataset.hours) === currentH));
@@ -833,15 +645,15 @@ _dataReady.then(async ([RAW_DATA]) => {
   document.getElementById('btnBack').addEventListener('click', () => shift(-1));
   document.getElementById('btnFwd').addEventListener('click', () => shift(1));
   document.getElementById('btnZoomIn').addEventListener('click', () => {
-    const i = presets.indexOf(currentH);
-    if (i > 0) setRange(presets[i - 1]);
-    else if (currentH > presets[0]) setRange(presets[0]);
+    const i = PRESETS.indexOf(currentH);
+    if (i > 0) setRange(PRESETS[i - 1]);
+    else if (currentH > PRESETS[0]) setRange(PRESETS[0]);
   });
   document.getElementById('btnZoomOut').addEventListener('click', () => {
-    const i = presets.indexOf(currentH);
-    if (i >= 0 && i < presets.length - 1) setRange(presets[i + 1]);
+    const i = PRESETS.indexOf(currentH);
+    if (i >= 0 && i < PRESETS.length - 1) setRange(PRESETS[i + 1]);
     else if (i < 0) {
-      for (const p of presets) {
+      for (const p of PRESETS) {
         if (p > currentH) {
           setRange(p);
           break;
