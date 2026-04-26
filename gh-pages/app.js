@@ -733,7 +733,9 @@ _dataReady.then(async ([RAW_DATA]) => {
     // Composite
     const score = Math.min(1, Math.max(0, PERF_WEIGHT * perf + STAB_WEIGHT * stab));
     const hue = 120 * (1 - score);
-    const color = `hsl(${hue.toFixed(0)}, 85%, 50%)`;
+    // Boost lightness in the yellow zone (hue 40-80°) which appears dim on dark backgrounds
+    const lightness = 50 + 10 * Math.sin((hue / 120) * Math.PI);
+    const color = `hsl(${hue.toFixed(0)}, 85%, ${lightness.toFixed(0)}%)`;
     return { score, perf, stab, q1, q3, iqr, iqrRatio, color, hue };
   };
 
@@ -775,7 +777,7 @@ _dataReady.then(async ([RAW_DATA]) => {
     qualityInfo,
   ) =>
     `<div class="stat ${cls}">
-      <div class="v">${mainVal}${qualityInfo ? `<span class="q-dot" data-metric="${cls}" style="background:${qualityInfo.color};box-shadow:0 0 6px ${qualityInfo.color}"></span>` : ''}</div>
+      <div class="v">${mainVal}${qualityInfo ? `<span class="q-dot" data-metric="${cls}" style="background:${qualityInfo.color};box-shadow:0 0 8px 2px ${qualityInfo.color}"></span>` : ''}</div>
       <div class="l">${label} <span class="l-sub">m\u00e9diane</span></div>
       <div class="dcl-wrap">${chartSVG}</div>
       <div class="stat-sum">${summary}</div>
