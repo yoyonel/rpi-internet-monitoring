@@ -45,11 +45,13 @@ def main():
     dt = datetime.now(tz=TZ)
     tz_abbr = dt.strftime("%Z")  # CET or CEST
     now = dt.strftime(f"%d/%m/%Y %H:%M ({tz_abbr})")
+    now_iso = dt.isoformat()
     gen = dt.strftime(f"%d/%m/%Y à %H:%M:%S ({tz_abbr})")
     if suffix:
         gen = f"{gen} {suffix}"
 
     html = html.replace("__LAST_UPDATE__", now)
+    html = html.replace("__LAST_UPDATE_ISO__", now_iso)
     html = html.replace("__GENERATED_AT__", gen)
 
     with open(output_path, "w") as f:
