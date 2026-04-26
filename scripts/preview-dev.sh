@@ -36,10 +36,13 @@ python3 "$SCRIPT_DIR/scripts/render-template.py" "$TEMPLATE" "$BUILD_DIR/data.js
 # Copy static assets
 cp "$SCRIPT_DIR/gh-pages/style.css" "$BUILD_DIR/"
 cp -r "$SCRIPT_DIR/gh-pages/fonts" "$BUILD_DIR/"
+JS_MODULES=(app.js lib.js state.js sync-status.js alerts.js charts.js time-controls.js time-picker.js)
 if command -v terser &>/dev/null; then
-    terser "$SCRIPT_DIR/gh-pages/app.js" --compress --mangle -o "$BUILD_DIR/app.js"
+    for f in "${JS_MODULES[@]}"; do
+        terser "$SCRIPT_DIR/gh-pages/$f" --compress --mangle --module -o "$BUILD_DIR/$f"
+    done
 else
-    cp "$SCRIPT_DIR/gh-pages/app.js" "$BUILD_DIR/"
+    for f in "${JS_MODULES[@]}"; do cp "$SCRIPT_DIR/gh-pages/$f" "$BUILD_DIR/"; done
 fi
 
 # ── 3. Serve ─────────────────────────────────────────────

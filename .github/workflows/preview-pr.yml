@@ -49,7 +49,11 @@ jobs:
           mkdir -p _surge_deploy
           cp "$BUILD_DIR/index.html" _surge_deploy/
           cp "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" _surge_deploy/
-          cp gh-pages/style.css gh-pages/app.js _surge_deploy/
+          cp gh-pages/style.css _surge_deploy/
+          for f in app.js lib.js state.js sync-status.js alerts.js \
+                   charts.js time-controls.js time-picker.js; do
+            cp "gh-pages/$f" _surge_deploy/
+          done
           cp -r gh-pages/fonts _surge_deploy/
 
       - name: Deploy to Surge

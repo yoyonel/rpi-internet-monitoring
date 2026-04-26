@@ -1,6 +1,8 @@
 {
     "private": true,
+    "type": "module",
     "scripts": {
+        "test:unit": "node --test tests/lib.test.js",
         "test:e2e": "playwright test"
     },
     "devDependencies": {
