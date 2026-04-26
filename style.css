@@ -63,6 +63,7 @@
   box-sizing: border-box;
 }
 :root {
+  color-scheme: dark;
   --bg: #0c0c0d;
   --bg2: #141415;
   --surface: #1a1a1c;
