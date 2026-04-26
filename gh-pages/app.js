@@ -1,3 +1,19 @@
+import {
+  lttb,
+  bucketize,
+  sortedSlice,
+  medianOf,
+  pctOf,
+  computeHistogram,
+  qualityScore,
+  rgba,
+  bsearch,
+  filterRange,
+  QUALITY_THRESHOLDS,
+  PERF_WEIGHT,
+  STAB_WEIGHT,
+} from './lib.js';
+
 // ── Sync status indicator ─────────────────────────────────────
 {
   const dot = document.getElementById('syncDot');
@@ -124,129 +140,9 @@ _dataReady.then(async ([RAW_DATA]) => {
 
   await yieldToMain();
 
-  // ── LTTB (typed array → [{x,y}]) ──────────────────────────
   const MAX_PTS = 600;
-  const lttb = (xArr, yArr, i0, i1, n) => {
-    const len = i1 - i0;
-    if (len <= n) {
-      const out = new Array(len);
-      for (let i = 0; i < len; i++) out[i] = { x: xArr[i0 + i], y: yArr[i0 + i] };
-      return out;
-    }
-    const out = [{ x: xArr[i0], y: yArr[i0] }];
-    const bs = (len - 2) / (n - 2);
-    let a = 0;
-    for (let i = 0; i < n - 2; i++) {
-      const s = Math.floor((i + 1) * bs) + 1;
-      const e = Math.min(Math.floor((i + 2) * bs) + 1, len);
-      const ns = Math.min(Math.floor((i + 2) * bs) + 1, len - 1);
-      const ne = Math.min(Math.floor((i + 3) * bs) + 1, len);
-      let ax = 0,
-        ay = 0,
-        c = 0;
-      for (let j = ns; j < ne; j++) {
-        ax += xArr[i0 + j];
-        ay += yArr[i0 + j];
-        c++;
-      }
-      if (c) {
-        ax /= c;
-        ay /= c;
-      }
-      let ma = -1,
-        bi = s;
-      const px = xArr[i0 + a],
-        py = yArr[i0 + a];
-      for (let j = s; j < e; j++) {
-        const ar = Math.abs((px - ax) * (yArr[i0 + j] - py) - (px - xArr[i0 + j]) * (ay - py));
-        if (ar > ma) {
-          ma = ar;
-          bi = j;
-        }
-      }
-      out.push({ x: xArr[i0 + bi], y: yArr[i0 + bi] });
-      a = bi;
-    }
-    out.push({ x: xArr[i0 + len - 1], y: yArr[i0 + len - 1] });
-    return out;
-  };
-
-  // ── Bucketize for band chart ───────────────────────────────
-  // Returns array of { x, min, q1, med, q3, max, n }
-  const bucketize = (xArr, yArr, i0, i1, bucketMs) => {
-    const buckets = [];
-    if (i0 >= i1) return buckets;
-    const buf = [];
-    let bStart = Math.floor(xArr[i0] / bucketMs) * bucketMs;
-
-    const flush = () => {
-      if (!buf.length) return;
-      buf.sort((a, b) => a - b);
-      const n = buf.length,
-        mid = n >> 1;
-      buckets.push({
-        x: bStart + bucketMs / 2,
-        min: buf[0],
-        q1: buf[Math.floor(n * 0.25)],
-        med: n & 1 ? buf[mid] : (buf[mid - 1] + buf[mid]) / 2,
-        q3: buf[Math.ceil(n * 0.75) - 1] || buf[n - 1],
-        max: buf[n - 1],
-        n,
-      });
-      buf.length = 0;
-    };
-
-    for (let i = i0; i < i1; i++) {
-      const bKey = Math.floor(xArr[i] / bucketMs) * bucketMs;
-      if (bKey !== bStart) {
-        flush();
-        bStart = bKey;
-      }
-      buf.push(yArr[i]);
-    }
-    flush();
-    return buckets;
-  };
-
-  // ── Stats helpers ──────────────────────────────────────────
-  const sortedSlice = (arr, i0, i1) => {
-    const tmp = new Float64Array(i1 - i0);
-    for (let i = 0; i < tmp.length; i++) tmp[i] = arr[i0 + i];
-    tmp.sort();
-    return tmp;
-  };
-  const medianOf = (s) => {
-    const n = s.length,
-      m = n >> 1;
-    return n & 1 ? s[m] : (s[m - 1] + s[m]) / 2;
-  };
-  const pctOf = (s, p) => {
-    const idx = (p / 100) * (s.length - 1);
-    const lo = Math.floor(idx),
-      hi = Math.ceil(idx);
-    return lo === hi ? s[lo] : s[lo] + (s[hi] - s[lo]) * (idx - lo);
-  };
 
   // ── Histogram distribution chart (SVG) ───────────────────
-  // Splits [min, max] into 10 equal-width bins, counts samples per bin.
-  const computeHistogram = (sorted, min, max) => {
-    const NBINS = 10;
-    const range = max - min || 1;
-    const binW = range / NBINS;
-    const bins = Array.from({ length: NBINS }, (_, i) => ({
-      lo: min + i * binW,
-      hi: min + (i + 1) * binW,
-      count: 0,
-    }));
-    for (const v of sorted) {
-      let idx = Math.floor((v - min) / binW);
-      if (idx >= NBINS) idx = NBINS - 1; // max value goes in last bin
-      if (idx < 0) idx = 0;
-      bins[idx].count++;
-    }
-    return bins;
-  };
-
   const histogramSVG = (bins, avg, median, color, unit, nSamples) => {
     const W = 260,
       H = 76;
@@ -398,32 +294,7 @@ _dataReady.then(async ([RAW_DATA]) => {
       : `${v.toFixed(0)}<span class="u">Mb/s</span>`;
   const fmtSpd0 = (v) => (v >= 1000 ? (v / 1000).toFixed(1) + ' G' : v.toFixed(0));
 
-  const bsearch = (target, first) => {
-    let lo = 0,
-      hi = LEN - 1,
-      r = first ? LEN : -1;
-    while (lo <= hi) {
-      const m = (lo + hi) >> 1;
-      if (first) {
-        if (ts[m] >= target) {
-          r = m;
-          hi = m - 1;
-        } else lo = m + 1;
-      } else {
-        if (ts[m] <= target) {
-          r = m;
-          lo = m + 1;
-        } else hi = m - 1;
-      }
-    }
-    return r;
-  };
-
-  const filterRange = (s, e) => {
-    const i0 = bsearch(s, true),
-      i1 = bsearch(e, false);
-    return i0 <= i1 && i0 < LEN ? [i0, i1 + 1] : null;
-  };
+  const tsFilterRange = (s, e) => filterRange(ts, LEN, s, e);
 
   const bucketSize = () => (currentH <= 168 ? 2 * HOUR : currentH <= 720 ? 6 * HOUR : 24 * HOUR);
 
@@ -437,13 +308,6 @@ _dataReady.then(async ([RAW_DATA]) => {
     grad.addColorStop(0, `rgba(${r},${g},${b},0.25)`);
     grad.addColorStop(1, `rgba(${r},${g},${b},0.01)`);
     return grad;
-  };
-  const rgba = (hex, a) => {
-    const [r, g, b] = hex
-      .slice(1)
-      .match(/.{2}/g)
-      .map((x) => parseInt(x, 16));
-    return `rgba(${r},${g},${b},${a})`;
   };
 
   // ── Chart config ───────────────────────────────────────────
@@ -694,51 +558,6 @@ _dataReady.then(async ([RAW_DATA]) => {
   ];
 
   // ── Stat card builder ──────────────────────────────────────
-  // ── Quality score (composite: performance + stability) ────
-  // Performance thresholds: { good, bad } — below bad → score=1, above good → score=0
-  // For ping: inverted (lower is better)
-  const QUALITY_THRESHOLDS = {
-    dl: { good: 800, bad: 500 },
-    ul: { good: 500, bad: 200 },
-    pi: { good: 20, bad: 50 }, // inverted: low=good
-  };
-  const PERF_WEIGHT = 0.3,
-    STAB_WEIGHT = 0.7;
-
-  const qualityScore = (metric, median, sorted, avg, nPts) => {
-    const th = QUALITY_THRESHOLDS[metric];
-    // Performance score (0=nominal, 1=critical)
-    let perf;
-    if (metric === 'pi') {
-      perf = median <= th.good ? 0 : median >= th.bad ? 1 : (median - th.good) / (th.bad - th.good);
-    } else {
-      perf = median >= th.good ? 0 : median <= th.bad ? 1 : (th.good - median) / (th.good - th.bad);
-    }
-    // Stability via IQR / median (robust to outliers)
-    // IQR = Q3 - Q1 = interquartile range (middle 50% of data)
-    // Normalized by median to be scale-independent
-    // Thresholds: ≤ 0.05 = very stable, ≥ 0.30 = very unstable
-    const q1 = pctOf(sorted, 25);
-    const q3 = pctOf(sorted, 75);
-    const iqr = q3 - q1;
-    const iqrRatio = median > 0 ? iqr / median : 0;
-    const IQR_GOOD = 0.05,
-      IQR_BAD = 0.3;
-    const stab =
-      iqrRatio <= IQR_GOOD
-        ? 0
-        : iqrRatio >= IQR_BAD
-          ? 1
-          : (iqrRatio - IQR_GOOD) / (IQR_BAD - IQR_GOOD);
-    // Composite
-    const score = Math.min(1, Math.max(0, PERF_WEIGHT * perf + STAB_WEIGHT * stab));
-    const hue = 120 * (1 - score);
-    // Boost lightness in the yellow zone (hue 40-80°) which appears dim on dark backgrounds
-    const lightness = 50 + 10 * Math.sin((hue / 120) * Math.PI);
-    const color = `hsl(${hue.toFixed(0)}, 85%, ${lightness.toFixed(0)}%)`;
-    return { score, perf, stab, q1, q3, iqr, iqrRatio, color, hue };
-  };
-
   const fmtPct = (v) => (v * 100).toFixed(0) + '%';
 
   const qualityTooltipHtml = (metric, q, median, nPts, unit) => {
@@ -810,7 +629,7 @@ _dataReady.then(async ([RAW_DATA]) => {
     // Dismiss any active decile tooltip (stats cards are about to be rebuilt)
     dclClearSelection();
 
-    const rng = filterRange(rangeStart, rangeEnd);
+    const rng = tsFilterRange(rangeStart, rangeEnd);
     const mode = currentH > BAND_THRESHOLD ? 'band' : 'line';
 
     if (!rng) {
