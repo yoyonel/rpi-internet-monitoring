@@ -51,7 +51,10 @@ echo "── Building page from local template ──"
 python3 "$SCRIPT_DIR/scripts/render-template.py" "$TEMPLATE" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "$BUILD_DIR/index.html" "(template update)"
 
 # Copy static assets
-cp "$SCRIPT_DIR/gh-pages/style.css" "$SCRIPT_DIR/gh-pages/app.js" "$SCRIPT_DIR/gh-pages/lib.js" "$BUILD_DIR/"
+cp "$SCRIPT_DIR/gh-pages/style.css" "$BUILD_DIR/"
+for f in app.js lib.js state.js sync-status.js alerts.js charts.js time-controls.js time-picker.js; do
+    cp "$SCRIPT_DIR/gh-pages/$f" "$BUILD_DIR/"
+done
 cp -r "$SCRIPT_DIR/gh-pages/fonts" "$BUILD_DIR/"
 
 # ── 3. Preview or Push ────────────────────────────────────
@@ -73,7 +76,7 @@ else
     git config user.email "gh-pages-bot@users.noreply.github.com"
     git config user.name "GitHub Pages Bot"
     git checkout -q -b gh-pages
-    git add index.html style.css app.js lib.js data.json alerts.json fonts/ .nojekyll
+    git add index.html style.css ./*.js data.json alerts.json fonts/ .nojekyll
     git commit -q -m "Update template — $NOW (data from $DATA_SOURCE)"
     git remote add origin "$REPO_URL"
     git push --force-with-lease -q origin gh-pages
