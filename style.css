@@ -139,6 +139,28 @@ nav .meta {
 nav .meta time {
   color: var(--blue);
 }
+.sync-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 8px;
+  vertical-align: middle;
+  background: var(--text3);
+  transition: background 0.3s;
+}
+.sync-dot.sync-ok {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+.sync-dot.sync-warn {
+  background: var(--orange);
+  box-shadow: 0 0 6px var(--orange);
+}
+.sync-dot.sync-err {
+  background: var(--red);
+  box-shadow: 0 0 6px var(--red);
+}
 
 /* ── HERO ── */
 .hero {
