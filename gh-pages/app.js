@@ -714,23 +714,27 @@ _dataReady.then(async ([RAW_DATA]) => {
     } else {
       perf = median >= th.good ? 0 : median <= th.bad ? 1 : (th.good - median) / (th.good - th.bad);
     }
-    // Stability via coefficient of variation (CV = stddev / mean)
-    // CV thresholds: ≤ 0.05 = perfectly stable, ≥ 0.25 = very unstable
-    let variance = 0;
-    for (let i = 0; i < nPts; i++) {
-      const d = sorted[i] - avg;
-      variance += d * d;
-    }
-    const stddev = nPts > 1 ? Math.sqrt(variance / (nPts - 1)) : 0;
-    const cv = avg > 0 ? stddev / avg : 0;
-    const CV_GOOD = 0.05,
-      CV_BAD = 0.25;
-    const stab = cv <= CV_GOOD ? 0 : cv >= CV_BAD ? 1 : (cv - CV_GOOD) / (CV_BAD - CV_GOOD);
+    // Stability via IQR / median (robust to outliers)
+    // IQR = Q3 - Q1 = interquartile range (middle 50% of data)
+    // Normalized by median to be scale-independent
+    // Thresholds: ≤ 0.05 = very stable, ≥ 0.30 = very unstable
+    const q1 = pctOf(sorted, 25);
+    const q3 = pctOf(sorted, 75);
+    const iqr = q3 - q1;
+    const iqrRatio = median > 0 ? iqr / median : 0;
+    const IQR_GOOD = 0.05,
+      IQR_BAD = 0.3;
+    const stab =
+      iqrRatio <= IQR_GOOD
+        ? 0
+        : iqrRatio >= IQR_BAD
+          ? 1
+          : (iqrRatio - IQR_GOOD) / (IQR_BAD - IQR_GOOD);
     // Composite
     const score = Math.min(1, Math.max(0, PERF_WEIGHT * perf + STAB_WEIGHT * stab));
     const hue = 120 * (1 - score);
     const color = `hsl(${hue.toFixed(0)}, 85%, 50%)`;
-    return { score, perf, stab, cv, stddev, color, hue };
+    return { score, perf, stab, q1, q3, iqr, iqrRatio, color, hue };
   };
 
   const fmtPct = (v) => (v * 100).toFixed(0) + '%';
@@ -752,7 +756,8 @@ _dataReady.then(async ([RAW_DATA]) => {
   <span class="q-tip-label">Performance</span><span class="q-tip-val">${fmtPct(1 - q.perf)}</span>
   <span class="q-tip-detail">m\u00e9diane ${median.toFixed(1)} ${unit} (vert ${thDir} ${th.good}, rouge ${thBad} ${th.bad})</span>
   <span class="q-tip-label">Stabilit\u00e9</span><span class="q-tip-val">${fmtPct(1 - q.stab)}</span>
-  <span class="q-tip-detail">CV = ${q.cv.toFixed(3)} (\u03c3 = ${q.stddev.toFixed(1)} ${unit}, vert \u2264 5%, rouge \u2265 25%)</span>
+  <span class="q-tip-detail">IQR/m\u00e9d = ${(q.iqrRatio * 100).toFixed(1)}% (Q1=${q.q1.toFixed(1)}, Q3=${q.q3.toFixed(1)}, IQR=${q.iqr.toFixed(1)} ${unit})</span>
+  <span class="q-tip-detail">vert \u2264 5%, rouge \u2265 30%</span>
   <span class="q-tip-label">Pond\u00e9ration</span><span class="q-tip-val">${(PERF_WEIGHT * 100).toFixed(0)}/${(STAB_WEIGHT * 100).toFixed(0)}</span>
   <span class="q-tip-detail">perf \u00d7 ${PERF_WEIGHT} + stab \u00d7 ${STAB_WEIGHT}</span>
 </div>`;
