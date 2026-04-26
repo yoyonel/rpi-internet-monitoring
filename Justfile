@@ -147,6 +147,14 @@ clean-all: clean
 test:
     bash test-stack.sh
 
+# Run lib.js unit tests (Node.js, no browser needed)
+test-unit:
+    node --test tests/lib.test.js
+
+# Run Playwright E2E tests against a running preview
+test-e2e:
+    npx playwright test
+
 # Quick health check (services only)
 check:
     bash scripts/check.sh
