@@ -14,6 +14,13 @@
     <link rel="preload" href="data.json" as="fetch" crossorigin />
     <link rel="preload" href="https://cdn.jsdelivr.net/npm/chart.js@4" as="script" />
     <link rel="preload" href="fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="modulepreload" href="lib.js" />
+    <link rel="modulepreload" href="state.js" />
+    <link rel="modulepreload" href="sync-status.js" />
+    <link rel="modulepreload" href="alerts.js" />
+    <link rel="modulepreload" href="charts.js" />
+    <link rel="modulepreload" href="time-controls.js" />
+    <link rel="modulepreload" href="time-picker.js" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -22,7 +29,7 @@
         <div class="brand">speed<span class="hi">monitor</span></div>
         <div class="meta">
           <span class="sync-dot" id="syncDot" title=""></span>Mise &agrave; jour :
-          <time datetime="2026-04-26T23:31:21.937784+02:00">26/04/2026 23:31 (CEST)</time>
+          <time datetime="2026-04-26T23:33:29.092973+02:00">26/04/2026 23:33 (CEST)</time>
         </div>
       </div>
     </nav>
@@ -108,13 +115,13 @@
     <footer>
       <p>
         <a href="https://www.speedtest.net/apps/cli">Ookla Speedtest CLI</a> sur Raspberry Pi 4
-        &mdash; G&eacute;n&eacute;r&eacute; le 26/04/2026 à 23:31:21 (CEST)
+        &mdash; G&eacute;n&eacute;r&eacute; le 26/04/2026 à 23:33:29 (CEST)
       </p>
     </footer>
 
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
-    <script defer src="app.js"></script>
+    <script type="module" src="app.js"></script>
     <script>
       setTimeout(function () {
         location.reload();
