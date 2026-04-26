@@ -105,6 +105,7 @@ test.describe('read-only checks', () => {
       '__SPEEDTEST_DATA__',
       '__ALERTS_DATA__',
       '__LAST_UPDATE__',
+      '__LAST_UPDATE_ISO__',
       '__GENERATED_AT__',
     ]) {
       expect(html).not.toContain(token);
