@@ -14,6 +14,22 @@ import {
   QUALITY_THRESHOLDS,
   PERF_WEIGHT,
   STAB_WEIGHT,
+  HOUR,
+  BAND_THRESHOLD,
+  PRESETS,
+  COL,
+  pad2,
+  fmtDate,
+  fmtDateTz,
+  fmtSpd,
+  fmtSpd0,
+  fmtPct,
+  histogramSVG,
+  qualityTooltipHtml,
+  statCard,
+  DS_LINE,
+  makeBandDs,
+  makeLineDs,
 } from '../gh-pages/lib.js';
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -256,5 +272,216 @@ describe('filterRange', () => {
   it('includes boundary values', () => {
     const r = filterRange(ts, 5, 100, 500);
     assert.deepEqual(r, [0, 5]);
+  });
+});
+
+// ── Constants ────────────────────────────────────────────────
+describe('constants', () => {
+  it('HOUR equals 3600000 ms', () => {
+    assert.equal(HOUR, 3_600_000);
+  });
+  it('BAND_THRESHOLD is 48', () => {
+    assert.equal(BAND_THRESHOLD, 48);
+  });
+  it('PRESETS contains expected values', () => {
+    assert.deepEqual(PRESETS, [6, 12, 24, 48, 168, 720]);
+  });
+  it('COL has dl, ul, pi hex colors', () => {
+    assert.ok(COL.dl.startsWith('#'));
+    assert.ok(COL.ul.startsWith('#'));
+    assert.ok(COL.pi.startsWith('#'));
+  });
+});
+
+// ── Formatters ───────────────────────────────────────────────
+describe('pad2', () => {
+  it('pads single digit', () => {
+    assert.equal(pad2(5), '05');
+  });
+  it('does not pad double digit', () => {
+    assert.equal(pad2(12), '12');
+  });
+});
+
+describe('fmtDate', () => {
+  it('formats timestamp as dd/MM HH:mm', () => {
+    // 2026-01-15T14:30:00Z
+    const t = new Date(2026, 0, 15, 14, 30).getTime();
+    assert.equal(fmtDate(t), '15/01 14:30');
+  });
+});
+
+describe('fmtDateTz', () => {
+  it('appends timezone abbreviation', () => {
+    const t = new Date(2026, 0, 15, 14, 30).getTime();
+    const result = fmtDateTz(t, 'CET');
+    assert.ok(result.endsWith('CET'));
+    assert.ok(result.startsWith('15/01 14:30'));
+  });
+});
+
+describe('fmtSpd', () => {
+  it('formats Mb/s with unit span', () => {
+    assert.equal(fmtSpd(500), '500<span class="u">Mb/s</span>');
+  });
+  it('formats Gb/s for values >= 1000', () => {
+    assert.equal(fmtSpd(1500), '1.5<span class="u">Gb/s</span>');
+  });
+});
+
+describe('fmtSpd0', () => {
+  it('formats plain Mb/s', () => {
+    assert.equal(fmtSpd0(500), '500');
+  });
+  it('formats Gb/s with G suffix', () => {
+    assert.equal(fmtSpd0(1500), '1.5 G');
+  });
+});
+
+describe('fmtPct', () => {
+  it('formats ratio as percentage', () => {
+    assert.equal(fmtPct(0.85), '85%');
+  });
+  it('handles zero', () => {
+    assert.equal(fmtPct(0), '0%');
+  });
+});
+
+// ── histogramSVG ─────────────────────────────────────────────
+describe('histogramSVG', () => {
+  const bins = Array.from({ length: 10 }, (_, i) => ({
+    lo: i * 10,
+    hi: (i + 1) * 10,
+    count: i + 1,
+  }));
+
+  it('returns an SVG string', () => {
+    const svg = histogramSVG(bins, 50, 45, '#7eb6f6', 'Mb/s', 55);
+    assert.ok(svg.startsWith('<svg'));
+    assert.ok(svg.endsWith('</svg>'));
+  });
+  it('contains histogram bars', () => {
+    const svg = histogramSVG(bins, 50, 45, '#7eb6f6', 'Mb/s', 55);
+    assert.ok(svg.includes('dcl-bar'));
+    assert.ok(svg.includes('dcl-hit'));
+  });
+  it('contains avg and med markers', () => {
+    const svg = histogramSVG(bins, 50, 45, '#7eb6f6', 'Mb/s', 55);
+    assert.ok(svg.includes('>avg</text>'));
+    assert.ok(svg.includes('>m\u00e9d</text>'));
+  });
+});
+
+// ── qualityTooltipHtml ───────────────────────────────────────
+describe('qualityTooltipHtml', () => {
+  const q = {
+    score: 0.2,
+    perf: 0.1,
+    stab: 0.2,
+    q1: 700,
+    q3: 900,
+    iqr: 200,
+    iqrRatio: 0.25,
+    color: 'hsl(96, 85%, 55%)',
+    hue: 96,
+  };
+
+  it('returns HTML with quality label', () => {
+    const html = qualityTooltipHtml('dl', q, 800, 100, 'Mb/s');
+    assert.ok(html.includes('Excellent'));
+  });
+  it('contains performance and stability sections', () => {
+    const html = qualityTooltipHtml('dl', q, 800, 100, 'Mb/s');
+    assert.ok(html.includes('Performance'));
+    assert.ok(html.includes('Stabilit\u00e9'));
+  });
+  it('shows Critique for high scores', () => {
+    const qBad = { ...q, score: 0.9 };
+    const html = qualityTooltipHtml('dl', qBad, 100, 10, 'Mb/s');
+    assert.ok(html.includes('Critique'));
+  });
+});
+
+// ── statCard ─────────────────────────────────────────────────
+describe('statCard', () => {
+  it('builds stat card HTML with quality dot', () => {
+    const html = statCard(
+      'dl',
+      'Download',
+      '800',
+      '<svg/>',
+      'min 700',
+      '810',
+      100,
+      '15/01 → 16/01',
+      { color: 'hsl(120,85%,50%)' },
+    );
+    assert.ok(html.includes('class="stat dl"'));
+    assert.ok(html.includes('q-dot'));
+    assert.ok(html.includes('data-metric="dl"'));
+  });
+  it('builds stat card without quality dot when null', () => {
+    const html = statCard(
+      'pi',
+      'Ping',
+      '12ms',
+      '<svg/>',
+      'min 10',
+      '11',
+      50,
+      '15/01 → 16/01',
+      null,
+    );
+    assert.ok(html.includes('class="stat pi"'));
+    assert.ok(!html.includes('q-dot'));
+  });
+});
+
+// ── DS_LINE ──────────────────────────────────────────────────
+describe('DS_LINE', () => {
+  it('has expected Chart.js line properties', () => {
+    assert.equal(DS_LINE.pointRadius, 0);
+    assert.equal(DS_LINE.borderWidth, 1.5);
+    assert.ok(DS_LINE.tension > 0);
+  });
+});
+
+// ── makeBandDs ───────────────────────────────────────────────
+describe('makeBandDs', () => {
+  const buckets = [
+    { x: 1000, min: 10, q1: 20, med: 30, q3: 40, max: 50 },
+    { x: 2000, min: 15, q1: 25, med: 35, q3: 45, max: 55 },
+  ];
+
+  it('returns 5 datasets (Q3, Q1, median, min whisker, max whisker)', () => {
+    const ds = makeBandDs(buckets, '#7eb6f6', 'download');
+    assert.equal(ds.length, 5);
+  });
+  it('median dataset has the label', () => {
+    const ds = makeBandDs(buckets, '#7eb6f6', 'download');
+    assert.equal(ds[2].label, 'download');
+  });
+  it('band datasets are flagged _isBand', () => {
+    const ds = makeBandDs(buckets, '#7eb6f6', 'download');
+    assert.ok(ds[0]._isBand);
+    assert.ok(ds[1]._isBand);
+    assert.ok(!ds[2]._isBand); // median is not _isBand
+  });
+});
+
+// ── makeLineDs ───────────────────────────────────────────────
+describe('makeLineDs', () => {
+  const x = f64(100, 200, 300, 400, 500);
+  const y = f64(10, 20, 30, 40, 50);
+
+  it('returns array with one dataset', () => {
+    const ds = makeLineDs(x, y, 0, 5, '#7eb6f6', 'download', 'gradient-placeholder');
+    assert.equal(ds.length, 1);
+  });
+  it('dataset has label and fill', () => {
+    const ds = makeLineDs(x, y, 0, 5, '#7eb6f6', 'download', 'grad');
+    assert.equal(ds[0].label, 'download');
+    assert.equal(ds[0].fill, true);
+    assert.equal(ds[0].backgroundColor, 'grad');
   });
 });
