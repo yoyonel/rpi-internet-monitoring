@@ -14,9 +14,12 @@
 #   5. Post-deploy health check
 set -euo pipefail
 
-DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
-COMPOSE="$DOCKER compose"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/lib-common.sh
+source "$SCRIPT_DIR/scripts/lib-common.sh"
+
+detect_container_cli
+COMPOSE="$DOCKER compose"
 MIGRATIONS_DIR="$SCRIPT_DIR/migrations"
 MIGRATIONS_LOG="$SCRIPT_DIR/.migrations-applied"
 

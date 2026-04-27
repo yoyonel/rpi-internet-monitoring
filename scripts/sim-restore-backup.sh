@@ -27,6 +27,8 @@ fi
 BACKUP_DIR="$1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=scripts/lib-common.sh
+source "$SCRIPT_DIR/lib-common.sh"
 
 # Resolve relative paths from project root
 if [[ ! "$BACKUP_DIR" = /* ]]; then
@@ -34,28 +36,16 @@ if [[ ! "$BACKUP_DIR" = /* ]]; then
 fi
 
 # ── Detect container CLI ─────────────────────────────────
-if [[ -n "${CONTAINER_CLI:-}" ]]; then
-    DOCKER="$CONTAINER_CLI"
-elif command -v docker >/dev/null 2>&1; then
-    DOCKER=docker
-elif command -v podman >/dev/null 2>&1; then
-    DOCKER=podman
-else
-    DOCKER=docker
-fi
+detect_container_cli
 
 INFLUX_CONTAINER="rpi-sim-influxdb"
 
 # ── Read sim credentials ─────────────────────────────────
-ENV_FILE="$PROJECT_DIR/sim/.env.sim"
-_read_env() { grep "^$1=" "$ENV_FILE" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//"; }
+load_env "$PROJECT_DIR/sim/.env.sim"
 INFLUX_USER=$(_read_env INFLUXDB_ADMIN_USER)
 INFLUX_PASS=$(_read_env INFLUXDB_ADMIN_PASSWORD)
-GRAFANA_USER=$(_read_env GF_SECURITY_ADMIN_USER)
-GRAFANA_PASS=$(_read_env GF_SECURITY_ADMIN_PASSWORD)
-GRAFANA_CREDS="${GRAFANA_USER:-admin}:${GRAFANA_PASS}"
 GRAFANA_URL="http://localhost:3000"
-_gcurl() { curl -sf -K <(printf 'user = "%s"\n' "$GRAFANA_CREDS") "$@"; }
+setup_grafana_auth
 
 echo "╔══════════════════════════════════════════════════════════╗"
 echo "║     Sim Stack — Restore RPi Backup                       ║"

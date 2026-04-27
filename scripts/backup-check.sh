@@ -22,28 +22,15 @@ fi
 BACKUP_DIR="$1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=scripts/lib-common.sh
+source "$SCRIPT_DIR/lib-common.sh"
 
 # Resolve relative paths from project root
 if [[ ! "$BACKUP_DIR" = /* ]]; then
     BACKUP_DIR="$PROJECT_DIR/$BACKUP_DIR"
 fi
 
-PASS=0
-FAIL=0
-WARN=0
-
-pass() {
-    echo "  ✅ $1"
-    ((PASS++))
-}
-fail() {
-    echo "  ❌ $1"
-    ((FAIL++))
-}
-warn() {
-    echo "  ⚠️  $1"
-    ((WARN++))
-}
+# Test harness provided by lib-common.sh (pass/fail/warn/test_summary)
 
 echo "╔══════════════════════════════════════════════════════════╗"
 echo "║     Backup Integrity Check (offline)                     ║"
@@ -189,15 +176,13 @@ fi
 echo ""
 
 # ── Summary ──────────────────────────────────────────────
-echo "╔══════════════════════════════════════════════════════════╗"
-printf "║  Results: ✅ %-3d passed  ❌ %-3d failed  ⚠️  %-3d warnings ║\n" "$PASS" "$FAIL" "$WARN"
-echo "╚══════════════════════════════════════════════════════════╝"
+test_summary
 echo ""
 
-if [[ "$FAIL" -eq 0 ]]; then
+if [[ "$_TEST_FAIL" -eq 0 ]]; then
     echo "🟢 VERDICT: Backup structure is INTACT — safe to restore."
     exit 0
 else
-    echo "🔴 VERDICT: Backup has $FAIL INTEGRITY ISSUE(S) — do NOT restore."
+    echo "🔴 VERDICT: Backup has $_TEST_FAIL INTEGRITY ISSUE(S) — do NOT restore."
     exit 1
 fi

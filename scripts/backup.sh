@@ -2,25 +2,24 @@
 # Backup Grafana dashboards, datasources, and InfluxDB data.
 # Creates a timestamped directory under backups/.
 set -euo pipefail
-DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=scripts/lib-common.sh
+source "$SCRIPT_DIR/scripts/lib-common.sh"
+
+detect_container_cli
+load_env "$SCRIPT_DIR/.env"
+
 BACKUPS_ROOT="$SCRIPT_DIR/backups"
 BACKUP_DIR="$BACKUPS_ROOT/$(date +%Y%m%d-%H%M%S)"
 BACKUP_KEEP="${BACKUP_KEEP:-5}"
 mkdir -p "$BACKUP_DIR"
 
-# Load credentials: prefer env vars (set by Justfile dotenv-load), fallback to .env file
-if [[ -z "${GF_SECURITY_ADMIN_USER:-}" ]] && [[ -f "$SCRIPT_DIR/.env" ]]; then
-    GF_SECURITY_ADMIN_USER=$(grep '^GF_SECURITY_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
-fi
-if [[ -z "${GF_SECURITY_ADMIN_PASSWORD:-}" ]] && [[ -f "$SCRIPT_DIR/.env" ]]; then
-    GF_SECURITY_ADMIN_PASSWORD=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
-fi
-GRAFANA_CREDS="${GF_SECURITY_ADMIN_USER:-admin}:${GF_SECURITY_ADMIN_PASSWORD:?GF_SECURITY_ADMIN_PASSWORD not set in .env}"
+# Load credentials
+GF_SECURITY_ADMIN_USER="${GF_SECURITY_ADMIN_USER:-$(_read_env GF_SECURITY_ADMIN_USER)}"
+GF_SECURITY_ADMIN_PASSWORD="${GF_SECURITY_ADMIN_PASSWORD:-$(_read_env GF_SECURITY_ADMIN_PASSWORD)}"
 GRAFANA_URL="http://localhost:3000"
-# Helper: pass creds via process substitution (not visible in /proc cmdline)
-_gcurl() { curl -sf -K <(printf 'user = "%s"\n' "$GRAFANA_CREDS") "$@"; }
+setup_grafana_auth "$GF_SECURITY_ADMIN_USER" "$GF_SECURITY_ADMIN_PASSWORD"
 
 echo "╔══════════════════════════════════════════╗"
 echo "║         Backup — $(date -Iseconds)       "

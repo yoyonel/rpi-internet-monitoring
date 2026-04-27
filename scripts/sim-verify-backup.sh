@@ -16,18 +16,11 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+# shellcheck source=scripts/lib-common.sh
+source "$SCRIPT_DIR/lib-common.sh"
 
 # ── Detect container CLI ─────────────────────────────────
-# shellcheck disable=SC2034  # DOCKER used by future extensions
-if [[ -n "${CONTAINER_CLI:-}" ]]; then
-    DOCKER="$CONTAINER_CLI"
-elif command -v docker >/dev/null 2>&1; then
-    DOCKER=docker
-elif command -v podman >/dev/null 2>&1; then
-    DOCKER=podman
-else
-    DOCKER=docker
-fi
+detect_container_cli
 
 # shellcheck disable=SC2034  # INFLUX_CONTAINER used by future extensions
 INFLUX_CONTAINER="rpi-sim-influxdb"
@@ -35,31 +28,12 @@ INFLUXDB_URL="http://localhost:8086"
 GRAFANA_URL="http://localhost:3000"
 
 # ── Read sim credentials ─────────────────────────────────
-ENV_FILE="$PROJECT_DIR/sim/.env.sim"
-_read_env() { grep "^$1=" "$ENV_FILE" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//"; }
+load_env "$PROJECT_DIR/sim/.env.sim"
 INFLUX_USER=$(_read_env INFLUXDB_ADMIN_USER)
 INFLUX_PASS=$(_read_env INFLUXDB_ADMIN_PASSWORD)
-GRAFANA_USER=$(_read_env GF_SECURITY_ADMIN_USER)
-GRAFANA_PASS=$(_read_env GF_SECURITY_ADMIN_PASSWORD)
-GRAFANA_CREDS="${GRAFANA_USER:-admin}:${GRAFANA_PASS}"
-_gcurl() { curl -sf -K <(printf 'user = "%s"\n' "$GRAFANA_CREDS") "$@"; }
+setup_grafana_auth
 
-PASS=0
-FAIL=0
-WARN=0
-
-pass() {
-    echo "  ✅ $1"
-    ((PASS++))
-}
-fail() {
-    echo "  ❌ $1"
-    ((FAIL++))
-}
-warn() {
-    echo "  ⚠️  $1"
-    ((WARN++))
-}
+# Test harness provided by lib-common.sh (pass/fail/warn/test_summary)
 
 influx_query() {
     local query="$1" database="${2:-}"
@@ -191,15 +165,13 @@ fi
 echo ""
 
 # ── Summary ──────────────────────────────────────────────
-echo "╔══════════════════════════════════════════════════════════╗"
-printf "║  Results: ✅ %-3d passed  ❌ %-3d failed  ⚠️  %-3d warnings ║\n" "$PASS" "$FAIL" "$WARN"
-echo "╚══════════════════════════════════════════════════════════╝"
+test_summary
 echo ""
 
-if [[ "$FAIL" -eq 0 ]]; then
+if [[ "$_TEST_FAIL" -eq 0 ]]; then
     echo "🟢 VERDICT: Backup is EXPLOITABLE — data restored successfully."
     exit 0
 else
-    echo "🔴 VERDICT: Backup has ISSUES — $FAIL check(s) failed."
+    echo "🔴 VERDICT: Backup has ISSUES — $_TEST_FAIL check(s) failed."
     exit 1
 fi

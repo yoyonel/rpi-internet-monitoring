@@ -4,11 +4,13 @@
 set -eo pipefail
 
 PROJECT_DIR="${1:-.}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib-common.sh
+source "$SCRIPT_DIR/lib-common.sh"
 
-_user="${GF_SECURITY_ADMIN_USER:-$(grep '^GF_SECURITY_ADMIN_USER=' "$PROJECT_DIR/.env" 2>/dev/null | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")}"
-_pass="${GF_SECURITY_ADMIN_PASSWORD:-$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$PROJECT_DIR/.env" 2>/dev/null | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")}"
-CREDS="${_user:-admin}:${_pass}"
+load_env "$PROJECT_DIR/.env"
+setup_grafana_auth
 
 echo "── Alert Rules ──"
-curl -sf -K <(printf 'user = "%s"\n' "$CREDS") "http://localhost:3000/api/prometheus/grafana/api/v1/rules" |
+_gcurl "http://localhost:3000/api/prometheus/grafana/api/v1/rules" |
     jq -r '.data.groups[].rules[] | "  \(if .state == "inactive" then "✅" elif .state == "firing" then "🔴" else "⚠️ " end) \(.name) [\(.state)] (\(.health))"'

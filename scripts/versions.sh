@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Show versions of all monitoring stack services.
 set -eo pipefail
-DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib-common.sh
+source "$SCRIPT_DIR/lib-common.sh"
+
+detect_container_cli
 
 printf "  %-12s %s\n" "Grafana:" "$(curl -sf http://localhost:3000/api/health | jq -r .version)"
 printf "  %-12s %s\n" "InfluxDB:" "$("$DOCKER" exec influxdb influx -version 2>&1 | head -1)"
