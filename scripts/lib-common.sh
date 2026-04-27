@@ -76,13 +76,14 @@ _read_env() {
 }
 
 # ── Grafana authenticated curl ───────────────────────────
-# setup_grafana_auth [user] [password]
+# setup_grafana_auth
 #   Sets GRAFANA_CREDS and defines _gcurl().
-#   If user/password are omitted, reads GF_SECURITY_ADMIN_USER/PASSWORD
-#   via _read_env (requires load_env to have been called first).
+#   Reads GF_SECURITY_ADMIN_USER/PASSWORD via _read_env
+#   (requires load_env to have been called first).
 setup_grafana_auth() {
-    local user="${1:-$(_read_env GF_SECURITY_ADMIN_USER)}"
-    local pass="${2:-$(_read_env GF_SECURITY_ADMIN_PASSWORD)}"
+    local user pass
+    user=$(_read_env GF_SECURITY_ADMIN_USER)
+    pass=$(_read_env GF_SECURITY_ADMIN_PASSWORD)
     GRAFANA_CREDS="${user:-admin}:${pass:?setup_grafana_auth: Grafana password is required}"
 }
 
