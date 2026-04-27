@@ -308,7 +308,7 @@ binfmt → build → up → wait (InfluxDB healthy + Telegraf data) → smoke te
 
 ### What the smoke tests validate
 
-The test script (`scripts/test-sim-stack.sh`) runs 7 sections:
+The test script (`test-stack.sh --mode sim`) runs 7 sections:
 
 1. **Service health** — Grafana, InfluxDB, Chronograf respond on their
    respective ports
@@ -330,7 +330,7 @@ The test script (`scripts/test-sim-stack.sh`) runs 7 sections:
 ```bash
 just sim-up
 # Wait ~2 min for InfluxDB + Telegraf to settle
-./scripts/test-sim-stack.sh
+bash test-stack.sh --mode sim
 ```
 
 ### Failure artifacts
