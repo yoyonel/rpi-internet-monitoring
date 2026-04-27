@@ -58,7 +58,7 @@ Added `cap_add: [CHOWN, DAC_OVERRIDE, SETUID, SETGID, FOWNER]` to InfluxDB.
 
 ### Choice: `speedtest-cron` sidecar container
 
-We introduced a dedicated service in `docker-compose.yml` that runs the `sim/speedtest-loop.sh` logic.
+We introduced a dedicated service in `docker-compose.yml` that runs the `scripts/speedtest-loop.sh` logic.
 
 ### Justification
 

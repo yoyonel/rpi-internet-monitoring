@@ -107,7 +107,7 @@ services:
       influxdb:
         condition: service_healthy
     volumes:
-      - ./sim/speedtest-loop.sh:/usr/local/bin/speedtest-loop.sh:ro
+      - ./scripts/speedtest-loop.sh:/usr/local/bin/speedtest-loop.sh:ro
     entrypoint: ['/bin/bash', '/usr/local/bin/speedtest-loop.sh']
     restart: unless-stopped
     cap_drop:

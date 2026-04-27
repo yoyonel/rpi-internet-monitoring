@@ -38,7 +38,7 @@ sim/.env.sim                  ← credentials (safe local defaults)
 sim/docker-compose.sim.yml    ← ARM64 override layer
 sim/influxdb-init.iql         ← creates databases + grants on first boot
 sim/telegraf-sim.conf         ← Telegraf config adapted for x86 host
-sim/speedtest-loop.sh         ← periodic speedtest loop (replaces systemd timer)
+scripts/speedtest-loop.sh      ← periodic speedtest loop (replaces systemd timer)
 docker-compose.yml            ← base compose (shared with production)
 ```
 
