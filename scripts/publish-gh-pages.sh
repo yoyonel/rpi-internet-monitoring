@@ -12,7 +12,6 @@ source "$SCRIPT_DIR/scripts/lib-common.sh"
 
 detect_container_cli
 load_env "$SCRIPT_DIR/.env"
-TEMPLATE="$SCRIPT_DIR/gh-pages/index.template.html"
 
 # Parse args
 PREVIEW=false
@@ -109,30 +108,14 @@ ALERT_COUNT=$(echo "$ALERTS_DATA" | python3 -c "import json,sys; d=json.load(sys
 echo "  → $ALERT_COUNT alert rules exported"
 
 # ── 2. Build the static page ─────────────────────────────
-echo ""
-echo "── Building static page ──"
-
 BUILD_DIR=$(mktemp -d)
 trap 'rm -rf "$BUILD_DIR"' EXIT
 
-# Write data to temp files, then inject into template
 echo "$JSON_DATA" >"$BUILD_DIR/data.json"
 echo "$ALERTS_DATA" >"$BUILD_DIR/alerts.json"
 
-python3 "$SCRIPT_DIR/scripts/render-template.py" "$TEMPLATE" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "$BUILD_DIR/index.html"
-
-# Copy static assets
-cp "$SCRIPT_DIR/gh-pages/style.css" "$BUILD_DIR/"
-cp -r "$SCRIPT_DIR/gh-pages/fonts" "$BUILD_DIR/"
-JS_MODULES=(app.js lib.js state.js sync-status.js alerts.js charts.js time-controls.js time-picker.js)
-if command -v terser &>/dev/null; then
-    echo "  → Minifying JS modules with terser"
-    for f in "${JS_MODULES[@]}"; do
-        terser "$SCRIPT_DIR/gh-pages/$f" --compress --mangle --module -o "$BUILD_DIR/$f"
-    done
-else
-    for f in "${JS_MODULES[@]}"; do cp "$SCRIPT_DIR/gh-pages/$f" "$BUILD_DIR/"; done
-fi
+echo ""
+bash "$SCRIPT_DIR/scripts/build-gh-pages.sh" "$BUILD_DIR" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json"
 
 # ── 3. Preview or Push ────────────────────────────────────
 if [[ "$PREVIEW" == "true" ]]; then

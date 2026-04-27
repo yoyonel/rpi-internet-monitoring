@@ -5,7 +5,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEMPLATE="$SCRIPT_DIR/gh-pages/index.template.html"
 PORT="${1:-8080}"
 
 BUILD_DIR=$(mktemp -d)
@@ -28,22 +27,7 @@ else
 fi
 
 # ── 2. Build page from template ──────────────────────────
-echo ""
-echo "── Building page from template ──"
-
-python3 "$SCRIPT_DIR/scripts/render-template.py" "$TEMPLATE" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "$BUILD_DIR/index.html"
-
-# Copy static assets
-cp "$SCRIPT_DIR/gh-pages/style.css" "$BUILD_DIR/"
-cp -r "$SCRIPT_DIR/gh-pages/fonts" "$BUILD_DIR/"
-JS_MODULES=(app.js lib.js state.js sync-status.js alerts.js charts.js time-controls.js time-picker.js)
-if command -v terser &>/dev/null; then
-    for f in "${JS_MODULES[@]}"; do
-        terser "$SCRIPT_DIR/gh-pages/$f" --compress --mangle --module -o "$BUILD_DIR/$f"
-    done
-else
-    for f in "${JS_MODULES[@]}"; do cp "$SCRIPT_DIR/gh-pages/$f" "$BUILD_DIR/"; done
-fi
+bash "$SCRIPT_DIR/scripts/build-gh-pages.sh" "$BUILD_DIR" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json"
 
 # ── 3. Serve ─────────────────────────────────────────────
 echo ""
