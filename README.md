@@ -244,6 +244,19 @@ Page statique déployée sur [yoyonel.github.io/rpi-internet-monitoring](https:/
 
 `app.js` importe `lib.js` via ES modules (`<script type="module">`). Les fonctions pures de `lib.js` sont testées unitairement avec `node --test` (39 tests, ~300ms, zéro dépendance).
 
+### Architecture shell (scripts/)
+
+| Fichier                 | Rôle                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------- |
+| `scripts/lib-common.sh` | Bibliothèque partagée : détection container CLI, chargement credentials, test harness |
+
+`lib-common.sh` est sourcé par tous les scripts shell du projet. Il fournit :
+
+- `detect_container_cli` — détection docker/podman (corrige le bug de chaînage `&&`/`||` de l'ancienne variante one-liner)
+- `load_env <file>` + `_read_env KEY` — chargement credentials `.env` avec support prod/sim
+- `setup_grafana_auth` + `_gcurl` — curl authentifié vers Grafana (creds masqués via process substitution)
+- `pass()` / `fail()` / `warn()` / `test_summary()` — harness de test avec compteurs
+
 ## Données
 
 - **speedtest** : résultats Ookla (download, upload, ping) — rétention infinie

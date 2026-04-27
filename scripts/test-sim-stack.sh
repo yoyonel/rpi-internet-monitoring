@@ -8,24 +8,14 @@
 #
 # Prerequisites: sim stack running, jq + curl available.
 set -uo pipefail
-# Detect container CLI.  Use if/elif to avoid bash operator-precedence pitfalls
-# that caused && / || chains to concatenate both "docker" and "podman".
-if [[ -n "${CONTAINER_CLI:-}" ]]; then
-    DOCKER="$CONTAINER_CLI"
-elif command -v docker >/dev/null 2>&1; then
-    DOCKER=docker
-elif command -v podman >/dev/null 2>&1; then
-    DOCKER=podman
-else
-    DOCKER=docker
-fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-ENV_FILE="$PROJECT_DIR/sim/.env.sim"
+# shellcheck source=scripts/lib-common.sh
+source "$SCRIPT_DIR/lib-common.sh"
 
-# Read credentials from sim/.env.sim
-_read_env() { grep "^$1=" "$ENV_FILE" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//"; }
+detect_container_cli
+load_env "$PROJECT_DIR/sim/.env.sim"
 
 _user=$(_read_env GF_SECURITY_ADMIN_USER)
 _pass=$(_read_env GF_SECURITY_ADMIN_PASSWORD)
@@ -33,9 +23,7 @@ _influx_admin=$(_read_env INFLUXDB_ADMIN_USER)
 _influx_admin_pass=$(_read_env INFLUXDB_ADMIN_PASSWORD)
 
 GRAFANA_URL="http://localhost:3000"
-GRAFANA_CREDS="${_user:-admin}:${_pass}"
-# Helper: pass creds via process substitution (not visible in /proc cmdline)
-_gcurl() { curl -sf -K <(printf 'user = "%s"\n' "$GRAFANA_CREDS") "$@"; }
+setup_grafana_auth "$_user" "$_pass"
 CHRONOGRAF_URL="http://localhost:8888"
 INFLUXDB_URL="http://localhost:8086"
 SIM_CONTAINERS=(
@@ -47,22 +35,7 @@ SIM_CONTAINERS=(
     rpi-sim-speedtest-cron
 )
 
-PASS=0
-FAIL=0
-WARN=0
-
-pass() {
-    echo "  ✅ $1"
-    ((PASS++))
-}
-fail() {
-    echo "  ❌ $1"
-    ((FAIL++))
-}
-warn() {
-    echo "  ⚠️  $1"
-    ((WARN++))
-}
+# Test harness provided by lib-common.sh (pass/fail/warn/test_summary)
 
 influx_query() {
     local query="$1" database="${2:-}"
@@ -269,8 +242,4 @@ done
 echo ""
 
 # ── Summary ───────────────────────────────────────────────────
-echo "╔══════════════════════════════════════════════════════════╗"
-printf "║  Results: ✅ %-3d passed  ❌ %-3d failed  ⚠️  %-3d warnings ║\n" "$PASS" "$FAIL" "$WARN"
-echo "╚══════════════════════════════════════════════════════════╝"
-
-[[ "$FAIL" -eq 0 ]] && exit 0 || exit 1
+test_summary

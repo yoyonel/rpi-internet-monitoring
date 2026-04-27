@@ -3,36 +3,24 @@
 # Run BEFORE and AFTER any upgrade to detect regressions.
 # Usage: ./test-stack.sh
 set -uo pipefail
-DOCKER=${CONTAINER_CLI:-$(command -v podman >/dev/null 2>&1 && echo podman || echo docker)}
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-_user=$(grep '^GF_SECURITY_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
-_pass=$(grep '^GF_SECURITY_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
-_influx_admin=$(grep '^INFLUXDB_ADMIN_USER=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
-_influx_admin_pass=$(grep '^INFLUXDB_ADMIN_PASSWORD=' "$SCRIPT_DIR/.env" | cut -d= -f2- | sed "s/^['\"]//;s/['\"]$//")
+# shellcheck source=scripts/lib-common.sh
+source "$SCRIPT_DIR/scripts/lib-common.sh"
+
+detect_container_cli
+load_env "$SCRIPT_DIR/.env"
+
+_user=$(_read_env GF_SECURITY_ADMIN_USER)
+_pass=$(_read_env GF_SECURITY_ADMIN_PASSWORD)
+_influx_admin=$(_read_env INFLUXDB_ADMIN_USER)
+_influx_admin_pass=$(_read_env INFLUXDB_ADMIN_PASSWORD)
 GRAFANA_URL="http://localhost:3000"
-GRAFANA_CREDS="${_user:-admin}:${_pass}"
-# Helper: pass creds via process substitution (not visible in /proc cmdline)
-_gcurl() { curl -sf -K <(printf 'user = "%s"\n' "$GRAFANA_CREDS") "$@"; }
+setup_grafana_auth "$_user" "$_pass"
 CHRONOGRAF_URL="http://localhost:8888"
 INFLUXDB_CONTAINER="influxdb"
 
-PASS=0
-FAIL=0
-WARN=0
-
-pass() {
-    echo "  ✅ $1"
-    ((PASS++))
-}
-fail() {
-    echo "  ❌ $1"
-    ((FAIL++))
-}
-warn() {
-    echo "  ⚠️  $1"
-    ((WARN++))
-}
+# Test harness provided by lib-common.sh (pass/fail/warn/test_summary)
 
 influx_query() {
     "$DOCKER" exec "$INFLUXDB_CONTAINER" influx -username "${_influx_admin:-admin}" -password "${_influx_admin_pass}" -execute "$1" -database "${2:-}" 2>/dev/null
@@ -173,8 +161,4 @@ fi
 echo ""
 
 # ── Summary ───────────────────────────────────────────────────
-echo "╔══════════════════════════════════════════════════════════╗"
-printf "║  Results: ✅ %-3d passed  ❌ %-3d failed  ⚠️  %-3d warnings ║\n" "$PASS" "$FAIL" "$WARN"
-echo "╚══════════════════════════════════════════════════════════╝"
-
-[[ "$FAIL" -eq 0 ]] && exit 0 || exit 1
+test_summary
