@@ -1,1 +1,106 @@
-import{HOUR as e}from"./lib.js";import{data as t,range as n,initData as o}from"./state.js";import{initSyncStatus as a}from"./sync-status.js";import{renderAlerts as s}from"./alerts.js";import{initCharts as r,render as i,initialRender as d,applyZoomPlugin as l}from"./charts.js";import{initTimeControls as m}from"./time-controls.js";import{initTimePicker as c}from"./time-picker.js";a();const p=Promise.all([fetch("data.json").then(e=>e.json()),fetch("alerts.json").then(e=>e.json())]);p.then(([,e])=>s(e)),p.then(async([t])=>{const a=()=>new Promise(e=>setTimeout(e,0));if(!t?.results?.[0]?.series?.[0]?.values?.length)return void(document.getElementById("statsRow").innerHTML='<div class="no-data" style="grid-column:1/-1">Aucune donnée disponible</div>');const{columns:s,values:p}=t.results[0].series[0],u=s.indexOf("time"),h=s.indexOf("download_bandwidth"),w=s.indexOf("upload_bandwidth"),f=s.indexOf("ping_latency"),j=p.length,b=new Float64Array(j),g=new Float64Array(j),y=new Float64Array(j),v=new Float64Array(j);for(let e=0;e<j;e++){const t=p[e];b[e]=new Date(t[u]).getTime(),g[e]=t[h]/125e3,y[e]=t[w]/125e3,v[e]=t[f]}o(b,g,y,v),await a(),await r(a),await a(),m(),c(),await a(),await d(a),await a();const x={zoom:{drag:{enabled:!0,backgroundColor:"rgba(127,127,127,0.15)",borderColor:"rgba(127,127,127,0.4)",borderWidth:1},mode:"x",onZoomComplete:({chart:t})=>{const{min:o,max:a}=t.scales.x;n.start=o,n.end=a,n.currentH=(n.end-n.start)/e,n.isLive=n.end>=n.dataEnd,i()}}},C=()=>{const e=document.createElement("script");e.src="https://cdn.jsdelivr.net/npm/hammerjs@2",e.onload=()=>{const e=document.createElement("script");e.src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2",e.onload=()=>l(x),document.head.appendChild(e)},document.head.appendChild(e)};"requestIdleCallback"in window?requestIdleCallback(C):setTimeout(C,100)});
+// ── App orchestrator ─────────────────────────────────────────
+// Thin entry point: loads data, initializes components.
+// All logic lives in dedicated modules.
+
+import { HOUR } from './lib.js';
+import { data, range, initData } from './state.js';
+import { initSyncStatus } from './sync-status.js';
+import { renderAlerts } from './alerts.js';
+import { initCharts, render, initialRender, applyZoomPlugin } from './charts.js';
+import { initTimeControls } from './time-controls.js';
+import { initTimePicker } from './time-picker.js';
+
+// ── Sync status (no data dependency) ─────────────────────────
+initSyncStatus();
+
+// ── Data loading ─────────────────────────────────────────────
+const _dataReady = Promise.all([
+  fetch('data.json').then((r) => r.json()),
+  fetch('alerts.json').then((r) => r.json()),
+]);
+
+// ── Alerts (independent of chart data) ───────────────────────
+_dataReady.then(([, ALERTS]) => renderAlerts(ALERTS));
+
+// ── Charts & controls (needs data) ──────────────────────────
+_dataReady.then(async ([RAW_DATA]) => {
+  const yieldToMain = () => new Promise((r) => setTimeout(r, 0));
+
+  if (!RAW_DATA?.results?.[0]?.series?.[0]?.values?.length) {
+    document.getElementById('statsRow').innerHTML =
+      '<div class="no-data" style="grid-column:1/-1">Aucune donn\u00e9e disponible</div>';
+    return;
+  }
+
+  // ── Parse InfluxDB response into typed arrays ──────────────
+  const { columns: cols, values } = RAW_DATA.results[0].series[0];
+  const iT = cols.indexOf('time'),
+    iDl = cols.indexOf('download_bandwidth');
+  const iUl = cols.indexOf('upload_bandwidth'),
+    iPi = cols.indexOf('ping_latency');
+  const LEN = values.length;
+
+  const ts = new Float64Array(LEN);
+  const dl = new Float64Array(LEN);
+  const ul = new Float64Array(LEN);
+  const pi = new Float64Array(LEN);
+
+  for (let i = 0; i < LEN; i++) {
+    const r = values[i];
+    ts[i] = new Date(r[iT]).getTime();
+    dl[i] = r[iDl] / 125000;
+    ul[i] = r[iUl] / 125000;
+    pi[i] = r[iPi];
+  }
+
+  initData(ts, dl, ul, pi);
+  await yieldToMain();
+
+  // ── Initialize components ──────────────────────────────────
+  await initCharts(yieldToMain);
+  await yieldToMain();
+
+  initTimeControls();
+  initTimePicker();
+  await yieldToMain();
+
+  // ── Initial render ─────────────────────────────────────────
+  await initialRender(yieldToMain);
+  await yieldToMain();
+
+  // ── Lazy-load drag-to-zoom plugin ──────────────────────────
+  const onZoomOrPan = ({ chart }) => {
+    const { min, max } = chart.scales.x;
+    range.start = min;
+    range.end = max;
+    range.currentH = (range.end - range.start) / HOUR;
+    range.isLive = range.end >= range.dataEnd;
+    render();
+  };
+  const zoomOpts = {
+    zoom: {
+      drag: {
+        enabled: true,
+        backgroundColor: 'rgba(127,127,127,0.15)',
+        borderColor: 'rgba(127,127,127,0.4)',
+        borderWidth: 1,
+      },
+      mode: 'x',
+      onZoomComplete: onZoomOrPan,
+    },
+  };
+
+  const loadZoom = () => {
+    const s1 = document.createElement('script');
+    s1.src = 'https://cdn.jsdelivr.net/npm/hammerjs@2';
+    s1.onload = () => {
+      const s2 = document.createElement('script');
+      s2.src = 'https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2';
+      s2.onload = () => applyZoomPlugin(zoomOpts);
+      document.head.appendChild(s2);
+    };
+    document.head.appendChild(s1);
+  };
+  if ('requestIdleCallback' in window) requestIdleCallback(loadZoom);
+  else setTimeout(loadZoom, 100);
+});
