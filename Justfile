@@ -219,7 +219,7 @@ cron:
 
 # Lint all source files
 lint:
-    shellcheck scripts/*.sh sim/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
+    shellcheck scripts/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
     hadolint Dockerfile
     yamllint docker-compose.yml .github/workflows/*.yml grafana/provisioning/alerting/alerts.yml .yamllint.yml .hadolint.yaml
     npx prettier --check 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
@@ -229,7 +229,7 @@ lint:
 
 # Auto-format all source files
 fmt:
-    shfmt -w -i 4 -ci scripts/*.sh sim/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
+    shfmt -w -i 4 -ci scripts/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
     npx prettier --write 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
     ruff format scripts/*.py
     @echo "All files formatted ✅"
@@ -357,4 +357,4 @@ sim-binfmt:
 
 # Run the sim smoke test suite (25 checks)
 sim-test:
-    ./scripts/test-sim-stack.sh
+    bash test-stack.sh --mode sim

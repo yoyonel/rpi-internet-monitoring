@@ -44,7 +44,7 @@ jobs:
           sleep 90
 
       - name: Run sim smoke tests
-        run: ./scripts/test-sim-stack.sh
+        run: bash test-stack.sh --mode sim
 
       - name: Collect logs on failure
         if: failure()
