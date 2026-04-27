@@ -5,6 +5,7 @@ on:
     branches: [master]
     paths:
       - 'gh-pages/**'
+      - 'scripts/build-gh-pages.sh'
       - 'scripts/render-template.py'
       - 'scripts/extract-live-data.py'
   workflow_dispatch: # Manual trigger
@@ -36,18 +37,8 @@ jobs:
           git show origin/gh-pages:alerts.json > "$BUILD_DIR/alerts.json" 2>/dev/null || \
             cp tests/fixtures/alerts.json "$BUILD_DIR/alerts.json"
 
-          python3 scripts/render-template.py \
-            gh-pages/index.template.html \
-            "$BUILD_DIR/data.json" \
-            "$BUILD_DIR/alerts.json" \
-            "$BUILD_DIR/index.html"
-
-          cp gh-pages/style.css "$BUILD_DIR/"
-          cp -r gh-pages/fonts "$BUILD_DIR/"
           npm install -g terser
-          for f in app.js lib.js state.js sync-status.js alerts.js charts.js time-controls.js time-picker.js; do
-            terser "gh-pages/$f" --compress --mangle --module -o "$BUILD_DIR/$f"
-          done
+          bash scripts/build-gh-pages.sh "$BUILD_DIR" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json"
 
       - name: Push to gh-pages branch
         run: |

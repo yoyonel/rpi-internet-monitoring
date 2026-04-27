@@ -10,7 +10,6 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEMPLATE="$SCRIPT_DIR/gh-pages/index.template.html"
 LIVE_URL="https://yoyonel.github.io/rpi-internet-monitoring/"
 REPO_URL=$(git -C "$SCRIPT_DIR" remote get-url origin 2>/dev/null || echo "https://github.com/yoyonel/rpi-internet-monitoring.git")
 
@@ -46,16 +45,7 @@ fi
 
 # ── 2. Build page from local template ────────────────────
 echo ""
-echo "── Building page from local template ──"
-
-python3 "$SCRIPT_DIR/scripts/render-template.py" "$TEMPLATE" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "$BUILD_DIR/index.html" "(template update)"
-
-# Copy static assets
-cp "$SCRIPT_DIR/gh-pages/style.css" "$BUILD_DIR/"
-for f in app.js lib.js state.js sync-status.js alerts.js charts.js time-controls.js time-picker.js; do
-    cp "$SCRIPT_DIR/gh-pages/$f" "$BUILD_DIR/"
-done
-cp -r "$SCRIPT_DIR/gh-pages/fonts" "$BUILD_DIR/"
+bash "$SCRIPT_DIR/scripts/build-gh-pages.sh" "$BUILD_DIR" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "(template update)"
 
 # ── 3. Preview or Push ────────────────────────────────────
 if [[ "$PREVIEW" == "true" ]]; then

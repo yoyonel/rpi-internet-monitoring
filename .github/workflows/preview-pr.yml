@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'gh-pages/**'
+      - 'scripts/build-gh-pages.sh'
       - 'scripts/extract-live-data.py'
       - 'scripts/render-template.py'
       - 'scripts/publish-gh-pages.sh'
@@ -35,26 +36,15 @@ jobs:
           echo "  data.json:   $(wc -c < "$BUILD_DIR/data.json") bytes"
           echo "  alerts.json: $(wc -c < "$BUILD_DIR/alerts.json") bytes"
 
-          echo "── Building page from PR template + prod data ──"
-          python3 scripts/render-template.py \
-            gh-pages/index.template.html \
-            "$BUILD_DIR/data.json" \
-            "$BUILD_DIR/alerts.json" \
-            "$BUILD_DIR/index.html" \
-            "(PR preview)"
-
           echo "── Verifying extract-live-data.py round-trip ──"
+          bash scripts/build-gh-pages.sh "$BUILD_DIR" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "(PR preview)"
           python3 scripts/extract-live-data.py "$BUILD_DIR/index.html" "$BUILD_DIR"
 
           mkdir -p _surge_deploy
-          cp "$BUILD_DIR/index.html" _surge_deploy/
-          cp "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" _surge_deploy/
-          cp gh-pages/style.css _surge_deploy/
-          for f in app.js lib.js state.js sync-status.js alerts.js \
-                   charts.js time-controls.js time-picker.js; do
-            cp "gh-pages/$f" _surge_deploy/
-          done
-          cp -r gh-pages/fonts _surge_deploy/
+          cp "$BUILD_DIR"/index.html "$BUILD_DIR"/style.css _surge_deploy/
+          cp "$BUILD_DIR"/data.json "$BUILD_DIR"/alerts.json _surge_deploy/
+          cp "$BUILD_DIR"/*.js _surge_deploy/
+          cp -r "$BUILD_DIR"/fonts _surge_deploy/
 
       - name: Deploy to Surge
         id: surge
