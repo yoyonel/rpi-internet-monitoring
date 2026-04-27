@@ -58,17 +58,4 @@ echo "  Total:    $(du -sh "$BACKUP_DIR" | awk '{print $1}')"
 ls -lh "$BACKUP_DIR/"
 
 # ── Rotation ──
-# Keep the N most recent backups (BACKUP_KEEP, default 5), remove older ones.
-mapfile -t ALL_BACKUPS < <(find "$BACKUPS_ROOT" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -r)
-if [[ ${#ALL_BACKUPS[@]} -gt $BACKUP_KEEP ]]; then
-    echo ""
-    echo "── Rotation (keeping $BACKUP_KEEP most recent) ──"
-    for old in "${ALL_BACKUPS[@]:$BACKUP_KEEP}"; do
-        echo "  🗑  Removing $old"
-        rm -rf "${BACKUPS_ROOT:?}/$old"
-    done
-    echo "  Pruned $((${#ALL_BACKUPS[@]} - BACKUP_KEEP)) old backup(s)"
-else
-    echo ""
-    echo "── Rotation: ${#ALL_BACKUPS[@]}/$BACKUP_KEEP slots used, nothing to prune ──"
-fi
+"$SCRIPT_DIR/scripts/backup-rotate.sh" "$BACKUP_KEEP"
