@@ -11,6 +11,7 @@ async function waitForAppReady(page) {
     () =>
       document.querySelector('#statsRow .stat .v')?.textContent?.trim() &&
       (Chart.getChart('bwChart')?.data?.datasets?.[0]?.data?.length ?? 0) > 0,
+    undefined,
     { timeout: 25_000 },
   );
 }
