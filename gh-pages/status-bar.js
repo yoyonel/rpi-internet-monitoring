@@ -25,13 +25,13 @@ const esc = (s) =>
   );
 
 /** Muted color for status bars (subdued by default, like GitHub) */
-const barColor = (score) => {
+export const barColor = (score) => {
   const hue = 120 * (1 - score);
   return `hsl(${hue.toFixed(0)}, 40%, 28%)`;
 };
 
 /** Compute uptime percentage for a metric across all days with data */
-const uptimePct = (days, metricKey) => {
+export const uptimePct = (days, metricKey) => {
   let good = 0,
     total = 0;
   for (const d of days) {
@@ -40,6 +40,17 @@ const uptimePct = (days, metricKey) => {
     if (d.metrics[metricKey].score < 0.6) good++;
   }
   return total > 0 ? ((good / total) * 100).toFixed(2) : '--';
+};
+
+/** Compute badge class, icon and level from uptime percentage string */
+export const badgeInfo = (pct) => {
+  if (pct === '--') return { cls: 'none', icon: '', level: '' };
+  const p = Number(pct);
+  return {
+    cls: p >= 90 ? 'ok' : p >= 70 ? 'warn' : 'bad',
+    icon: p >= 90 ? '✓' : '!',
+    level: p >= 90 ? 'Excellent' : p >= 70 ? 'Correct' : 'Dégradé',
+  };
 };
 
 /** Build one status bar row */
@@ -66,22 +77,13 @@ const buildRow = (days, metricKey, label) => {
     barsHtml += `<div class="sb-bar" style="background:${color}" data-date="${tipDate}" data-label="${tipLabel}" data-median="${tipMedian}" data-pts="${tipPts}" data-score="${m ? m.score.toFixed(2) : ''}" data-perf="${tipPerf}" data-stab="${tipStab}" data-iqr="${tipIqr}" data-q1="${tipQ1}" data-q3="${tipQ3}" data-start="${d.dayStart}" data-end="${d.dayEnd}"></div>`;
   }
 
-  const badgeClass =
-    pct === '--' ? 'none' : Number(pct) >= 99 ? 'ok' : Number(pct) >= 95 ? 'warn' : 'bad';
-  const badgeIcon = pct === '--' ? '' : Number(pct) >= 99 ? '✓' : '!';
-  const badgeLevel =
-    pct === '--'
-      ? ''
-      : Number(pct) >= 99
-        ? 'Excellent'
-        : Number(pct) >= 95
-          ? 'Correct'
-          : 'D\u00e9grad\u00e9';
+  const p = Number(pct);
+  const badge = badgeInfo(pct);
 
   return `<div class="sb-row" data-metric="${metricKey}">
     <div class="sb-header">
       <span class="sb-name">${esc(label)}</span>
-      <span class="sb-badge sb-badge-${badgeClass}" data-blabel="${esc(label)}" data-bpct="${pct}" data-blevel="${esc(badgeLevel)}">${badgeIcon}</span>
+      <span class="sb-badge sb-badge-${badge.cls}" data-blabel="${esc(label)}" data-bpct="${pct}" data-blevel="${esc(badge.level)}">${badge.icon}</span>
     </div>
     <div class="sb-bars">${barsHtml}</div>
     <div class="sb-footer">
@@ -146,7 +148,7 @@ const showBadgeTip = (badge) => {
   tipEl.innerHTML = `<strong>Qualit\u00e9 ${label}</strong><br><span class="sb-tip-label">${level}</span>
 <div class="sb-tip-grid">
   <span class="sb-tip-k">Jours OK</span><span class="sb-tip-v">${pct}%</span>
-  <span class="sb-tip-k">Seuil \u2713</span><span class="sb-tip-v">\u2265 99%</span>
+  <span class="sb-tip-k">Seuil \u2713</span><span class="sb-tip-v">\u2265 90%</span>
   <span class="sb-tip-k">Pond\u00e9ration</span><span class="sb-tip-v">perf 30% + stab 70%</span>
 </div>
 <span class="sb-tip-pts">Un jour est \u00ab OK \u00bb si son score < 0.6</span>`;

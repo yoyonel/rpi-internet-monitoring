@@ -30,5 +30,18 @@ jobs:
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
 
-      - name: Run unit tests
-        run: node --test tests/lib.test.js
+      - name: Run unit tests with coverage
+        run: |
+          mkdir -p coverage
+          node --test --experimental-test-coverage \
+            --test-reporter lcov --test-reporter-destination coverage/lcov.info \
+            --test-reporter spec --test-reporter-destination stdout \
+            tests/lib.test.js tests/status-bar.test.js
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          retention-days: 14
