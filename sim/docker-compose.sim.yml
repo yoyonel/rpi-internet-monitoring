@@ -112,3 +112,18 @@ services:
     restart: unless-stopped
     cap_drop:
       - ALL
+
+  victoriametrics:
+    container_name: rpi-sim-victoriametrics
+    platform: linux/arm64
+    mem_limit: 256m
+    memswap_limit: 384m
+    ports:
+      - '127.0.0.1:8428:8428'
+      - '127.0.0.1:8089:8089'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:8428/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s

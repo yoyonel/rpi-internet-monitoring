@@ -198,6 +198,38 @@ services:
     cap_drop:
       - ALL
 
+  victoriametrics:
+    container_name: victoriametrics
+    image: victoriametrics/victoria-metrics:v1.142.0
+    restart: unless-stopped
+    volumes:
+      - victoriametrics-data:/storage
+    command:
+      - '--storageDataPath=/storage'
+      - '--influxListenAddr=:8089'
+      - '--httpListenAddr=:8428'
+      - '--retentionPeriod=365d'
+      - '--search.latencyOffset=5s'
+    networks:
+      - speedtest
+    ports:
+      - '127.0.0.1:8428:8428'
+    expose:
+      - '8089'
+    security_opt:
+      - no-new-privileges:true
+      - label=disable
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:8428/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    profiles:
+      - vm
+
 networks:
   speedtest:
     name: speedtest
@@ -207,3 +239,4 @@ volumes:
   grafana-storage:
   influxdb-data:
   chronograf-data:
+  victoriametrics-data:
