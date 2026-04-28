@@ -2,16 +2,22 @@
 # Smoke tests for the monitoring stack (production & simulation).
 # Run BEFORE and AFTER any upgrade to detect regressions.
 #
-# Usage: test-stack.sh [--mode prod|sim]  (default: prod)
-#   prod  — production stack (requires RPi or local stack)
-#   sim   — RPi4 simulation stack (QEMU/ARM64)
+# Usage: test-stack.sh [--mode prod|sim] [--backend influxdb|vm|dual|auto]
+#   prod     — production stack (requires RPi or local stack)
+#   sim      — RPi4 simulation stack (QEMU/ARM64)
+#   backend  — which DB to test (default: auto-detect running containers)
 set -uo pipefail
 
 MODE="prod"
+BACKEND="auto"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --mode)
             MODE="$2"
+            shift 2
+            ;;
+        --backend)
+            BACKEND="$2"
             shift 2
             ;;
         prod | sim)
@@ -19,7 +25,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         *)
-            echo "Usage: $0 [--mode prod|sim]" >&2
+            echo "Usage: $0 [--mode prod|sim] [--backend influxdb|vm|dual|auto]" >&2
             exit 1
             ;;
     esac
@@ -30,6 +36,39 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/scripts/lib-common.sh"
 
 detect_container_cli
+
+# ── Backend auto-detection ────────────────────────────────────
+if [[ "$BACKEND" == "auto" ]]; then
+    vm_prefix=$([[ "$MODE" == "sim" ]] && echo "rpi-sim-victoriametrics" || echo "victoriametrics")
+    influx_prefix=$([[ "$MODE" == "sim" ]] && echo "rpi-sim-influxdb" || echo "influxdb")
+    has_vm=$("$DOCKER" inspect --format '{{.State.Running}}' "$vm_prefix" 2>/dev/null || echo "false")
+    has_influx=$("$DOCKER" inspect --format '{{.State.Running}}' "$influx_prefix" 2>/dev/null || echo "false")
+    if [[ "$has_vm" == "true" && "$has_influx" == "true" ]]; then
+        BACKEND="dual"
+    elif [[ "$has_vm" == "true" ]]; then
+        BACKEND="vm"
+    else
+        BACKEND="influxdb"
+    fi
+fi
+
+TEST_INFLUX=false
+TEST_VM=false
+case "$BACKEND" in
+    influxdb) TEST_INFLUX=true ;;
+    vm) TEST_VM=true ;;
+    dual)
+        TEST_INFLUX=true
+        TEST_VM=true
+        ;;
+    *)
+        echo "Unknown backend: $BACKEND" >&2
+        exit 1
+        ;;
+esac
+
+# VM endpoint (same for prod and sim — always localhost:8428)
+VM_URL="http://localhost:8428"
 
 # ── Mode-specific configuration ───────────────────────────────
 case "$MODE" in
@@ -60,10 +99,21 @@ case "$MODE" in
         INFLUX_WAIT_ATTEMPTS=12
         ;;
     *)
-        echo "Usage: $0 [--mode prod|sim]" >&2
+        echo "Usage: $0 [--mode prod|sim] [--backend influxdb|vm|dual|auto]" >&2
         exit 1
         ;;
 esac
+
+# Add VM container to the list if active
+if [[ "$TEST_VM" == "true" ]]; then
+    vm_container=$([[ "$MODE" == "sim" ]] && echo "rpi-sim-victoriametrics" || echo "victoriametrics")
+    if [[ "$TEST_INFLUX" == "false" ]]; then
+        # VM-only: only check VM container
+        CONTAINERS=("$vm_container")
+    else
+        CONTAINERS+=("$vm_container")
+    fi
+fi
 
 # ── Credentials ───────────────────────────────────────────────
 _user=$(_read_env GF_SECURITY_ADMIN_USER)
@@ -153,97 +203,125 @@ wait_for_influx() {
 BANNER=$([[ "$MODE" == "sim" ]] && echo "Sim Stack" || echo "Monitoring Stack")
 echo "╔══════════════════════════════════════════════════════════╗"
 echo "║     ${BANNER} — Regression Test Suite                    "
-echo "║     $(date -Iseconds)                      ║"
+echo "║     Backend: ${BACKEND}  $(date -Iseconds)    ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 echo ""
 
 # ── 1. Service Health ─────────────────────────────────────────
 echo "── 1. Service Health ──"
 
-if curl -sf "$GRAFANA_URL/api/health" | jq -e '.database == "ok"' >/dev/null 2>&1; then
-    pass "Grafana responds on :3000"
-else
-    fail "Grafana not responding on :3000"
+if [[ "$TEST_INFLUX" == "true" ]]; then
+    if curl -sf --max-time 5 "$GRAFANA_URL/api/health" | jq -e '.database == "ok"' >/dev/null 2>&1; then
+        pass "Grafana responds on :3000"
+    else
+        fail "Grafana not responding on :3000"
+    fi
 fi
 
-DB_OUTPUT=$(wait_for_influx "SHOW DATABASES" "" 3 || echo '')
-if influx_has_database "$DB_OUTPUT" "speedtest"; then
-    pass "InfluxDB responds (speedtest DB exists)"
-else
-    fail "InfluxDB not responding or speedtest DB missing"
+if [[ "$TEST_INFLUX" == "true" ]]; then
+    DB_OUTPUT=$(wait_for_influx "SHOW DATABASES" "" 3 || echo '')
+    if influx_has_database "$DB_OUTPUT" "speedtest"; then
+        pass "InfluxDB responds (speedtest DB exists)"
+    else
+        fail "InfluxDB not responding or speedtest DB missing"
+    fi
+
+    if curl -sf "$CHRONOGRAF_URL/chronograf/v1/me" >/dev/null 2>&1; then
+        pass "Chronograf responds on :8888"
+    else
+        fail "Chronograf not responding on :8888"
+    fi
 fi
 
-if curl -sf "$CHRONOGRAF_URL/chronograf/v1/me" >/dev/null 2>&1; then
-    pass "Chronograf responds on :8888"
-else
-    fail "Chronograf not responding on :8888"
+if [[ "$TEST_VM" == "true" ]]; then
+    if curl -sf "$VM_URL/health" >/dev/null 2>&1; then
+        pass "VictoriaMetrics responds on :8428 (/health)"
+    else
+        fail "VictoriaMetrics not responding on :8428"
+    fi
 fi
 
 echo ""
 
 # ── 2. Grafana Datasources ───────────────────────────────────
-echo "── 2. Grafana Datasources ──"
+if [[ "$TEST_INFLUX" == "true" ]]; then
+    echo "── 2. Grafana Datasources ──"
 
-DS_JSON=$(_gcurl "$GRAFANA_URL/api/datasources" 2>/dev/null || echo "[]")
-DS_COUNT=$(echo "$DS_JSON" | jq length 2>/dev/null || echo 0)
-if [[ "$DS_COUNT" -eq 2 ]]; then
-    pass "Grafana has 2 datasources"
-else
-    fail "Grafana datasources: expected 2, got $DS_COUNT"
+    DS_JSON=$(_gcurl "$GRAFANA_URL/api/datasources" 2>/dev/null || echo "[]")
+    DS_COUNT=$(echo "$DS_JSON" | jq length 2>/dev/null || echo 0)
+    if [[ "$DS_COUNT" -eq 2 ]]; then
+        pass "Grafana has 2 datasources"
+    else
+        fail "Grafana datasources: expected 2, got $DS_COUNT"
+    fi
+
+    for ds_name in "${DATASOURCE_NAMES[@]}"; do
+        if echo "$DS_JSON" | jq -e --arg n "$ds_name" '.[] | select(.name == $n)' >/dev/null 2>&1; then
+            pass "Datasource '$ds_name' exists"
+        else
+            fail "Datasource '$ds_name' missing"
+        fi
+    done
+
+    for ds_uid in $(echo "$DS_JSON" | jq -r '.[].uid' 2>/dev/null); do
+        ds_name=$(echo "$DS_JSON" | jq -r --arg uid "$ds_uid" '.[] | select(.uid == $uid) | .name')
+        if _gcurl -X POST "$GRAFANA_URL/api/datasources/uid/$ds_uid/health" 2>/dev/null | jq -e '.status == "OK"' >/dev/null 2>&1; then
+            pass "Datasource '$ds_name' connectivity OK"
+        else
+            fail "Datasource '$ds_name' cannot connect to InfluxDB"
+        fi
+    done
+
+    echo ""
 fi
 
-for ds_name in "${DATASOURCE_NAMES[@]}"; do
-    if echo "$DS_JSON" | jq -e --arg n "$ds_name" '.[] | select(.name == $n)' >/dev/null 2>&1; then
-        pass "Datasource '$ds_name' exists"
-    else
-        fail "Datasource '$ds_name' missing"
-    fi
-done
-
-for ds_uid in $(echo "$DS_JSON" | jq -r '.[].uid' 2>/dev/null); do
-    ds_name=$(echo "$DS_JSON" | jq -r --arg uid "$ds_uid" '.[] | select(.uid == $uid) | .name')
-    if _gcurl -X POST "$GRAFANA_URL/api/datasources/uid/$ds_uid/health" 2>/dev/null | jq -e '.status == "OK"' >/dev/null 2>&1; then
-        pass "Datasource '$ds_name' connectivity OK"
-    else
-        fail "Datasource '$ds_name' cannot connect to InfluxDB"
-    fi
-done
-
-echo ""
-
 # ── 3. Grafana Dashboards ────────────────────────────────────
-echo "── 3. Grafana Dashboards ──"
+if [[ "$TEST_INFLUX" == "true" ]]; then
+    echo "── 3. Grafana Dashboards ──"
 
-for entry in "${DASHBOARDS[@]}"; do
-    uid="${entry%%:*}"
-    name="${entry#*:}"
-    if _gcurl "$GRAFANA_URL/api/dashboards/uid/$uid" 2>/dev/null | jq -e '.dashboard' >/dev/null 2>&1; then
-        pass "Dashboard '$name' (uid=$uid)"
-    else
-        fail "Dashboard '$name' missing (uid=$uid)"
-    fi
-done
+    for entry in "${DASHBOARDS[@]}"; do
+        uid="${entry%%:*}"
+        name="${entry#*:}"
+        if _gcurl "$GRAFANA_URL/api/dashboards/uid/$uid" 2>/dev/null | jq -e '.dashboard' >/dev/null 2>&1; then
+            pass "Dashboard '$name' (uid=$uid)"
+        else
+            fail "Dashboard '$name' missing (uid=$uid)"
+        fi
+    done
 
-echo ""
+    echo ""
+fi
 
 # ── 4. Data Pipeline ─────────────────────────────────────────
 echo "── 4. Data Pipeline ──"
 
-TELEGRAF_OUTPUT=$(influx_query "SELECT COUNT(usage_idle) FROM cpu WHERE time > now() - ${TELEGRAF_WINDOW}" telegraf 2>/dev/null || echo '')
-TELEGRAF_COUNT=$(influx_count_value "$TELEGRAF_OUTPUT")
-if [[ -n "$TELEGRAF_COUNT" && "$TELEGRAF_COUNT" =~ ^[0-9]+$ && "$TELEGRAF_COUNT" -gt 0 ]]; then
-    pass "Telegraf → InfluxDB pipeline active ($TELEGRAF_COUNT points in last $TELEGRAF_WINDOW)"
-else
-    fail "Telegraf → InfluxDB pipeline broken (0 points in last $TELEGRAF_WINDOW)"
+if [[ "$TEST_INFLUX" == "true" ]]; then
+    TELEGRAF_OUTPUT=$(influx_query "SELECT COUNT(usage_idle) FROM cpu WHERE time > now() - ${TELEGRAF_WINDOW}" telegraf 2>/dev/null || echo '')
+    TELEGRAF_COUNT=$(influx_count_value "$TELEGRAF_OUTPUT")
+    if [[ -n "$TELEGRAF_COUNT" && "$TELEGRAF_COUNT" =~ ^[0-9]+$ && "$TELEGRAF_COUNT" -gt 0 ]]; then
+        pass "Telegraf → InfluxDB pipeline active ($TELEGRAF_COUNT points in last $TELEGRAF_WINDOW)"
+    else
+        fail "Telegraf → InfluxDB pipeline broken (0 points in last $TELEGRAF_WINDOW)"
+    fi
+
+    if [[ "$SPEEDTEST_MIN_COUNT" -gt 0 ]]; then
+        SPEEDTEST_OUTPUT=$(influx_query "SELECT COUNT(download_bandwidth) FROM speedtest" speedtest 2>/dev/null || echo '')
+        SPEEDTEST_COUNT=$(influx_count_value "$SPEEDTEST_OUTPUT")
+        if [[ -n "$SPEEDTEST_COUNT" && "$SPEEDTEST_COUNT" =~ ^[0-9]+$ && "$SPEEDTEST_COUNT" -ge "$SPEEDTEST_MIN_COUNT" ]]; then
+            pass "Speedtest data preserved ($SPEEDTEST_COUNT points, ≥${SPEEDTEST_MIN_COUNT})"
+        else
+            fail "Speedtest data loss (got ${SPEEDTEST_COUNT:-0}, expected ≥${SPEEDTEST_MIN_COUNT})"
+        fi
+    fi
 fi
 
-if [[ "$SPEEDTEST_MIN_COUNT" -gt 0 ]]; then
-    SPEEDTEST_OUTPUT=$(influx_query "SELECT COUNT(download_bandwidth) FROM speedtest" speedtest 2>/dev/null || echo '')
-    SPEEDTEST_COUNT=$(influx_count_value "$SPEEDTEST_OUTPUT")
-    if [[ -n "$SPEEDTEST_COUNT" && "$SPEEDTEST_COUNT" =~ ^[0-9]+$ && "$SPEEDTEST_COUNT" -ge "$SPEEDTEST_MIN_COUNT" ]]; then
-        pass "Speedtest data preserved ($SPEEDTEST_COUNT points, ≥${SPEEDTEST_MIN_COUNT})"
+if [[ "$TEST_VM" == "true" ]]; then
+    # Check Telegraf data in VM
+    vm_labels=$(curl -sf "$VM_URL/api/v1/label/__name__/values" | jq -r '.data[]' 2>/dev/null || echo '')
+    if echo "$vm_labels" | grep -q '^cpu_usage_idle$'; then
+        pass "Telegraf → VM pipeline active (cpu_usage_idle exists)"
     else
-        fail "Speedtest data loss (got ${SPEEDTEST_COUNT:-0}, expected ≥${SPEEDTEST_MIN_COUNT})"
+        warn "cpu_usage_idle not yet in VM (Telegraf flush may be pending)"
     fi
 fi
 
@@ -252,51 +330,63 @@ echo ""
 # ── 5. Data Integrity ────────────────────────────────────────
 echo "── 5. Data Integrity ──"
 
-DB_OUTPUT=$(wait_for_influx "SHOW DATABASES" "" "$INFLUX_WAIT_ATTEMPTS" || echo '')
-for db in speedtest telegraf; do
-    if influx_has_database "$DB_OUTPUT" "$db"; then
-        pass "Database '$db' exists"
-    else
-        fail "Database '$db' missing"
-    fi
-done
+if [[ "$TEST_INFLUX" == "true" ]]; then
+    DB_OUTPUT=$(wait_for_influx "SHOW DATABASES" "" "$INFLUX_WAIT_ATTEMPTS" || echo '')
+    for db in speedtest telegraf; do
+        if influx_has_database "$DB_OUTPUT" "$db"; then
+            pass "Database '$db' exists"
+        else
+            fail "Database '$db' missing"
+        fi
+    done
 
-# Sim-only: verify user grants (prod relies on provisioned credentials)
-if [[ "$MODE" == "sim" ]]; then
-    GRANTS=$(influx_query "SHOW GRANTS FOR \"telegraf\"" 2>/dev/null || echo '{}')
-    GRANT_LINES=$(echo "$GRANTS" | jq -r '.results[]?.series[]?.values[]? | @tsv')
-    if ! echo "$GRANT_LINES" | grep -qx $'telegraf\tALL PRIVILEGES'; then
-        for _ in $(seq 1 12); do
-            sleep 5
-            GRANTS=$(influx_query "SHOW GRANTS FOR \"telegraf\"" 2>/dev/null || echo '{}')
-            GRANT_LINES=$(echo "$GRANTS" | jq -r '.results[]?.series[]?.values[]? | @tsv')
-            if echo "$GRANT_LINES" | grep -qx $'telegraf\tALL PRIVILEGES'; then
-                break
+    # Sim-only: verify user grants (prod relies on provisioned credentials)
+    if [[ "$MODE" == "sim" ]]; then
+        GRANTS=$(influx_query "SHOW GRANTS FOR \"telegraf\"" 2>/dev/null || echo '{}')
+        GRANT_LINES=$(echo "$GRANTS" | jq -r '.results[]?.series[]?.values[]? | @tsv')
+        if ! echo "$GRANT_LINES" | grep -qx $'telegraf\tALL PRIVILEGES'; then
+            for _ in $(seq 1 12); do
+                sleep 5
+                GRANTS=$(influx_query "SHOW GRANTS FOR \"telegraf\"" 2>/dev/null || echo '{}')
+                GRANT_LINES=$(echo "$GRANTS" | jq -r '.results[]?.series[]?.values[]? | @tsv')
+                if echo "$GRANT_LINES" | grep -qx $'telegraf\tALL PRIVILEGES'; then
+                    break
+                fi
+            done
+        fi
+        for db in speedtest telegraf; do
+            if echo "$GRANT_LINES" | grep -qx "$db"$'\t''ALL PRIVILEGES'; then
+                pass "User 'telegraf' has ALL on '$db'"
+            else
+                fail "User 'telegraf' missing privileges on '$db'"
             fi
         done
     fi
-    for db in speedtest telegraf; do
-        if echo "$GRANT_LINES" | grep -qx "$db"$'\t''ALL PRIVILEGES'; then
-            pass "User 'telegraf' has ALL on '$db'"
-        else
-            fail "User 'telegraf' missing privileges on '$db'"
-        fi
-    done
+
+    MEASUREMENTS_OUTPUT=$(influx_query "SHOW MEASUREMENTS" speedtest 2>/dev/null || echo '')
+    MEASUREMENTS=$(influx_count_measurements "$MEASUREMENTS_OUTPUT")
+    if [[ "$MEASUREMENTS" -ge 1 ]]; then
+        pass "Speedtest DB has $MEASUREMENTS measurement(s)"
+    else
+        fail "Speedtest DB has no measurements"
+    fi
 fi
 
-MEASUREMENTS_OUTPUT=$(influx_query "SHOW MEASUREMENTS" speedtest 2>/dev/null || echo '')
-MEASUREMENTS=$(influx_count_measurements "$MEASUREMENTS_OUTPUT")
-if [[ "$MEASUREMENTS" -ge 1 ]]; then
-    pass "Speedtest DB has $MEASUREMENTS measurement(s)"
-else
-    fail "Speedtest DB has no measurements"
+if [[ "$TEST_VM" == "true" ]]; then
+    # vmui accessible
+    vm_ui_status=$(curl -sf -o /dev/null -w '%{http_code}' "$VM_URL/vmui/")
+    if [[ "$vm_ui_status" == "200" ]]; then
+        pass "vmui accessible (/vmui → 200)"
+    else
+        fail "vmui not accessible (/vmui → $vm_ui_status)"
+    fi
 fi
 
 echo ""
 
 # ── 6. Speedtest Write Path (sim only) ───────────────────────
-if [[ "$MODE" == "sim" ]]; then
-    echo "── 6. Speedtest Write Path ──"
+if [[ "$MODE" == "sim" && "$TEST_INFLUX" == "true" ]]; then
+    echo "── 6. Speedtest Write Path (InfluxDB) ──"
 
     INJECT_RESULT=$(curl -sf -o /dev/null -w "%{http_code}" -XPOST \
         "${INFLUXDB_URL}/write?db=speedtest&u=${_influx_admin}&p=${_influx_admin_pass}" \
@@ -317,6 +407,38 @@ if [[ "$MODE" == "sim" ]]; then
 
     # Clean up synthetic data
     influx_query "DELETE FROM speedtest WHERE \"result_id\" = 'ci-smoke-test'" speedtest >/dev/null 2>&1
+
+    echo ""
+fi
+
+if [[ "$MODE" == "sim" && "$TEST_VM" == "true" ]]; then
+    echo "── 6b. Speedtest Write Path (VictoriaMetrics) ──"
+
+    TS=$(date +%s)000000000
+    VM_INJECT=$(curl -sf -o /dev/null -w "%{http_code}" \
+        -d "speedtest,result_id=ci-vm-smoke download_bandwidth=1000000,upload_bandwidth=500000,ping_latency=10.5 $TS" \
+        "$VM_URL/write?db=speedtest")
+    if [[ "$VM_INJECT" == "204" ]]; then
+        pass "VM write path works (HTTP 204)"
+    else
+        fail "VM write path broken (HTTP $VM_INJECT)"
+    fi
+
+    # Flush and verify
+    curl -sf "$VM_URL/internal/force_flush" >/dev/null 2>&1
+    sleep 1
+    vm_val=$(curl -sf "$VM_URL/api/v1/query" \
+        --data-urlencode 'query=speedtest_download_bandwidth{result_id="ci-vm-smoke"}' |
+        jq -r '.data.result[0].value[1] // empty' 2>/dev/null)
+    if [[ "$vm_val" == "1000000" ]]; then
+        pass "VM injected point is queryable (download_bandwidth=1000000)"
+    else
+        fail "VM injected point not found (got: ${vm_val:-empty})"
+    fi
+
+    # Clean up: delete the test series
+    curl -sf "$VM_URL/api/v1/admin/tsdb/delete_series" \
+        --data-urlencode 'match[]={result_id="ci-vm-smoke"}' >/dev/null 2>&1 || true
 
     echo ""
 fi

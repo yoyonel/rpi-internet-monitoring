@@ -363,9 +363,13 @@ sim-test-backup dir:
 sim-binfmt:
     {{ CONTAINER_CLI }} run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
-# Run the sim smoke test suite (25 checks)
-sim-test:
-    bash test-stack.sh --mode sim
+# Run the sim smoke test suite (default: auto-detect backend)
+sim-test *args:
+    bash test-stack.sh --mode sim {{ args }}
+
+# Run sim smoke tests against VictoriaMetrics only
+sim-test-vm:
+    bash test-stack.sh --mode sim --backend vm
 
 # ── VictoriaMetrics (VM) ────────────────────────────────
 
