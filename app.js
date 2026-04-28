@@ -1,1 +1,113 @@
-import{HOUR as t}from"./lib.js";import{data as e,range as n,initData as o}from"./state.js";import{initSyncStatus as a}from"./sync-status.js";import{renderAlerts as s}from"./alerts.js";import{initCharts as r,render as i,initialRender as d,applyZoomPlugin as l,onRender as m}from"./charts.js";import{initTimeControls as c,applyRange as p}from"./time-controls.js";import{initTimePicker as u}from"./time-picker.js";import{initStatusBars as h,highlightActiveDay as w}from"./status-bar.js";a();const f=Promise.all([fetch("data.json").then(t=>t.json()),fetch("alerts.json").then(t=>t.json())]);f.then(([,t])=>s(t)),f.then(async([e])=>{const a=()=>new Promise(t=>setTimeout(t,0));if(!e?.results?.[0]?.series?.[0]?.values?.length)return void(document.getElementById("statsRow").innerHTML='<div class="no-data" style="grid-column:1/-1">Aucune donnée disponible</div>');const{columns:s,values:f}=e.results[0].series[0],j=s.indexOf("time"),b=s.indexOf("download_bandwidth"),g=s.indexOf("upload_bandwidth"),y=s.indexOf("ping_latency"),v=f.length,x=new Float64Array(v),C=new Float64Array(v),A=new Float64Array(v),T=new Float64Array(v);for(let t=0;t<v;t++){const e=f[t];x[t]=new Date(e[j]).getTime(),C[t]=e[b]/125e3,A[t]=e[g]/125e3,T[t]=e[y]}o(x,C,A,T),await a(),h(p),m(w),await a(),await r(a),await a(),c(),u(),await a(),await d(a),await a();const k={zoom:{drag:{enabled:!0,backgroundColor:"rgba(127,127,127,0.15)",borderColor:"rgba(127,127,127,0.4)",borderWidth:1},mode:"x",onZoomComplete:({chart:e})=>{const{min:o,max:a}=e.scales.x;n.start=o,n.end=a,n.currentH=(n.end-n.start)/t,n.isLive=n.end>=n.dataEnd,n.isToday=!1,i()}}},E=()=>{const t=document.createElement("script");t.src="https://cdn.jsdelivr.net/npm/hammerjs@2",t.onload=()=>{const t=document.createElement("script");t.src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2",t.onload=()=>l(k),document.head.appendChild(t)},document.head.appendChild(t)};"requestIdleCallback"in window?requestIdleCallback(E):setTimeout(E,100)});
+// ── App orchestrator ─────────────────────────────────────────
+// Thin entry point: loads data, initializes components.
+// All logic lives in dedicated modules.
+
+import { HOUR } from './lib.js';
+import { data, range, initData } from './state.js';
+import { initSyncStatus } from './sync-status.js';
+import { renderAlerts } from './alerts.js';
+import { initCharts, render, initialRender, applyZoomPlugin, onRender } from './charts.js';
+import { initTimeControls, applyRange } from './time-controls.js';
+import { initTimePicker } from './time-picker.js';
+import { initStatusBars, highlightActiveDay } from './status-bar.js';
+
+// ── Sync status (no data dependency) ─────────────────────────
+initSyncStatus();
+
+// ── Data loading ─────────────────────────────────────────────
+const _dataReady = Promise.all([
+  fetch('data.json').then((r) => r.json()),
+  fetch('alerts.json').then((r) => r.json()),
+]);
+
+// ── Alerts (independent of chart data) ───────────────────────
+_dataReady.then(([, ALERTS]) => renderAlerts(ALERTS));
+
+// ── Charts & controls (needs data) ──────────────────────────
+_dataReady.then(async ([RAW_DATA]) => {
+  const yieldToMain = () => new Promise((r) => setTimeout(r, 0));
+
+  if (!RAW_DATA?.results?.[0]?.series?.[0]?.values?.length) {
+    document.getElementById('statsRow').innerHTML =
+      '<div class="no-data" style="grid-column:1/-1">Aucune donn\u00e9e disponible</div>';
+    return;
+  }
+
+  // ── Parse InfluxDB response into typed arrays ──────────────
+  const { columns: cols, values } = RAW_DATA.results[0].series[0];
+  const iT = cols.indexOf('time'),
+    iDl = cols.indexOf('download_bandwidth');
+  const iUl = cols.indexOf('upload_bandwidth'),
+    iPi = cols.indexOf('ping_latency');
+  const LEN = values.length;
+
+  const ts = new Float64Array(LEN);
+  const dl = new Float64Array(LEN);
+  const ul = new Float64Array(LEN);
+  const pi = new Float64Array(LEN);
+
+  for (let i = 0; i < LEN; i++) {
+    const r = values[i];
+    ts[i] = new Date(r[iT]).getTime();
+    dl[i] = r[iDl] / 125000;
+    ul[i] = r[iUl] / 125000;
+    pi[i] = r[iPi];
+  }
+
+  initData(ts, dl, ul, pi);
+  await yieldToMain();
+
+  // ── Status bars (GitHub-style uptime) ──────────────────────
+  initStatusBars(applyRange);
+  onRender(highlightActiveDay);
+  await yieldToMain();
+
+  // ── Initialize components ──────────────────────────────────
+  await initCharts(yieldToMain);
+  await yieldToMain();
+
+  initTimeControls();
+  initTimePicker();
+  await yieldToMain();
+
+  // ── Initial render ─────────────────────────────────────────
+  await initialRender(yieldToMain);
+  await yieldToMain();
+
+  // ── Lazy-load drag-to-zoom plugin ──────────────────────────
+  const onZoomOrPan = ({ chart }) => {
+    const { min, max } = chart.scales.x;
+    range.start = min;
+    range.end = max;
+    range.currentH = (range.end - range.start) / HOUR;
+    range.isLive = range.end >= range.dataEnd;
+    range.isToday = false;
+    render();
+  };
+  const zoomOpts = {
+    zoom: {
+      drag: {
+        enabled: true,
+        backgroundColor: 'rgba(127,127,127,0.15)',
+        borderColor: 'rgba(127,127,127,0.4)',
+        borderWidth: 1,
+      },
+      mode: 'x',
+      onZoomComplete: onZoomOrPan,
+    },
+  };
+
+  const loadZoom = () => {
+    const s1 = document.createElement('script');
+    s1.src = 'https://cdn.jsdelivr.net/npm/hammerjs@2';
+    s1.onload = () => {
+      const s2 = document.createElement('script');
+      s2.src = 'https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2';
+      s2.onload = () => applyZoomPlugin(zoomOpts);
+      document.head.appendChild(s2);
+    };
+    document.head.appendChild(s1);
+  };
+  if ('requestIdleCallback' in window) requestIdleCallback(loadZoom);
+  else setTimeout(loadZoom, 100);
+});

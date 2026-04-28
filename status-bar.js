@@ -1,1 +1,230 @@
-import{computeDailyStatus as s}from"./lib.js";import{data as t,range as a}from"./state.js";const e={dl:{name:"Download",unit:"Mb/s",format:s=>s.toFixed(0)+" Mb/s"},ul:{name:"Upload",unit:"Mb/s",format:s=>s.toFixed(0)+" Mb/s"},pi:{name:"Ping",unit:"ms",format:s=>s.toFixed(1)+" ms"}},n=[{key:"dl",label:"Download"},{key:"ul",label:"Upload"},{key:"pi",label:"Ping"}],l=s=>String(s).replace(/[&<>"']/g,s=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[s])),d=s=>`hsl(${(120*(1-s)).toFixed(0)}, 40%, 28%)`;let i=null;const o=()=>{i||(i=document.createElement("div"),i.className="sb-tip",document.body.appendChild(i))},r=s=>{o();const t=s.dataset.blabel,a=s.dataset.bpct,e=s.dataset.blevel;if(!e)return;i.innerHTML=`<strong>Qualité ${t}</strong><br><span class="sb-tip-label">${e}</span>\n<div class="sb-tip-grid">\n  <span class="sb-tip-k">Jours OK</span><span class="sb-tip-v">${a}%</span>\n  <span class="sb-tip-k">Seuil ✓</span><span class="sb-tip-v">≥ 99%</span>\n  <span class="sb-tip-k">Pondération</span><span class="sb-tip-v">perf 30% + stab 70%</span>\n</div>\n<span class="sb-tip-pts">Un jour est « OK » si son score < 0.6</span>`,i.className="sb-tip sb-tip-below",i.style.display="block";const n=s.getBoundingClientRect();i.style.left=`${n.left+n.width/2}px`,i.style.top=`${n.bottom+6}px`},p=()=>{i&&(i.style.display="none")};export const initStatusBars=a=>{const b=document.getElementById("statusBars");if(!b||!t.ts)return;const c=s(t.ts,t.dl,t.ul,t.pi,t.LEN,30);c.length?(b.innerHTML=n.map(s=>((s,t,a)=>{const n=((s,t)=>{let a=0,e=0;for(const n of s)n.metrics&&(e++,n.metrics[t].score<.6&&a++);return e>0?(a/e*100).toFixed(2):"--"})(s,t),i=s.length;let o="";for(let a=0;a<s.length;a++){const n=s[a],i=n.metrics?.[t],r=i?d(i.score):"var(--border)",p=l(n.date),b=i?l(i.label):"Aucune donnée",c=i?l(e[t].format(i.median)):"--",m=i?i.n+" mesures":"",u=i?(100*(1-i.perf)).toFixed(0):"",$=i?(100*(1-i.stab)).toFixed(0):"",g=i?(100*i.iqrRatio).toFixed(1):"",v=i?e[t].format(i.q1):"",f=i?e[t].format(i.q3):"";o+=`<div class="sb-bar" style="background:${r}" data-date="${p}" data-label="${b}" data-median="${c}" data-pts="${m}" data-score="${i?i.score.toFixed(2):""}" data-perf="${u}" data-stab="${$}" data-iqr="${g}" data-q1="${v}" data-q3="${f}" data-start="${n.dayStart}" data-end="${n.dayEnd}"></div>`}const r="--"===n?"none":Number(n)>=99?"ok":Number(n)>=95?"warn":"bad",p="--"===n?"":Number(n)>=99?"✓":"!",b="--"===n?"":Number(n)>=99?"Excellent":Number(n)>=95?"Correct":"Dégradé";return`<div class="sb-row" data-metric="${t}">\n    <div class="sb-header">\n      <span class="sb-name">${l(a)}</span>\n      <span class="sb-badge sb-badge-${r}" data-blabel="${l(a)}" data-bpct="${n}" data-blevel="${l(b)}">${p}</span>\n    </div>\n    <div class="sb-bars">${o}</div>\n    <div class="sb-footer">\n      <span>${i} jours</span>\n      <span>${n} % qualité</span>\n      <span>Auj.</span>\n    </div>\n  </div>`})(c,s.key,s.label)).join(""),b.addEventListener("mouseenter",s=>{const t=s.target.closest?.(".sb-bar");if(t)return void(s=>{o();const t=s.dataset.date,a=s.dataset.label,e=s.dataset.median,n=s.dataset.pts,l=s.dataset.perf,d=s.dataset.stab,r=s.dataset.iqr,p=s.dataset.q1,b=s.dataset.q3;let c=`<strong>${t}</strong><br><span class="sb-tip-label" style="color:${s.style.background}">${a}</span>`;"--"!==e&&(c+='<div class="sb-tip-grid">',c+=`<span class="sb-tip-k">Médiane</span><span class="sb-tip-v">${e}</span>`,c+=`<span class="sb-tip-k">Performance</span><span class="sb-tip-v">${l}%</span>`,c+=`<span class="sb-tip-k">Stabilité</span><span class="sb-tip-v">${d}%</span>`,c+=`<span class="sb-tip-k">IQR/méd</span><span class="sb-tip-v">${r}% <span class="sb-tip-dim">(${p} → ${b})</span></span>`,c+="</div>"),n&&(c+=`<span class="sb-tip-pts">${n}</span>`),i.innerHTML=c,i.className="sb-tip sb-tip-above",i.style.display="block";const m=s.getBoundingClientRect();i.style.left=`${m.left+m.width/2}px`,i.style.top=m.top-6+"px"})(t);const a=s.target.closest?.(".sb-badge");a&&r(a)},!0),b.addEventListener("mouseleave",s=>{const t=s.target.closest?.(".sb-bar"),a=s.target.closest?.(".sb-badge");(t||a)&&p()},!0),b.addEventListener("click",s=>{const t=s.target.closest?.(".sb-bar");if(t&&t.dataset.start&&a)return a(Number(t.dataset.start),Number(t.dataset.end)),void p();const e=s.target.closest?.(".sb-badge");e&&(r(e),setTimeout(p,4e3))})):b.style.display="none"};export const highlightActiveDay=()=>{const s=document.querySelectorAll(".sb-bar");for(const t of s){const s=Number(t.dataset.start),e=Number(t.dataset.end);t.classList.toggle("sb-active",s<a.end&&e>a.start)}};
+// ── Status bars (GitHub-style uptime view) ──────────────────
+// Self-contained: computes daily status from shared state, renders to #statusBars.
+// Tooltip on hover shows day details.
+
+import { computeDailyStatus } from './lib.js';
+import { data, range } from './state.js';
+
+const METRIC_LABELS = {
+  dl: { name: 'Download', unit: 'Mb/s', format: (v) => v.toFixed(0) + ' Mb/s' },
+  ul: { name: 'Upload', unit: 'Mb/s', format: (v) => v.toFixed(0) + ' Mb/s' },
+  pi: { name: 'Ping', unit: 'ms', format: (v) => v.toFixed(1) + ' ms' },
+};
+
+const ROWS = [
+  { key: 'dl', label: 'Download' },
+  { key: 'ul', label: 'Upload' },
+  { key: 'pi', label: 'Ping' },
+];
+
+/** Escape HTML */
+const esc = (s) =>
+  String(s).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
+
+/** Muted color for status bars (subdued by default, like GitHub) */
+const barColor = (score) => {
+  const hue = 120 * (1 - score);
+  return `hsl(${hue.toFixed(0)}, 40%, 28%)`;
+};
+
+/** Compute uptime percentage for a metric across all days with data */
+const uptimePct = (days, metricKey) => {
+  let good = 0,
+    total = 0;
+  for (const d of days) {
+    if (!d.metrics) continue;
+    total++;
+    if (d.metrics[metricKey].score < 0.6) good++;
+  }
+  return total > 0 ? ((good / total) * 100).toFixed(2) : '--';
+};
+
+/** Build one status bar row */
+const buildRow = (days, metricKey, label) => {
+  const pct = uptimePct(days, metricKey);
+  const nDays = days.length;
+
+  let barsHtml = '';
+  for (let i = 0; i < days.length; i++) {
+    const d = days[i];
+    const m = d.metrics?.[metricKey];
+    const color = m ? barColor(m.score) : 'var(--border)';
+    const tipDate = esc(d.date);
+    const tipLabel = m ? esc(m.label) : 'Aucune donnée';
+    const tipMedian = m ? esc(METRIC_LABELS[metricKey].format(m.median)) : '--';
+    const tipPts = m ? m.n + ' mesures' : '';
+
+    const tipPerf = m ? (100 * (1 - m.perf)).toFixed(0) : '';
+    const tipStab = m ? (100 * (1 - m.stab)).toFixed(0) : '';
+    const tipIqr = m ? (m.iqrRatio * 100).toFixed(1) : '';
+    const tipQ1 = m ? METRIC_LABELS[metricKey].format(m.q1) : '';
+    const tipQ3 = m ? METRIC_LABELS[metricKey].format(m.q3) : '';
+
+    barsHtml += `<div class="sb-bar" style="background:${color}" data-date="${tipDate}" data-label="${tipLabel}" data-median="${tipMedian}" data-pts="${tipPts}" data-score="${m ? m.score.toFixed(2) : ''}" data-perf="${tipPerf}" data-stab="${tipStab}" data-iqr="${tipIqr}" data-q1="${tipQ1}" data-q3="${tipQ3}" data-start="${d.dayStart}" data-end="${d.dayEnd}"></div>`;
+  }
+
+  const badgeClass =
+    pct === '--' ? 'none' : Number(pct) >= 99 ? 'ok' : Number(pct) >= 95 ? 'warn' : 'bad';
+  const badgeIcon = pct === '--' ? '' : Number(pct) >= 99 ? '✓' : '!';
+  const badgeLevel =
+    pct === '--'
+      ? ''
+      : Number(pct) >= 99
+        ? 'Excellent'
+        : Number(pct) >= 95
+          ? 'Correct'
+          : 'D\u00e9grad\u00e9';
+
+  return `<div class="sb-row" data-metric="${metricKey}">
+    <div class="sb-header">
+      <span class="sb-name">${esc(label)}</span>
+      <span class="sb-badge sb-badge-${badgeClass}" data-blabel="${esc(label)}" data-bpct="${pct}" data-blevel="${esc(badgeLevel)}">${badgeIcon}</span>
+    </div>
+    <div class="sb-bars">${barsHtml}</div>
+    <div class="sb-footer">
+      <span>${nDays} jours</span>
+      <span>${pct} % qualité</span>
+      <span>Auj.</span>
+    </div>
+  </div>`;
+};
+
+/** Tooltip element (shared, repositioned on hover) */
+let tipEl = null;
+
+const ensureTip = () => {
+  if (tipEl) return;
+  tipEl = document.createElement('div');
+  tipEl.className = 'sb-tip';
+  document.body.appendChild(tipEl);
+};
+
+const showTip = (bar) => {
+  ensureTip();
+  const date = bar.dataset.date;
+  const label = bar.dataset.label;
+  const median = bar.dataset.median;
+  const pts = bar.dataset.pts;
+
+  const perf = bar.dataset.perf;
+  const stab = bar.dataset.stab;
+  const iqr = bar.dataset.iqr;
+  const q1 = bar.dataset.q1;
+  const q3 = bar.dataset.q3;
+
+  let html = `<strong>${date}</strong><br><span class="sb-tip-label" style="color:${bar.style.background}">${label}</span>`;
+  if (median !== '--') {
+    html += `<div class="sb-tip-grid">`;
+    html += `<span class="sb-tip-k">Médiane</span><span class="sb-tip-v">${median}</span>`;
+    html += `<span class="sb-tip-k">Performance</span><span class="sb-tip-v">${perf}%</span>`;
+    html += `<span class="sb-tip-k">Stabilité</span><span class="sb-tip-v">${stab}%</span>`;
+    html += `<span class="sb-tip-k">IQR/méd</span><span class="sb-tip-v">${iqr}% <span class="sb-tip-dim">(${q1} → ${q3})</span></span>`;
+    html += `</div>`;
+  }
+  if (pts) html += `<span class="sb-tip-pts">${pts}</span>`;
+
+  tipEl.innerHTML = html;
+  tipEl.className = 'sb-tip sb-tip-above';
+  tipEl.style.display = 'block';
+
+  const r = bar.getBoundingClientRect();
+  tipEl.style.left = `${r.left + r.width / 2}px`;
+  tipEl.style.top = `${r.top - 6}px`;
+};
+
+const showBadgeTip = (badge) => {
+  ensureTip();
+  const label = badge.dataset.blabel;
+  const pct = badge.dataset.bpct;
+  const level = badge.dataset.blevel;
+
+  if (!level) return;
+
+  tipEl.innerHTML = `<strong>Qualit\u00e9 ${label}</strong><br><span class="sb-tip-label">${level}</span>
+<div class="sb-tip-grid">
+  <span class="sb-tip-k">Jours OK</span><span class="sb-tip-v">${pct}%</span>
+  <span class="sb-tip-k">Seuil \u2713</span><span class="sb-tip-v">\u2265 99%</span>
+  <span class="sb-tip-k">Pond\u00e9ration</span><span class="sb-tip-v">perf 30% + stab 70%</span>
+</div>
+<span class="sb-tip-pts">Un jour est \u00ab OK \u00bb si son score < 0.6</span>`;
+  tipEl.className = 'sb-tip sb-tip-below';
+  tipEl.style.display = 'block';
+
+  const r = badge.getBoundingClientRect();
+  tipEl.style.left = `${r.left + r.width / 2}px`;
+  tipEl.style.top = `${r.bottom + 6}px`;
+};
+
+const hideTip = () => {
+  if (tipEl) tipEl.style.display = 'none';
+};
+
+/** Initialize status bars. Call after data is loaded.
+ *  @param {function} [onBarClick] — called with (start, end) when a bar is clicked */
+export const initStatusBars = (onBarClick) => {
+  const container = document.getElementById('statusBars');
+  if (!container || !data.ts) return;
+
+  const days = computeDailyStatus(data.ts, data.dl, data.ul, data.pi, data.LEN, 30);
+
+  if (!days.length) {
+    container.style.display = 'none';
+    return;
+  }
+
+  container.innerHTML = ROWS.map((r) => buildRow(days, r.key, r.label)).join('');
+
+  // Event delegation for bar tooltip
+  container.addEventListener(
+    'mouseenter',
+    (e) => {
+      const bar = e.target.closest?.('.sb-bar');
+      if (bar) {
+        showTip(bar);
+        return;
+      }
+      const badge = e.target.closest?.('.sb-badge');
+      if (badge) showBadgeTip(badge);
+    },
+    true,
+  );
+
+  container.addEventListener(
+    'mouseleave',
+    (e) => {
+      const bar = e.target.closest?.('.sb-bar');
+      const badge = e.target.closest?.('.sb-badge');
+      if (bar || badge) hideTip();
+    },
+    true,
+  );
+
+  // Click on bar → navigate to that day's time range
+  container.addEventListener('click', (e) => {
+    const bar = e.target.closest?.('.sb-bar');
+    if (bar && bar.dataset.start && onBarClick) {
+      onBarClick(Number(bar.dataset.start), Number(bar.dataset.end));
+      hideTip();
+      return;
+    }
+    const badge = e.target.closest?.('.sb-badge');
+    if (badge) {
+      showBadgeTip(badge);
+      setTimeout(hideTip, 4000);
+    }
+  });
+};
+
+/** Highlight bars overlapping the current time range. Call after each render. */
+export const highlightActiveDay = () => {
+  const bars = document.querySelectorAll('.sb-bar');
+  for (const bar of bars) {
+    const s = Number(bar.dataset.start);
+    const e = Number(bar.dataset.end);
+    // Overlap: bar intersects [range.start, range.end]
+    bar.classList.toggle('sb-active', s < range.end && e > range.start);
+  }
+};
