@@ -366,3 +366,58 @@ sim-binfmt:
 # Run the sim smoke test suite (25 checks)
 sim-test:
     bash test-stack.sh --mode sim
+
+# ── VictoriaMetrics (VM) ────────────────────────────────
+
+# Sim compose with VM profile enabled
+sim_vm := sim_compose + " --profile vm"
+
+# Start the sim stack with VictoriaMetrics dual-write
+sim-vm-up:
+    VICTORIA_METRICS_URL=http://victoriametrics:8428 {{ sim_vm }} up -d
+
+# Show VM container health and status
+sim-vm-status:
+    @{{ CONTAINER_CLI }} inspect rpi-sim-victoriametrics 2>/dev/null \
+        | jq -r '.[] | "  Status: \(.State.Status)\n  Health: \(.State.Health.Status // "n/a")\n  Uptime: \(.State.StartedAt)"' \
+        || echo "  ⚠ victoriametrics container not found"
+    @echo ""
+    @curl -sf http://localhost:8428/health && echo " ← /health OK" || echo "  ✗ /health unreachable"
+
+# Execute a MetricsQL query (e.g. just sim-vm-query 'cpu_usage_idle{cpu="cpu-total"}')
+sim-vm-query query:
+    @curl -sf 'http://localhost:8428/api/v1/query' \
+        --data-urlencode 'query={{ query }}' | jq .
+
+# Show VM internal stats (active series, ingestion rate, storage)
+sim-vm-stats:
+    @echo "── Active Time Series ──"
+    @curl -sf 'http://localhost:8428/api/v1/query' \
+        --data-urlencode 'query=vm_cache_entries{type="storage/hour_metric_ids"}' \
+        | jq -r '.data.result[0].value[1] // "0"' \
+        | xargs -I{} echo "  {}"
+    @echo ""
+    @echo "── Ingestion Rate (rows/sec, last 5m) ──"
+    @curl -sf 'http://localhost:8428/api/v1/query' \
+        --data-urlencode 'query=rate(vm_rows_inserted_total[5m])' \
+        | jq -r '[.data.result[].value[1] // "0"] | add // "0"' \
+        | xargs -I{} echo "  {} rows/sec"
+    @echo ""
+    @echo "── Storage Size ──"
+    @curl -sf 'http://localhost:8428/api/v1/query' \
+        --data-urlencode 'query=sum(vm_data_size_bytes)' \
+        | jq -r '.data.result[0].value[1] // "0"' \
+        | awk '{printf "  %.2f MB\n", $1/1048576}'
+    @echo ""
+    @echo "── Metric Names ──"
+    @curl -sf 'http://localhost:8428/api/v1/label/__name__/values' \
+        | jq -r '.data[]' | head -30
+
+# Open vmui in the default browser
+sim-vm-ui:
+    xdg-open http://localhost:8428/vmui/ 2>/dev/null || open http://localhost:8428/vmui/ 2>/dev/null || echo "Open http://localhost:8428/vmui/ in your browser"
+
+# Export data matching a selector (e.g. just sim-vm-export '{__name__=~"speedtest_.*"}')
+sim-vm-export match:
+    @curl -sf 'http://localhost:8428/api/v1/export' \
+        --data-urlencode 'match={{ match }}'
