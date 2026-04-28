@@ -25,13 +25,13 @@ const esc = (s) =>
   );
 
 /** Muted color for status bars (subdued by default, like GitHub) */
-const barColor = (score) => {
+export const barColor = (score) => {
   const hue = 120 * (1 - score);
   return `hsl(${hue.toFixed(0)}, 40%, 28%)`;
 };
 
 /** Compute uptime percentage for a metric across all days with data */
-const uptimePct = (days, metricKey) => {
+export const uptimePct = (days, metricKey) => {
   let good = 0,
     total = 0;
   for (const d of days) {
@@ -40,6 +40,17 @@ const uptimePct = (days, metricKey) => {
     if (d.metrics[metricKey].score < 0.6) good++;
   }
   return total > 0 ? ((good / total) * 100).toFixed(2) : '--';
+};
+
+/** Compute badge class, icon and level from uptime percentage string */
+export const badgeInfo = (pct) => {
+  if (pct === '--') return { cls: 'none', icon: '', level: '' };
+  const p = Number(pct);
+  return {
+    cls: p >= 90 ? 'ok' : p >= 70 ? 'warn' : 'bad',
+    icon: p >= 90 ? '✓' : '!',
+    level: p >= 90 ? 'Excellent' : p >= 70 ? 'Correct' : 'Dégradé',
+  };
 };
 
 /** Build one status bar row */
@@ -67,15 +78,12 @@ const buildRow = (days, metricKey, label) => {
   }
 
   const p = Number(pct);
-  const badgeClass = pct === '--' ? 'none' : p >= 90 ? 'ok' : p >= 70 ? 'warn' : 'bad';
-  const badgeIcon = pct === '--' ? '' : p >= 90 ? '✓' : '!';
-  const badgeLevel =
-    pct === '--' ? '' : p >= 90 ? 'Excellent' : p >= 70 ? 'Correct' : 'D\u00e9grad\u00e9';
+  const badge = badgeInfo(pct);
 
   return `<div class="sb-row" data-metric="${metricKey}">
     <div class="sb-header">
       <span class="sb-name">${esc(label)}</span>
-      <span class="sb-badge sb-badge-${badgeClass}" data-blabel="${esc(label)}" data-bpct="${pct}" data-blevel="${esc(badgeLevel)}">${badgeIcon}</span>
+      <span class="sb-badge sb-badge-${badge.cls}" data-blabel="${esc(label)}" data-bpct="${pct}" data-blevel="${esc(badge.level)}">${badge.icon}</span>
     </div>
     <div class="sb-bars">${barsHtml}</div>
     <div class="sb-footer">
