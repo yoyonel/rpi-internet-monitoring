@@ -1,0 +1,118 @@
+name: VM Smoke Tests
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'docker-compose.yml'
+      - 'sim/**'
+      - 'telegraf/**'
+      - 'docker-entrypoint.sh'
+      - '.github/workflows/vm-smoke-test.yml'
+  pull_request:
+    paths:
+      - 'docker-compose.yml'
+      - 'sim/**'
+      - 'telegraf/**'
+      - 'docker-entrypoint.sh'
+      - '.github/workflows/vm-smoke-test.yml'
+  workflow_dispatch:
+
+jobs:
+  vm-smoke:
+    runs-on: ubuntu-latest
+    services:
+      victoriametrics:
+        image: victoriametrics/victoria-metrics:v1.142.0
+        ports:
+          - 8428:8428
+          - 8089:8089
+        options: >-
+          --health-cmd="wget -qO- http://localhost:8428/health || exit 1"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Wait for VictoriaMetrics
+        run: |
+          echo "Waiting for VM to be healthy..."
+          for i in $(seq 1 30); do
+            if wget -qO- http://localhost:8428/health 2>/dev/null; then
+              echo "VM is healthy"
+              break
+            fi
+            sleep 1
+          done
+
+      - name: 'Test 1: healthcheck'
+        run: |
+          status=$(curl -sf -o /dev/null -w '%{http_code}' http://localhost:8428/health)
+          [[ "$status" == "200" ]] && echo "✓ /health → 200" || { echo "✗ /health → $status"; exit 1; }
+
+      - name: 'Test 2: write via InfluxDB line protocol'
+        run: |
+          # Write test data — same format as Telegraf + speedtest
+          curl -sf -d 'cpu,cpu=cpu-total,host=ci-test usage_idle=95.2,usage_system=2.1 1714300800000000000' \
+            'http://localhost:8089/write?db=telegraf'
+          curl -sf -d 'mem,host=ci-test used_percent=42.5 1714300800000000000' \
+            'http://localhost:8089/write?db=telegraf'
+          SPEEDTEST_LP='speedtest,result_id=test-001'
+          SPEEDTEST_LP="$SPEEDTEST_LP ping_latency=11.6"
+          SPEEDTEST_LP="$SPEEDTEST_LP,download_bandwidth=941000000"
+          SPEEDTEST_LP="$SPEEDTEST_LP,upload_bandwidth=681000000"
+          curl -sf -d "$SPEEDTEST_LP" \
+            'http://localhost:8089/write?db=speedtest'
+          echo "✓ Line protocol writes accepted"
+
+      - name: 'Test 3: query via MetricsQL'
+        run: |
+          # Query cpu_usage_idle
+          result=$(curl -sf 'http://localhost:8428/api/v1/query' \
+            --data-urlencode 'query=cpu_usage_idle{cpu="cpu-total"}' \
+            --data-urlencode 'time=1714300800')
+          echo "$result" | jq .
+          value=$(echo "$result" | jq -r '.data.result[0].value[1]')
+          [[ "$value" == "95.2" ]] && echo "✓ cpu_usage_idle = 95.2" || { echo "✗ got $value"; exit 1; }
+
+      - name: 'Test 4: query speedtest data'
+        run: |
+          result=$(curl -sf 'http://localhost:8428/api/v1/query' \
+            --data-urlencode 'query=speedtest_download_bandwidth{result_id="test-001"}' \
+            --data-urlencode 'time=1714300800')
+          value=$(echo "$result" | jq -r '.data.result[0].value[1]')
+          [[ "$value" == "941000000" ]] && echo "✓ download_bandwidth = 941000000" || { echo "✗ got $value"; exit 1; }
+
+      - name: 'Test 5: export data'
+        run: |
+          # Export all speedtest metrics
+          result=$(curl -sf 'http://localhost:8428/api/v1/export' \
+            --data-urlencode 'match={__name__=~"speedtest_.*"}')
+          echo "$result"
+          count=$(echo "$result" | wc -l)
+          [[ "$count" -ge 3 ]] && echo "✓ Exported $count metric lines" || { echo "✗ Only $count lines"; exit 1; }
+
+      - name: 'Test 6: metric naming convention'
+        run: |
+          # Verify VM uses {measurement}_{field} naming
+          labels=$(curl -sf 'http://localhost:8428/api/v1/label/__name__/values')
+          echo "$labels" | jq .
+          metrics="cpu_usage_idle cpu_usage_system"
+          metrics="$metrics mem_used_percent"
+          metrics="$metrics speedtest_ping_latency"
+          metrics="$metrics speedtest_download_bandwidth"
+          metrics="$metrics speedtest_upload_bandwidth"
+          for metric in $metrics; do
+            if echo "$labels" | jq -e ".data | index(\"$metric\")" > /dev/null; then
+              echo "✓ $metric exists"
+            else
+              echo "✗ $metric missing"; exit 1
+            fi
+          done
+
+      - name: 'Test 7: vmui accessible'
+        run: |
+          status=$(curl -sf -o /dev/null -w '%{http_code}' http://localhost:8428/vmui/)
+          [[ "$status" == "200" ]] && echo "✓ vmui → 200" || { echo "✗ vmui → $status"; exit 1; }
