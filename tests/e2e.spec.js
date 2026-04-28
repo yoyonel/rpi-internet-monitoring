@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test';
 
 const BASE = (process.env.E2E_BASE_URL || 'http://localhost:8080').replace(/\/+$/, '') + '/';
+const isRemote = BASE.startsWith('https://');
 
 /**
  * Wait until the app has finished rendering (stats cards + charts).
- * Uses a generous timeout to survive slow networks (GH Pages CDN).
+ * Uses a generous timeout to survive slow networks (GH Pages CDN via Surge).
  */
 async function waitForAppReady(page) {
   await page.waitForFunction(
@@ -12,7 +13,7 @@ async function waitForAppReady(page) {
       document.querySelector('#statsRow .stat .v')?.textContent?.trim() &&
       (Chart.getChart('bwChart')?.data?.datasets?.[0]?.data?.length ?? 0) > 0,
     undefined,
-    { timeout: 25_000 },
+    { timeout: isRemote ? 45_000 : 25_000 },
   );
 }
 
