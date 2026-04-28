@@ -421,3 +421,7 @@ sim-vm-ui:
 sim-vm-export match:
     @curl -sf 'http://localhost:8428/api/v1/export' \
         --data-urlencode 'match={{ match }}'
+
+# Benchmark RAM usage of sim containers (--wait N to wait N seconds first)
+sim-benchmark-ram *args:
+    bash scripts/benchmark-ram.sh {{ args }}
