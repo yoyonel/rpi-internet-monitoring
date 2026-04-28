@@ -74,8 +74,8 @@ curl $(curl_auth) \
     "${influxdb_url}/write?db=${influxdb_db}"
 
 # ── Dual-write to VictoriaMetrics (optional) ──────────────────
-# When VICTORIA_METRICS_URL is set, also write to VM's InfluxDB line protocol endpoint.
-# VM accepts the same line protocol format — no transformation needed.
+# When VICTORIA_METRICS_URL is set, also write to VM's InfluxDB HTTP API.
+# VM accepts the same line protocol format on :8428/write — no transformation needed.
 vm_url=${VICTORIA_METRICS_URL:-}
 if [[ -n "$vm_url" ]]; then
     echo "  → dual-write to VictoriaMetrics: ${vm_url}"
