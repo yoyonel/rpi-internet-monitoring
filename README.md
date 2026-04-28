@@ -122,7 +122,8 @@ just install-timers
 | Commande                     | RPi requis | Description                                                           |
 | ---------------------------- | ---------- | --------------------------------------------------------------------- |
 | `just test`                  | **oui**    | Suite de régression complète (17 checks)                              |
-| `just test-unit`             | non        | Tests unitaires `lib.js` (Node.js, 75 tests, ~500ms)                  |
+| `just test-unit`             | non        | Tests unitaires lib.js + status-bar.js (Node.js, 94 tests, ~1s)       |
+| `just test-coverage`         | non        | Tests unitaires + rapport couverture V8 (lcov dans `coverage/`)       |
 | `just test-e2e`              | non        | Tests E2E Playwright (12 tests, nécessite un preview actif sur :8080) |
 | `just check`                 | **oui**    | Health check rapide des 4 services                                    |
 | `just e2e [url]`             | non        | Tests E2E Playwright contre une preview (défaut: :8080)               |
