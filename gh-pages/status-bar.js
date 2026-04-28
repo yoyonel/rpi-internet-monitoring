@@ -66,17 +66,11 @@ const buildRow = (days, metricKey, label) => {
     barsHtml += `<div class="sb-bar" style="background:${color}" data-date="${tipDate}" data-label="${tipLabel}" data-median="${tipMedian}" data-pts="${tipPts}" data-score="${m ? m.score.toFixed(2) : ''}" data-perf="${tipPerf}" data-stab="${tipStab}" data-iqr="${tipIqr}" data-q1="${tipQ1}" data-q3="${tipQ3}" data-start="${d.dayStart}" data-end="${d.dayEnd}"></div>`;
   }
 
-  const badgeClass =
-    pct === '--' ? 'none' : Number(pct) >= 99 ? 'ok' : Number(pct) >= 95 ? 'warn' : 'bad';
-  const badgeIcon = pct === '--' ? '' : Number(pct) >= 99 ? '✓' : '!';
+  const p = Number(pct);
+  const badgeClass = pct === '--' ? 'none' : p >= 90 ? 'ok' : p >= 70 ? 'warn' : 'bad';
+  const badgeIcon = pct === '--' ? '' : p >= 90 ? '✓' : '!';
   const badgeLevel =
-    pct === '--'
-      ? ''
-      : Number(pct) >= 99
-        ? 'Excellent'
-        : Number(pct) >= 95
-          ? 'Correct'
-          : 'D\u00e9grad\u00e9';
+    pct === '--' ? '' : p >= 90 ? 'Excellent' : p >= 70 ? 'Correct' : 'D\u00e9grad\u00e9';
 
   return `<div class="sb-row" data-metric="${metricKey}">
     <div class="sb-header">
@@ -146,7 +140,7 @@ const showBadgeTip = (badge) => {
   tipEl.innerHTML = `<strong>Qualit\u00e9 ${label}</strong><br><span class="sb-tip-label">${level}</span>
 <div class="sb-tip-grid">
   <span class="sb-tip-k">Jours OK</span><span class="sb-tip-v">${pct}%</span>
-  <span class="sb-tip-k">Seuil \u2713</span><span class="sb-tip-v">\u2265 99%</span>
+  <span class="sb-tip-k">Seuil \u2713</span><span class="sb-tip-v">\u2265 90%</span>
   <span class="sb-tip-k">Pond\u00e9ration</span><span class="sb-tip-v">perf 30% + stab 70%</span>
 </div>
 <span class="sb-tip-pts">Un jour est \u00ab OK \u00bb si son score < 0.6</span>`;
