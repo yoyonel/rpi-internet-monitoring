@@ -5,10 +5,22 @@ import { HOUR, PRESETS } from './lib.js';
 import { range, data } from './state.js';
 import { render } from './charts.js';
 
+/** Set range to "today": midnight local → now */
+const setToday = () => {
+  const now = new Date();
+  range.start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  range.end = range.dataEnd + 600_000;
+  range.currentH = (range.end - range.start) / HOUR;
+  range.isLive = true;
+  range.isToday = true;
+  render();
+};
+
 const setRange = (h) => {
   range.currentH = h;
   if (range.isLive) range.end = range.dataEnd + 600_000;
   range.start = range.end - range.currentH * HOUR;
+  range.isToday = false;
   render();
 };
 
@@ -17,13 +29,13 @@ const shift = (dir) => {
   range.start += s;
   range.end += s;
   range.isLive = range.end >= range.dataEnd;
+  range.isToday = false;
   render();
 };
 
-/** Reset to default 48h live view */
+/** Reset to default live "today" view */
 export const resetToLive = () => {
-  range.isLive = true;
-  setRange(48);
+  setToday();
 };
 
 /** Apply an arbitrary absolute range (used by time-picker). */
@@ -32,15 +44,20 @@ export const applyRange = (start, end) => {
   range.end = end;
   range.currentH = (range.end - range.start) / HOUR;
   range.isLive = range.end >= range.dataEnd;
+  range.isToday = false;
   render();
 };
 
 /** Bind all time control DOM elements. Call once at init. */
 export const initTimeControls = () => {
+  // Today button
+  document.getElementById('btnToday').addEventListener('click', setToday);
+
   // Preset buttons (e.g. 24h, 48h, 7d …)
-  document.querySelectorAll('.rb').forEach((b) =>
+  document.querySelectorAll('.rb:not(#btnToday)').forEach((b) =>
     b.addEventListener('click', () => {
       range.isLive = true;
+      range.isToday = false;
       setRange(parseInt(b.dataset.hours));
     }),
   );

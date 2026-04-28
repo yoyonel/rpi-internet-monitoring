@@ -12,15 +12,7 @@
     />
     <title>Internet Speed Monitor — RPi4</title>
     <link rel="preload" href="data.json" as="fetch" crossorigin />
-    <link rel="preload" href="https://cdn.jsdelivr.net/npm/chart.js@4" as="script" />
     <link rel="preload" href="fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
-    <link rel="modulepreload" href="lib.js" />
-    <link rel="modulepreload" href="state.js" />
-    <link rel="modulepreload" href="sync-status.js" />
-    <link rel="modulepreload" href="alerts.js" />
-    <link rel="modulepreload" href="charts.js" />
-    <link rel="modulepreload" href="time-controls.js" />
-    <link rel="modulepreload" href="time-picker.js" />
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -42,6 +34,11 @@
 
       <div class="stats" id="statsRow"></div>
 
+      <section class="sb-section">
+        <div class="stitle">Statut 30 jours</div>
+        <div id="statusBars"></div>
+      </section>
+
       <section class="alerts" id="alertsSec">
         <div class="stitle">Alertes RPi</div>
         <div id="alertsList"></div>
@@ -50,10 +47,11 @@
       <div class="tp">
         <button class="nb" id="btnBack" title="Reculer">&laquo;</button>
         <div class="rg">
+          <button class="rb rb-today on" id="btnToday" data-hours="today">Auj.</button>
           <button class="rb" data-hours="6">6h</button>
           <button class="rb" data-hours="12">12h</button>
           <button class="rb" data-hours="24">24h</button>
-          <button class="rb on" data-hours="48">2j</button>
+          <button class="rb" data-hours="48">2j</button>
           <button class="rb" data-hours="168">7j</button>
           <button class="rb" data-hours="720">30j</button>
         </div>

@@ -413,3 +413,92 @@ export const makeLineDs = (xArr, yArr, i0, i1, color, label, gradient) => [
     fill: true,
   },
 ];
+
+// ── Daily status bars (GitHub-style uptime view) ─────────────
+// Returns array of { date, dayStart, dayEnd, metrics: { dl, ul, pi }, overall }
+// Each metric: { score, color, label, median, n } or null if no data
+// overall: composite score across all 3 metrics
+const DAY = 86_400_000;
+
+const statusLabel = (score) =>
+  score < 0.3 ? 'Excellent' : score < 0.6 ? 'Correct' : score < 0.8 ? 'Dégradé' : 'Critique';
+
+const statusColor = (score) => {
+  const hue = 120 * (1 - score);
+  const lightness = 50 + 10 * Math.sin((hue / 120) * Math.PI);
+  return `hsl(${hue.toFixed(0)}, 85%, ${lightness.toFixed(0)}%)`;
+};
+
+export const computeDailyStatus = (ts, dl, ul, pi, LEN, nDays = 30) => {
+  if (!LEN || !ts) return [];
+
+  // Find the end of the last day (midnight after last data point)
+  const lastTs = ts[LEN - 1];
+  const lastDate = new Date(lastTs);
+  const endDay = new Date(
+    lastDate.getFullYear(),
+    lastDate.getMonth(),
+    lastDate.getDate() + 1,
+  ).getTime();
+
+  const days = [];
+
+  for (let d = 0; d < nDays; d++) {
+    const dayEnd = endDay - d * DAY;
+    const dayStart = dayEnd - DAY;
+    const date = new Date(dayStart);
+    const dateStr = `${pad2(date.getDate())}/${pad2(date.getMonth() + 1)}/${date.getFullYear()}`;
+
+    const rng = filterRange(ts, LEN, dayStart, dayEnd - 1);
+
+    if (!rng) {
+      days.unshift({ date: dateStr, dayStart, dayEnd, metrics: null, overall: null });
+      continue;
+    }
+
+    const [i0, i1] = rng;
+    const n = i1 - i0;
+
+    const computeMetric = (metric, arr) => {
+      const sorted = sortedSlice(arr, i0, i1);
+      const med = medianOf(sorted);
+      let sum = 0;
+      for (let i = i0; i < i1; i++) sum += arr[i];
+      const avg = sum / n;
+      const q = qualityScore(metric, med, sorted, avg, n);
+      return {
+        score: q.score,
+        color: q.color,
+        label: statusLabel(q.score),
+        median: med,
+        n,
+        perf: q.perf,
+        stab: q.stab,
+        iqrRatio: q.iqrRatio,
+        q1: q.q1,
+        q3: q.q3,
+      };
+    };
+
+    const mDl = computeMetric('dl', dl);
+    const mUl = computeMetric('ul', ul);
+    const mPi = computeMetric('pi', pi);
+
+    // Overall = weighted average of the 3 scores
+    const overallScore = (mDl.score + mUl.score + mPi.score) / 3;
+
+    days.unshift({
+      date: dateStr,
+      dayStart,
+      dayEnd,
+      metrics: { dl: mDl, ul: mUl, pi: mPi },
+      overall: {
+        score: overallScore,
+        color: statusColor(overallScore),
+        label: statusLabel(overallScore),
+      },
+    });
+  }
+
+  return days;
+};
