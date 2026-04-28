@@ -53,6 +53,121 @@ export const badgeInfo = (pct) => {
   };
 };
 
+/** Badge severity rank: lower = worse */
+const BADGE_RANK = { bad: 0, warn: 1, ok: 2, none: 3 };
+
+/** Colors for favicon */
+const FAVICON_COLORS = { ok: '#3fb950', warn: '#d29922', bad: '#f85149', none: '#555' };
+
+/** Draw a speed gauge onto a canvas context.
+ *  @param {CanvasRenderingContext2D} ctx
+ *  @param {number} S — canvas size (square)
+ *  @param {string} worstCls — 'ok' | 'warn' | 'bad' | 'none'
+ *  @param {object} [opts] — { showDot, showBg } */
+const drawGauge = (ctx, S, worstCls, opts = {}) => {
+  const { showDot = false, showBg = false } = opts;
+  const color = FAVICON_COLORS[worstCls] || FAVICON_COLORS.none;
+  const fill = worstCls === 'ok' ? 1.0 : worstCls === 'warn' ? 0.65 : worstCls === 'bad' ? 0.3 : 0;
+  const scale = S / 32; // scale factor relative to 32px reference
+
+  ctx.clearRect(0, 0, S, S);
+
+  // ── Optional dark rounded background (favicon only) ──
+  if (showBg) {
+    ctx.beginPath();
+    ctx.roundRect(0, 0, S, S, 6 * scale);
+    ctx.fillStyle = '#161b22';
+    ctx.fill();
+  }
+
+  // ── Speed gauge arc (bottom half) ──
+  const cx = S / 2,
+    cy = S * 0.6;
+  const radius = 10 * scale;
+  // Background arc (dark grey)
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, Math.PI, 0);
+  ctx.lineWidth = 3 * scale;
+  ctx.strokeStyle = '#30363d';
+  ctx.lineCap = 'butt';
+  ctx.stroke();
+  // Colored arc
+  if (fill > 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, Math.PI, Math.PI + Math.PI * fill);
+    ctx.lineWidth = 3 * scale;
+    ctx.strokeStyle = color;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  // ── Needle ──
+  const angle = Math.PI + Math.PI * fill;
+  const nLen = 6 * scale;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(angle) * nLen, cy + Math.sin(angle) * nLen);
+  ctx.lineWidth = 2 * scale;
+  ctx.strokeStyle = '#e6edf3';
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  // Center dot
+  ctx.beginPath();
+  ctx.arc(cx, cy, 2 * scale, 0, 2 * Math.PI);
+  ctx.fillStyle = '#e6edf3';
+  ctx.fill();
+
+  // ── Optional status dot (top-right) ──
+  if (showDot) {
+    ctx.beginPath();
+    ctx.arc(S - 6 * scale, 6 * scale, 4 * scale, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = 1.5 * scale;
+    ctx.strokeStyle = '#161b22';
+    ctx.stroke();
+  }
+};
+
+/** Generate favicon and update <link rel="icon"> */
+const updateFavicon = (worstCls) => {
+  const S = 32;
+  const c = document.createElement('canvas');
+  c.width = S;
+  c.height = S;
+  drawGauge(c.getContext('2d'), S, worstCls, { showDot: true, showBg: true });
+  let link = document.querySelector('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  link.href = c.toDataURL('image/png');
+};
+
+/** Draw the gauge into the nav brand area */
+const updateNavGauge = (worstCls) => {
+  const brand = document.querySelector('nav .brand');
+  if (!brand) return;
+  let canvas = brand.querySelector('.brand-gauge');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.className = 'brand-gauge';
+    canvas.width = 64;
+    canvas.height = 64;
+    brand.prepend(canvas);
+  }
+  const dpr = window.devicePixelRatio || 1;
+  const displaySize = 28;
+  canvas.width = displaySize * dpr;
+  canvas.height = displaySize * dpr;
+  canvas.style.width = displaySize + 'px';
+  canvas.style.height = displaySize + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  drawGauge(ctx, displaySize, worstCls);
+};
+
 /** Build one status bar row */
 const buildRow = (days, metricKey, label) => {
   const pct = uptimePct(days, metricKey);
@@ -83,14 +198,12 @@ const buildRow = (days, metricKey, label) => {
   return `<div class="sb-row" data-metric="${metricKey}">
     <div class="sb-header">
       <span class="sb-name">${esc(label)}</span>
-      <span class="sb-badge sb-badge-${badge.cls}" data-blabel="${esc(label)}" data-bpct="${pct}" data-blevel="${esc(badge.level)}">${badge.icon}</span>
+      <span class="sb-header-right">
+        <span class="sb-pct">${pct}%</span>
+        <span class="sb-badge sb-badge-${badge.cls}" data-blabel="${esc(label)}" data-bpct="${pct}" data-blevel="${esc(badge.level)}">${badge.icon}</span>
+      </span>
     </div>
     <div class="sb-bars">${barsHtml}</div>
-    <div class="sb-footer">
-      <span>${nDays} jours</span>
-      <span>${pct} % qualité</span>
-      <span>Auj.</span>
-    </div>
   </div>`;
 };
 
@@ -113,16 +226,17 @@ const showTip = (bar) => {
 
   const perf = bar.dataset.perf;
   const stab = bar.dataset.stab;
+  const score = bar.dataset.score;
   const iqr = bar.dataset.iqr;
   const q1 = bar.dataset.q1;
   const q3 = bar.dataset.q3;
 
   let html = `<strong>${date}</strong><br><span class="sb-tip-label" style="color:${bar.style.background}">${label}</span>`;
   if (median !== '--') {
+    const qualPct = score !== '' ? (100 - parseFloat(score) * 100).toFixed(0) : '--';
     html += `<div class="sb-tip-grid">`;
     html += `<span class="sb-tip-k">Médiane</span><span class="sb-tip-v">${median}</span>`;
-    html += `<span class="sb-tip-k">Performance</span><span class="sb-tip-v">${perf}%</span>`;
-    html += `<span class="sb-tip-k">Stabilité</span><span class="sb-tip-v">${stab}%</span>`;
+    html += `<span class="sb-tip-k">Qualité</span><span class="sb-tip-v">${qualPct}% <span class="sb-tip-dim">(perf ${perf} + stab ${stab})</span></span>`;
     html += `<span class="sb-tip-k">IQR/méd</span><span class="sb-tip-v">${iqr}% <span class="sb-tip-dim">(${q1} → ${q3})</span></span>`;
     html += `</div>`;
   }
@@ -149,9 +263,8 @@ const showBadgeTip = (badge) => {
 <div class="sb-tip-grid">
   <span class="sb-tip-k">Jours OK</span><span class="sb-tip-v">${pct}%</span>
   <span class="sb-tip-k">Seuil \u2713</span><span class="sb-tip-v">\u2265 90%</span>
-  <span class="sb-tip-k">Pond\u00e9ration</span><span class="sb-tip-v">perf 30% + stab 70%</span>
 </div>
-<span class="sb-tip-pts">Un jour est \u00ab OK \u00bb si son score < 0.6</span>`;
+<span class="sb-tip-pts">Qualit\u00e9 = perf 30% + stab 70%. Jour \u00ab OK \u00bb si qualit\u00e9 \u2265 40%</span>`;
   tipEl.className = 'sb-tip sb-tip-below';
   tipEl.style.display = 'block';
 
@@ -177,7 +290,25 @@ export const initStatusBars = (onBarClick) => {
     return;
   }
 
-  container.innerHTML = ROWS.map((r) => buildRow(days, r.key, r.label)).join('');
+  const nDays = days.length;
+  container.innerHTML =
+    ROWS.map((r) => buildRow(days, r.key, r.label)).join('') +
+    `<div class="sb-footer">
+      <span>${nDays} jours</span>
+      <span>Auj.</span>
+    </div>`;
+
+  // Dynamic favicon: colored dot reflecting today's worst metric
+  const today = days[days.length - 1];
+  let todayCls = 'none';
+  if (today?.metrics) {
+    const scores = ROWS.map((r) => today.metrics[r.key]?.score ?? 1);
+    const worst = Math.max(...scores);
+    // Map score to badge class: <0.3 ok, <0.6 warn, else bad
+    todayCls = worst < 0.3 ? 'ok' : worst < 0.6 ? 'warn' : 'bad';
+  }
+  updateFavicon(todayCls);
+  updateNavGauge(todayCls);
 
   // Event delegation for bar tooltip
   container.addEventListener(

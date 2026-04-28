@@ -125,9 +125,16 @@ nav .inner {
   height: 48px;
 }
 nav .brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 700;
   font-size: 0.875rem;
   letter-spacing: -0.02em;
+}
+nav .brand .brand-gauge {
+  display: block;
+  flex-shrink: 0;
 }
 nav .brand .hi {
   color: var(--blue);
@@ -816,7 +823,7 @@ nav .meta time {
   margin-bottom: 16px;
 }
 .sb-row {
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 .sb-row:last-child {
   margin-bottom: 0;
@@ -825,7 +832,17 @@ nav .meta time {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
+}
+.sb-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sb-pct {
+  font-size: 0.7rem;
+  color: var(--text3);
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
 }
 .sb-name {
   font-size: 0.82rem;
@@ -888,7 +905,7 @@ nav .meta time {
 .sb-footer {
   display: flex;
   justify-content: space-between;
-  margin-top: 4px;
+  margin-top: 6px;
   font-size: 0.7rem;
   color: var(--text3);
   font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
