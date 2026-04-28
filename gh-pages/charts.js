@@ -133,6 +133,13 @@ const bandTooltipPi = {
 
 /** Create Chart.js instances. Call once after data is loaded. */
 export const initCharts = async (yieldToMain) => {
+  // Wait for Chart.js global to be available (loaded via <script defer>)
+  if (typeof Chart === 'undefined') {
+    await new Promise((resolve) => {
+      const check = () => (typeof Chart !== 'undefined' ? resolve() : setTimeout(check, 50));
+      check();
+    });
+  }
   Chart.defaults.color = '#555';
   Chart.defaults.borderColor = '#2a2a2d';
 
@@ -427,9 +434,13 @@ const doRender = () => {
   document.getElementById('rangeLabel').textContent = `${fmtDateTzLocal(
     range.start,
   )}  \u2192  ${fmtDateTzLocal(range.end)}`;
-  document
-    .querySelectorAll('.rb')
-    .forEach((b) => b.classList.toggle('on', parseInt(b.dataset.hours) === range.currentH));
+  document.querySelectorAll('.rb').forEach((b) => {
+    if (b.id === 'btnToday') {
+      b.classList.toggle('on', range.isToday);
+    } else {
+      b.classList.toggle('on', !range.isToday && parseInt(b.dataset.hours) === range.currentH);
+    }
+  });
   lastMode = mode;
 };
 
@@ -439,17 +450,26 @@ const flushCharts = () => {
 };
 
 /** Schedule a render on next animation frame (debounced). */
+let renderHook = null;
+
+/** Register a callback to run after each render. */
+export const onRender = (fn) => {
+  renderHook = fn;
+};
+
 export const render = () => {
   cancelAnimationFrame(renderRAF);
   renderRAF = requestAnimationFrame(() => {
     doRender();
     flushCharts();
+    if (renderHook) renderHook();
   });
 };
 
 /** Run initial render with split updates to avoid long tasks. */
 export const initialRender = async (yieldToMain) => {
   doRender();
+  if (renderHook) renderHook();
   bwChart.update('none');
   await yieldToMain();
   piChart.update('none');

@@ -807,6 +807,146 @@ nav .meta time {
   font-size: 0.9rem;
 }
 
+/* ── STATUS BARS (GitHub-style uptime) ── */
+.sb-section {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--border);
+}
+.sb-section .stitle {
+  margin-bottom: 16px;
+}
+.sb-row {
+  margin-bottom: 16px;
+}
+.sb-row:last-child {
+  margin-bottom: 0;
+}
+.sb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.sb-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.sb-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.sb-badge-ok {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--green);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.sb-badge-warn {
+  background: rgba(234, 179, 8, 0.15);
+  color: var(--amber);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+.sb-badge-bad {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--red);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.sb-badge-none {
+  background: var(--surface);
+  color: var(--text3);
+  border: 1px solid var(--border);
+}
+.sb-bars {
+  display: flex;
+  gap: 1px;
+  height: 28px;
+  align-items: stretch;
+}
+.sb-bar {
+  flex: 1;
+  border-radius: 2px;
+  cursor: pointer;
+  transition:
+    filter 0.15s,
+    transform 0.1s;
+  min-width: 0;
+}
+.sb-bar:hover {
+  filter: brightness(1.8) saturate(1.6);
+  transform: scaleY(1.12);
+}
+.sb-active {
+  outline: 2px solid var(--text2);
+  outline-offset: -1px;
+}
+.sb-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 0.7rem;
+  color: var(--text3);
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
+}
+.sb-tip {
+  display: none;
+  position: fixed;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-family: 'Geist Mono', 'Geist Mono Fallback', monospace;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  pointer-events: none;
+  white-space: nowrap;
+  z-index: 120;
+  line-height: 1.5;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+.sb-tip-above {
+  transform: translate(-50%, -100%);
+}
+.sb-tip-below {
+  transform: translateX(-50%);
+}
+.sb-tip-label {
+  font-weight: 700;
+  font-size: 0.78rem;
+}
+.sb-tip-grid {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 1px 10px;
+  margin-top: 4px;
+}
+.sb-tip-k {
+  color: var(--text3);
+}
+.sb-tip-v {
+  text-align: right;
+  font-weight: 600;
+}
+.sb-tip-dim {
+  color: var(--text3);
+  font-weight: 400;
+  font-size: 0.65rem;
+}
+.sb-tip-pts {
+  display: block;
+  margin-top: 3px;
+  color: var(--text3);
+  font-size: 0.65rem;
+}
+.sb-badge {
+  cursor: help;
+}
+
 /* ── FOOTER ── */
 footer {
   border-top: 1px solid var(--border);

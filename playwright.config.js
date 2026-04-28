@@ -12,7 +12,7 @@ export default defineConfig({
   use: {
     baseURL,
     headless: true,
-    actionTimeout: 10_000,
+    actionTimeout: isRemote ? 25_000 : 10_000,
     navigationTimeout: isRemote ? 30_000 : 15_000,
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],

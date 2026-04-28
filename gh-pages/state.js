@@ -10,8 +10,9 @@ export const data = { ts: null, dl: null, ul: null, pi: null, LEN: 0 };
 export const range = {
   start: 0,
   end: 0,
-  currentH: 48,
+  currentH: 24,
   isLive: true,
+  isToday: true,
   dataEnd: 0,
 };
 
@@ -32,5 +33,9 @@ export const initData = (ts, dl, ul, pi) => {
   data.LEN = ts.length;
   range.dataEnd = ts[ts.length - 1];
   range.end = range.dataEnd + 600_000;
-  range.start = range.end - range.currentH * HOUR;
+  // Default: "today" = midnight local time → now
+  const now = new Date();
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  range.start = midnight;
+  range.currentH = (range.end - range.start) / HOUR;
 };

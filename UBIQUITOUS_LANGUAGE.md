@@ -33,8 +33,11 @@
 | **Histogram**     | A 10-bin SVG distribution chart inside a Stat Card showing the frequency distribution of values in the active Time Range                           | distribution, bar chart                |
 | **Decile Chart**  | An SVG bar chart inside a Stat Card showing the 10 decile (P10–P100) values for the active Time Range                                              | percentile chart                       |
 | **Time Range**    | The currently selected time window (start, end) controlling which Measurements are displayed                                                       | range, window, period, interval        |
-| **Preset**        | A predefined Time Range duration (6h, 12h, 24h, 2d, 7d, 30d) selectable via toolbar buttons                                                        | button, quick range                    |
+| **Preset**        | A predefined Time Range duration (6h, 12h, 24h, 2d, 7d, 30d) or "Today" (midnight → now) selectable via toolbar buttons                            | button, quick range                    |
+| **Today**         | A special Preset that sets the Time Range from midnight local time to the latest data point. Default view on page load                             | Auj., aujourd'hui                      |
 | **Time Picker**   | The Grafana-style dropdown panel with a calendar, absolute inputs, relative presets, and recent ranges                                             | date picker, calendar, range picker    |
+| **Status Bar**    | A GitHub-style 30-day uptime bar per metric (DL, UL, Ping). Each bar represents one day's Quality Score with a muted HSL color                     | uptime bar, daily status               |
+| **Active Day**    | The Status Bar segment(s) overlapping the current Time Range, highlighted with an outline indicator                                                | selected day, current day              |
 | **Sync Status**   | The colored dot in the nav bar indicating data freshness (OK < 10 min, degraded 10–20 min, error > 20 min)                                         | freshness indicator, staleness dot     |
 | **Alert**         | A Grafana-provisioned threshold rule (CPU, temperature, RAM, swap, disk, load) whose state (firing/pending/inactive) is displayed on the Dashboard | warning, notification, alarm           |
 
@@ -60,11 +63,13 @@
 
 ## Code architecture
 
-| Term                   | Definition                                                                                                                                             | Aliases to avoid        |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- |
-| **lib.js**             | The pure-function ES module containing all algorithms (LTTB, Bucketize, Quality Score, stats, formatting) — zero DOM dependency, testable with Node.js | library, utils, helpers |
-| **app.js**             | The thin orchestrator that loads data, initializes components, and wires them together — the only entry point in the HTML                              | main, index, controller |
-| **State** (`state.js`) | The single mutable data store shared by all UI components, holding typed arrays and the current Time Range                                             | store, context, global  |
+| Term                   | Definition                                                                                                                                                           | Aliases to avoid        |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| **lib.js**             | The pure-function ES module containing all algorithms (LTTB, Bucketize, Quality Score, Daily Status, stats, formatting) — zero DOM dependency, testable with Node.js | library, utils, helpers |
+| **app.js**             | The thin orchestrator that loads data, initializes components, and wires callbacks (e.g., applyRange, highlightActiveDay) — the only entry point in the HTML         | main, index, controller |
+| **State** (`state.js`) | The single mutable data store shared by all UI components, holding typed arrays and the current Time Range (including isToday flag)                                  | store, context, global  |
+| **status-bar.js**      | Self-contained module rendering Status Bars, tooltips, click-to-navigate, and active day highlighting                                                                | uptime module           |
+| **charts.js**          | Chart.js wrapper: creates/updates bandwidth and latency charts, manages render cycle with onRender hook                                                              | chart module, renderer  |
 
 ## Relationships
 

@@ -32,7 +32,7 @@ cp "$SCRIPT_DIR/gh-pages/style.css" "$BUILD_DIR/"
 cp -r "$SCRIPT_DIR/gh-pages/fonts" "$BUILD_DIR/"
 
 # JS modules — minify with terser when available, plain copy otherwise
-JS_MODULES=(app.js lib.js state.js sync-status.js alerts.js charts.js time-controls.js time-picker.js)
+JS_MODULES=(app.js lib.js state.js sync-status.js alerts.js charts.js time-controls.js time-picker.js status-bar.js)
 if command -v terser &>/dev/null; then
     for f in "${JS_MODULES[@]}"; do
         terser "$SCRIPT_DIR/gh-pages/$f" --compress --mangle --module -o "$BUILD_DIR/$f"

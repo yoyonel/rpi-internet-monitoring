@@ -6,9 +6,10 @@ import { HOUR } from './lib.js';
 import { data, range, initData } from './state.js';
 import { initSyncStatus } from './sync-status.js';
 import { renderAlerts } from './alerts.js';
-import { initCharts, render, initialRender, applyZoomPlugin } from './charts.js';
-import { initTimeControls } from './time-controls.js';
+import { initCharts, render, initialRender, applyZoomPlugin, onRender } from './charts.js';
+import { initTimeControls, applyRange } from './time-controls.js';
 import { initTimePicker } from './time-picker.js';
+import { initStatusBars, highlightActiveDay } from './status-bar.js';
 
 // ── Sync status (no data dependency) ─────────────────────────
 initSyncStatus();
@@ -56,6 +57,11 @@ _dataReady.then(async ([RAW_DATA]) => {
   initData(ts, dl, ul, pi);
   await yieldToMain();
 
+  // ── Status bars (GitHub-style uptime) ──────────────────────
+  initStatusBars(applyRange);
+  onRender(highlightActiveDay);
+  await yieldToMain();
+
   // ── Initialize components ──────────────────────────────────
   await initCharts(yieldToMain);
   await yieldToMain();
@@ -75,6 +81,7 @@ _dataReady.then(async ([RAW_DATA]) => {
     range.end = max;
     range.currentH = (range.end - range.start) / HOUR;
     range.isLive = range.end >= range.dataEnd;
+    range.isToday = false;
     render();
   };
   const zoomOpts = {
