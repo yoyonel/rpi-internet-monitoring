@@ -2,7 +2,8 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "test:unit": "node --test tests/lib.test.js",
+        "test:unit": "node --test tests/lib.test.js tests/status-bar.test.js",
+        "test:coverage": "mkdir -p coverage && node --test --experimental-test-coverage --test-reporter lcov --test-reporter-destination coverage/lcov.info --test-reporter spec --test-reporter-destination stdout tests/lib.test.js tests/status-bar.test.js",
         "test:e2e": "playwright test"
     },
     "devDependencies": {

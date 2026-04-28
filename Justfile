@@ -147,9 +147,17 @@ clean-all: clean
 test:
     bash test-stack.sh
 
-# Run lib.js unit tests (Node.js, no browser needed)
+# Run unit tests (Node.js, no browser needed)
 test-unit:
-    node --test tests/lib.test.js
+    node --test tests/lib.test.js tests/status-bar.test.js
+
+# Run unit tests with V8 coverage report
+test-coverage:
+    mkdir -p coverage
+    node --test --experimental-test-coverage \
+        --test-reporter lcov --test-reporter-destination coverage/lcov.info \
+        --test-reporter spec --test-reporter-destination stdout \
+        tests/lib.test.js tests/status-bar.test.js
 
 # Run Playwright E2E tests against a running preview
 test-e2e:
