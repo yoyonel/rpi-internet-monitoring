@@ -28,9 +28,9 @@ jobs:
       - name: Start VictoriaMetrics
         run: |
           docker run -d --name victoriametrics \
-            -p 8428:8428 -p 8089:8089 \
+            -p 8428:8428 \
             victoriametrics/victoria-metrics:v1.142.0 \
-            -influxListenAddr=:8089
+            -search.latencyOffset=0s
 
           echo "Waiting for VM to be healthy..."
           for i in $(seq 1 30); do
@@ -48,41 +48,56 @@ jobs:
 
       - name: 'Test 1: healthcheck'
         run: |
-          status=$(curl -sf -o /dev/null -w '%{http_code}' http://localhost:8428/health)
-          [[ "$status" == "200" ]] && echo "✓ /health → 200" || { echo "✗ /health → $status"; exit 1; }
+          status=$(curl -sf -o /dev/null -w '%{http_code}' \
+            http://localhost:8428/health)
+          [[ "$status" == "200" ]] && echo "✓ /health → 200" \
+            || { echo "✗ /health → $status"; exit 1; }
 
-      - name: 'Test 2: write via InfluxDB line protocol'
+      - name: 'Test 2: write via InfluxDB HTTP API'
         run: |
-          # Write test data — same format as Telegraf + speedtest
-          curl -sf -d 'cpu,cpu=cpu-total,host=ci-test usage_idle=95.2,usage_system=2.1 1714300800000000000' \
-            'http://localhost:8089/write?db=telegraf'
-          curl -sf -d 'mem,host=ci-test used_percent=42.5 1714300800000000000' \
-            'http://localhost:8089/write?db=telegraf'
-          SPEEDTEST_LP='speedtest,result_id=test-001'
-          SPEEDTEST_LP="$SPEEDTEST_LP ping_latency=11.6"
-          SPEEDTEST_LP="$SPEEDTEST_LP,download_bandwidth=941000000"
-          SPEEDTEST_LP="$SPEEDTEST_LP,upload_bandwidth=681000000"
-          curl -sf -d "$SPEEDTEST_LP" \
-            'http://localhost:8089/write?db=speedtest'
+          # Port 8428/write accepts InfluxDB line protocol over HTTP.
+          # Port 8089 (-influxListenAddr) is raw TCP only.
+          TS=$(date +%s)000000000
+          curl -sf -d "cpu,cpu=cpu-total,host=ci usage_idle=95.2,usage_system=2.1 $TS" \
+            'http://localhost:8428/write?db=telegraf'
+          curl -sf -d "mem,host=ci used_percent=42.5 $TS" \
+            'http://localhost:8428/write?db=telegraf'
+          SPD="speedtest,result_id=test-001"
+          SPD="$SPD ping_latency=11.6"
+          SPD="$SPD,download_bandwidth=941000000"
+          SPD="$SPD,upload_bandwidth=681000000"
+          SPD="$SPD $TS"
+          curl -sf -d "$SPD" \
+            'http://localhost:8428/write?db=speedtest'
+          # Save timestamp (seconds) for query steps
+          echo "TS_SEC=$(date +%s)" >> "$GITHUB_ENV"
           echo "✓ Line protocol writes accepted"
+
+      - name: Flush and wait for indexing
+        run: |
+          curl -sf http://localhost:8428/internal/force_flush
+          sleep 2
 
       - name: 'Test 3: query via MetricsQL'
         run: |
-          # Query cpu_usage_idle
           result=$(curl -sf 'http://localhost:8428/api/v1/query' \
             --data-urlencode 'query=cpu_usage_idle{cpu="cpu-total"}' \
-            --data-urlencode 'time=1714300800')
+            --data-urlencode "time=$TS_SEC")
           echo "$result" | jq .
           value=$(echo "$result" | jq -r '.data.result[0].value[1]')
-          [[ "$value" == "95.2" ]] && echo "✓ cpu_usage_idle = 95.2" || { echo "✗ got $value"; exit 1; }
+          [[ "$value" == "95.2" ]] && echo "✓ cpu_usage_idle = 95.2" \
+            || { echo "✗ got $value"; exit 1; }
 
       - name: 'Test 4: query speedtest data'
         run: |
           result=$(curl -sf 'http://localhost:8428/api/v1/query' \
-            --data-urlencode 'query=speedtest_download_bandwidth{result_id="test-001"}' \
-            --data-urlencode 'time=1714300800')
+            --data-urlencode \
+              'query=speedtest_download_bandwidth{result_id="test-001"}' \
+            --data-urlencode "time=$TS_SEC")
           value=$(echo "$result" | jq -r '.data.result[0].value[1]')
-          [[ "$value" == "941000000" ]] && echo "✓ download_bandwidth = 941000000" || { echo "✗ got $value"; exit 1; }
+          [[ "$value" == "941000000" ]] \
+            && echo "✓ download_bandwidth = 941000000" \
+            || { echo "✗ got $value"; exit 1; }
 
       - name: 'Test 5: export data'
         run: |
