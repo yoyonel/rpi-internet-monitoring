@@ -119,18 +119,18 @@ just install-timers
 
 ### Testing
 
-| Commande                     | RPi requis | Description                                                     |
-| ---------------------------- | ---------- | --------------------------------------------------------------- |
-| `just test`                  | **oui**    | Suite de régression complète (17 checks)                        |
-| `just test-unit`             | non        | Tests unitaires `lib.js` (Node.js, 39 tests, ~300ms)            |
-| `just test-e2e`              | non        | Tests E2E Playwright (nécessite un preview actif sur :8080)     |
-| `just check`                 | **oui**    | Health check rapide des 4 services                              |
-| `just e2e [url]`             | non        | Tests E2E Playwright contre une preview (défaut: :8080)         |
-| `just sim-test`              | non        | Smoke tests de la stack sim (25 checks)                         |
-| `just lint`                  | non        | Vérifier le formatage et le linting de tous les sources         |
-| `just fmt`                   | non        | Auto-formater tous les fichiers sources                         |
-| `just lighthouse [flags]`    | non        | Audit Lighthouse sur la page prod (mobile+desktop par défaut)   |
-| `just lighthouse-report [p]` | non        | Analyse priorisée des rapports Lighthouse (mobile/desktop/both) |
+| Commande                     | RPi requis | Description                                                           |
+| ---------------------------- | ---------- | --------------------------------------------------------------------- |
+| `just test`                  | **oui**    | Suite de régression complète (17 checks)                              |
+| `just test-unit`             | non        | Tests unitaires `lib.js` (Node.js, 75 tests, ~500ms)                  |
+| `just test-e2e`              | non        | Tests E2E Playwright (12 tests, nécessite un preview actif sur :8080) |
+| `just check`                 | **oui**    | Health check rapide des 4 services                                    |
+| `just e2e [url]`             | non        | Tests E2E Playwright contre une preview (défaut: :8080)               |
+| `just sim-test`              | non        | Smoke tests de la stack sim (25 checks)                               |
+| `just lint`                  | non        | Vérifier le formatage et le linting de tous les sources               |
+| `just fmt`                   | non        | Auto-formater tous les fichiers sources                               |
+| `just lighthouse [flags]`    | non        | Audit Lighthouse sur la page prod (mobile+desktop par défaut)         |
+| `just lighthouse-report [p]` | non        | Analyse priorisée des rapports Lighthouse (mobile/desktop/both)       |
 
 ### Publication & Preview
 
@@ -235,14 +235,21 @@ Page statique déployée sur [yoyonel.github.io/rpi-internet-monitoring](https:/
 
 ### Architecture frontend
 
-| Fichier                        | Rôle                                                                                                    |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------- |
-| `gh-pages/lib.js`              | Fonctions pures : LTTB downsampling, bucketisation, histogramme, score de qualité, stats, binary search |
-| `gh-pages/app.js`              | Orchestration DOM : Chart.js, rendu cartes stats, time picker, zoom/pan, alertes                        |
-| `gh-pages/style.css`           | Dark theme responsive                                                                                   |
-| `gh-pages/index.template.html` | Template HTML avec placeholders `__LAST_UPDATE__` / `__GENERATED_AT__`                                  |
+| Fichier                        | Rôle                                                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `gh-pages/lib.js`              | Fonctions pures : LTTB downsampling, bucketisation, histogramme, score de qualité, daily status, stats |
+| `gh-pages/app.js`              | Orchestration DOM : charge les données, initialise les composants, connecte les callbacks              |
+| `gh-pages/charts.js`           | Chart.js : création des graphes bandwidth/latency, rendu, zoom/pan, render hook                        |
+| `gh-pages/state.js`            | État partagé : données typées, range courant (start/end/isLive/isToday)                                |
+| `gh-pages/status-bar.js`       | Barres de statut 30 jours (style GitHub) : rendu, tooltips, clic→navigation, indicateur jour actif     |
+| `gh-pages/time-controls.js`    | Gestion du time range : presets, Today, shift, zoom, applyRange                                        |
+| `gh-pages/time-picker.js`      | Sélecteur de dates (calendrier + presets absolus)                                                      |
+| `gh-pages/alerts.js`           | Rendu des alertes RPi depuis alerts.json                                                               |
+| `gh-pages/sync-status.js`      | Indicateur de fraîcheur des données (dot vert/orange/rouge)                                            |
+| `gh-pages/style.css`           | Dark theme responsive                                                                                  |
+| `gh-pages/index.template.html` | Template HTML avec placeholders `__LAST_UPDATE__` / `__GENERATED_AT__`                                 |
 
-`app.js` importe `lib.js` via ES modules (`<script type="module">`). Les fonctions pures de `lib.js` sont testées unitairement avec `node --test` (39 tests, ~300ms, zéro dépendance).
+`app.js` orchestre les modules via ES modules (`<script type="module">`). Les fonctions pures de `lib.js` sont testées unitairement avec `node --test` (75 tests, ~500ms, zéro dépendance).
 
 ### Architecture shell (scripts/)
 
