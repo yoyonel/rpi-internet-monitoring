@@ -189,6 +189,15 @@ preview days="30":
 preview-dev port="8080":
     bash scripts/preview-dev.sh {{ port }}
 
+# Preview monitoring page using VictoriaMetrics data
+preview-vm port="8080" vm_url="http://localhost:8428":
+    bash scripts/export-vm-data.sh {{ vm_url }} 30 > /tmp/vm-data.json
+    bash scripts/preview-dev.sh {{ port }} --data /tmp/vm-data.json
+
+# Preview monitoring page using VM fixture data (offline, no VM needed)
+preview-vm-fixture port="8080":
+    bash scripts/preview-dev.sh {{ port }} --data tests/fixtures/data-vm.json
+
 # Publish updated template to GitHub Pages using live data (no RPi needed)
 publish-template:
     bash scripts/publish-template.sh
