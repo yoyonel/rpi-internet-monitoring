@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert';
 import {
   lttb,
   bucketize,
+  computeDailyStatus,
   sortedSlice,
   medianOf,
   pctOf,
@@ -483,5 +484,99 @@ describe('makeLineDs', () => {
     assert.equal(ds[0].label, 'download');
     assert.equal(ds[0].fill, true);
     assert.equal(ds[0].backgroundColor, 'grad');
+  });
+});
+
+// ── computeDailyStatus ───────────────────────────────────────
+describe('computeDailyStatus', () => {
+  // Helper: generate data points every 10min for N days ending now
+  const generateData = (nDays, dlVal, ulVal, piVal) => {
+    const now = Date.now();
+    const endDay = new Date();
+    endDay.setHours(0, 0, 0, 0);
+    endDay.setDate(endDay.getDate() + 1);
+    const startMs = endDay.getTime() - nDays * 86_400_000;
+    const interval = 600_000; // 10 min
+    const count = Math.floor((nDays * 86_400_000) / interval);
+    const ts = new Float64Array(count);
+    const dl = new Float64Array(count);
+    const ul = new Float64Array(count);
+    const pi = new Float64Array(count);
+    for (let i = 0; i < count; i++) {
+      ts[i] = startMs + i * interval;
+      dl[i] = dlVal;
+      ul[i] = ulVal;
+      pi[i] = piVal;
+    }
+    return { ts, dl, ul, pi, LEN: count };
+  };
+
+  it('returns empty array for zero-length data', () => {
+    const result = computeDailyStatus(null, null, null, null, 0, 30);
+    assert.deepEqual(result, []);
+  });
+
+  it('returns nDays entries', () => {
+    const d = generateData(30, 900, 600, 10);
+    const result = computeDailyStatus(d.ts, d.dl, d.ul, d.pi, d.LEN, 30);
+    assert.equal(result.length, 30);
+  });
+
+  it('all days have metrics for continuous data', () => {
+    const d = generateData(5, 900, 600, 10);
+    const result = computeDailyStatus(d.ts, d.dl, d.ul, d.pi, d.LEN, 5);
+    for (const day of result) {
+      assert.notEqual(day.metrics, null, `Day ${day.date} should have metrics`);
+      assert.ok(day.metrics.dl);
+      assert.ok(day.metrics.ul);
+      assert.ok(day.metrics.pi);
+    }
+  });
+
+  it('days beyond data range have null metrics', () => {
+    const d = generateData(3, 900, 600, 10);
+    const result = computeDailyStatus(d.ts, d.dl, d.ul, d.pi, d.LEN, 10);
+    assert.equal(result.length, 10);
+    // First 7 days (oldest) should have null metrics
+    const noData = result.filter((r) => r.metrics === null);
+    assert.ok(noData.length >= 6, `Expected >= 6 days without data, got ${noData.length}`);
+  });
+
+  it('excellent data yields low scores', () => {
+    const d = generateData(5, 900, 600, 10);
+    const result = computeDailyStatus(d.ts, d.dl, d.ul, d.pi, d.LEN, 5);
+    for (const day of result) {
+      if (!day.metrics) continue;
+      assert.ok(day.metrics.dl.score < 0.3, `DL score ${day.metrics.dl.score} should be < 0.3`);
+      assert.ok(day.metrics.ul.score < 0.3, `UL score ${day.metrics.ul.score} should be < 0.3`);
+      assert.ok(day.metrics.pi.score < 0.3, `PI score ${day.metrics.pi.score} should be < 0.3`);
+      assert.ok(day.overall.score < 0.3, `Overall score ${day.overall.score} should be < 0.3`);
+    }
+  });
+
+  it('each day has a date string in dd/MM/yyyy format', () => {
+    const d = generateData(5, 900, 600, 10);
+    const result = computeDailyStatus(d.ts, d.dl, d.ul, d.pi, d.LEN, 5);
+    for (const day of result) {
+      assert.match(day.date, /^\d{2}\/\d{2}\/\d{4}$/);
+    }
+  });
+
+  it('days are ordered chronologically (oldest first)', () => {
+    const d = generateData(5, 900, 600, 10);
+    const result = computeDailyStatus(d.ts, d.dl, d.ul, d.pi, d.LEN, 5);
+    for (let i = 1; i < result.length; i++) {
+      assert.ok(result[i].dayStart > result[i - 1].dayStart);
+    }
+  });
+
+  it('overall score has color and label', () => {
+    const d = generateData(3, 900, 600, 10);
+    const result = computeDailyStatus(d.ts, d.dl, d.ul, d.pi, d.LEN, 3);
+    for (const day of result) {
+      if (!day.overall) continue;
+      assert.ok(day.overall.color.startsWith('hsl('));
+      assert.ok(['Excellent', 'Correct', 'Dégradé', 'Critique'].includes(day.overall.label));
+    }
   });
 });

@@ -185,14 +185,14 @@ test.describe('interactive', () => {
     await expect(rangeLabel).not.toHaveText(initialText);
   });
 
-  // ── 10. Double-click on chart resets to default 48 h view ────
+  // ── 10. Double-click on chart resets to default "today" view ──
   test('double-click on chart resets to live view', async () => {
     // Ensure we're on 6h (may already be from previous test)
     await page.locator('.rb[data-hours="6"]').click();
     await expect(page.locator('.rb[data-hours="6"]')).toHaveClass(/on/);
 
     await page.locator('#bwChart').dblclick();
-    await expect(page.locator('.rb[data-hours="48"]')).toHaveClass(/on/);
+    await expect(page.locator('#btnToday')).toHaveClass(/on/);
   });
 
   // ── 11. Time range picker opens and has content ─────────────
