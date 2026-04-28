@@ -1,1 +1,363 @@
-import{computeDailyStatus as t}from"./lib.js";import{data as e,range as s}from"./state.js";const a={dl:{name:"Download",unit:"Mb/s",format:t=>t.toFixed(0)+" Mb/s"},ul:{name:"Upload",unit:"Mb/s",format:t=>t.toFixed(0)+" Mb/s"},pi:{name:"Ping",unit:"ms",format:t=>t.toFixed(1)+" ms"}},n=[{key:"dl",label:"Download"},{key:"ul",label:"Upload"},{key:"pi",label:"Ping"}],l=t=>String(t).replace(/[&<>"']/g,t=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[t]));export const barColor=t=>`hsl(${(120*(1-t)).toFixed(0)}, 40%, 28%)`;export const uptimePct=(t,e)=>{let s=0,a=0;for(const n of t)n.metrics&&(a++,n.metrics[e].score<.6&&s++);return a>0?(s/a*100).toFixed(2):"--"};export const badgeInfo=t=>{if("--"===t)return{cls:"none",icon:"",level:""};const e=Number(t);return{cls:e>=90?"ok":e>=70?"warn":"bad",icon:e>=90?"✓":"!",level:e>=90?"Excellent":e>=70?"Correct":"Dégradé"}};const o={ok:"#3fb950",warn:"#d29922",bad:"#f85149",none:"#555"},i=(t,e,s,a={})=>{const{showDot:n=!1,showBg:l=!1}=a,i=o[s]||o.none,r="ok"===s?1:"warn"===s?.65:"bad"===s?.3:0,d=e/32;t.clearRect(0,0,e,e),l&&(t.beginPath(),t.roundRect(0,0,e,e,6*d),t.fillStyle="#161b22",t.fill());const c=e/2,p=.6*e,b=10*d;t.beginPath(),t.arc(c,p,b,Math.PI,0),t.lineWidth=3*d,t.strokeStyle="#30363d",t.lineCap="butt",t.stroke(),r>0&&(t.beginPath(),t.arc(c,p,b,Math.PI,Math.PI+Math.PI*r),t.lineWidth=3*d,t.strokeStyle=i,t.lineCap="round",t.stroke());const u=Math.PI+Math.PI*r,m=6*d;t.beginPath(),t.moveTo(c,p),t.lineTo(c+Math.cos(u)*m,p+Math.sin(u)*m),t.lineWidth=2*d,t.strokeStyle="#e6edf3",t.lineCap="round",t.stroke(),t.beginPath(),t.arc(c,p,2*d,0,2*Math.PI),t.fillStyle="#e6edf3",t.fill(),n&&(t.beginPath(),t.arc(e-6*d,6*d,4*d,0,2*Math.PI),t.fillStyle=i,t.fill(),t.lineWidth=1.5*d,t.strokeStyle="#161b22",t.stroke())};let r=null;const d=()=>{r||(r=document.createElement("div"),r.className="sb-tip",document.body.appendChild(r))},c=t=>{d();const e=t.dataset.blabel,s=t.dataset.bpct,a=t.dataset.blevel;if(!a)return;r.innerHTML=`<strong>Qualité ${e}</strong><br><span class="sb-tip-label">${a}</span>\n<div class="sb-tip-grid">\n  <span class="sb-tip-k">Jours OK</span><span class="sb-tip-v">${s}%</span>\n  <span class="sb-tip-k">Seuil ✓</span><span class="sb-tip-v">≥ 90%</span>\n</div>\n<span class="sb-tip-pts">Qualité = perf 30% + stab 70%. Jour « OK » si qualité ≥ 40%</span>`,r.className="sb-tip sb-tip-below",r.style.display="block";const n=t.getBoundingClientRect();r.style.left=`${n.left+n.width/2}px`,r.style.top=`${n.bottom+6}px`},p=()=>{r&&(r.style.display="none")};export const initStatusBars=s=>{const o=document.getElementById("statusBars");if(!o||!e.ts)return;const b=t(e.ts,e.dl,e.ul,e.pi,e.LEN,30);if(!b.length)return void(o.style.display="none");const u=b.length;o.innerHTML=n.map(t=>((t,e,s)=>{const n=uptimePct(t,e);t.length;let o="";for(let s=0;s<t.length;s++){const n=t[s],i=n.metrics?.[e],r=i?barColor(i.score):"var(--border)",d=l(n.date),c=i?l(i.label):"Aucune donnée",p=i?l(a[e].format(i.median)):"--",b=i?i.n+" mesures":"",u=i?(100*(1-i.perf)).toFixed(0):"",m=i?(100*(1-i.stab)).toFixed(0):"",g=i?(100*i.iqrRatio).toFixed(1):"",h=i?a[e].format(i.q1):"",f=i?a[e].format(i.q3):"";o+=`<div class="sb-bar" style="background:${r}" data-date="${d}" data-label="${c}" data-median="${p}" data-pts="${b}" data-score="${i?i.score.toFixed(2):""}" data-perf="${u}" data-stab="${m}" data-iqr="${g}" data-q1="${h}" data-q3="${f}" data-start="${n.dayStart}" data-end="${n.dayEnd}"></div>`}Number(n);const i=badgeInfo(n);return`<div class="sb-row" data-metric="${e}">\n    <div class="sb-header">\n      <span class="sb-name">${l(s)}</span>\n      <span class="sb-header-right">\n        <span class="sb-pct">${n}%</span>\n        <span class="sb-badge sb-badge-${i.cls}" data-blabel="${l(s)}" data-bpct="${n}" data-blevel="${l(i.level)}">${i.icon}</span>\n      </span>\n    </div>\n    <div class="sb-bars">${o}</div>\n  </div>`})(b,t.key,t.label)).join("")+`<div class="sb-footer">\n      <span>${u} jours</span>\n      <span>Auj.</span>\n    </div>`;const m=b[b.length-1];let g="none";if(m?.metrics){const t=n.map(t=>m.metrics[t.key]?.score??1),e=Math.max(...t);g=e<.3?"ok":e<.6?"warn":"bad"}(t=>{const e=document.createElement("canvas");e.width=32,e.height=32,i(e.getContext("2d"),32,t,{showDot:!0,showBg:!0});let s=document.querySelector('link[rel="icon"]');s||(s=document.createElement("link"),s.rel="icon",document.head.appendChild(s)),s.href=e.toDataURL("image/png")})(g),(t=>{const e=document.querySelector("nav .brand");if(!e)return;let s=e.querySelector(".brand-gauge");s||(s=document.createElement("canvas"),s.className="brand-gauge",s.width=64,s.height=64,e.prepend(s));const a=window.devicePixelRatio||1;s.width=28*a,s.height=28*a,s.style.width="28px",s.style.height="28px";const n=s.getContext("2d");n.scale(a,a),i(n,28,t)})(g),o.addEventListener("mouseenter",t=>{const e=t.target.closest?.(".sb-bar");if(e)return void(t=>{d();const e=t.dataset.date,s=t.dataset.label,a=t.dataset.median,n=t.dataset.pts,l=t.dataset.perf,o=t.dataset.stab,i=t.dataset.score,c=t.dataset.iqr,p=t.dataset.q1,b=t.dataset.q3;let u=`<strong>${e}</strong><br><span class="sb-tip-label" style="color:${t.style.background}">${s}</span>`;"--"!==a&&(u+='<div class="sb-tip-grid">',u+=`<span class="sb-tip-k">Médiane</span><span class="sb-tip-v">${a}</span>`,u+=`<span class="sb-tip-k">Qualité</span><span class="sb-tip-v">${""!==i?(100-100*parseFloat(i)).toFixed(0):"--"}% <span class="sb-tip-dim">(perf ${l} + stab ${o})</span></span>`,u+=`<span class="sb-tip-k">IQR/méd</span><span class="sb-tip-v">${c}% <span class="sb-tip-dim">(${p} → ${b})</span></span>`,u+="</div>");n&&(u+=`<span class="sb-tip-pts">${n}</span>`),r.innerHTML=u,r.className="sb-tip sb-tip-above",r.style.display="block";const m=t.getBoundingClientRect();r.style.left=`${m.left+m.width/2}px`,r.style.top=m.top-6+"px"})(e);const s=t.target.closest?.(".sb-badge");s&&c(s)},!0),o.addEventListener("mouseleave",t=>{const e=t.target.closest?.(".sb-bar"),s=t.target.closest?.(".sb-badge");(e||s)&&p()},!0),o.addEventListener("click",t=>{const e=t.target.closest?.(".sb-bar");if(e&&e.dataset.start&&s)return s(Number(e.dataset.start),Number(e.dataset.end)),void p();const a=t.target.closest?.(".sb-badge");a&&(c(a),setTimeout(p,4e3))})};export const highlightActiveDay=()=>{const t=document.querySelectorAll(".sb-bar");for(const e of t){const t=Number(e.dataset.start),a=Number(e.dataset.end);e.classList.toggle("sb-active",t<s.end&&a>s.start)}};
+// ── Status bars (GitHub-style uptime view) ──────────────────
+// Self-contained: computes daily status from shared state, renders to #statusBars.
+// Tooltip on hover shows day details.
+
+import { computeDailyStatus } from './lib.js';
+import { data, range } from './state.js';
+
+const METRIC_LABELS = {
+  dl: { name: 'Download', unit: 'Mb/s', format: (v) => v.toFixed(0) + ' Mb/s' },
+  ul: { name: 'Upload', unit: 'Mb/s', format: (v) => v.toFixed(0) + ' Mb/s' },
+  pi: { name: 'Ping', unit: 'ms', format: (v) => v.toFixed(1) + ' ms' },
+};
+
+const ROWS = [
+  { key: 'dl', label: 'Download' },
+  { key: 'ul', label: 'Upload' },
+  { key: 'pi', label: 'Ping' },
+];
+
+/** Escape HTML */
+const esc = (s) =>
+  String(s).replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c],
+  );
+
+/** Muted color for status bars (subdued by default, like GitHub) */
+export const barColor = (score) => {
+  const hue = 120 * (1 - score);
+  return `hsl(${hue.toFixed(0)}, 40%, 28%)`;
+};
+
+/** Compute uptime percentage for a metric across all days with data */
+export const uptimePct = (days, metricKey) => {
+  let good = 0,
+    total = 0;
+  for (const d of days) {
+    if (!d.metrics) continue;
+    total++;
+    if (d.metrics[metricKey].score < 0.6) good++;
+  }
+  return total > 0 ? ((good / total) * 100).toFixed(2) : '--';
+};
+
+/** Compute badge class, icon and level from uptime percentage string */
+export const badgeInfo = (pct) => {
+  if (pct === '--') return { cls: 'none', icon: '', level: '' };
+  const p = Number(pct);
+  return {
+    cls: p >= 90 ? 'ok' : p >= 70 ? 'warn' : 'bad',
+    icon: p >= 90 ? '✓' : '!',
+    level: p >= 90 ? 'Excellent' : p >= 70 ? 'Correct' : 'Dégradé',
+  };
+};
+
+/** Badge severity rank: lower = worse */
+const BADGE_RANK = { bad: 0, warn: 1, ok: 2, none: 3 };
+
+/** Colors for favicon */
+const FAVICON_COLORS = { ok: '#3fb950', warn: '#d29922', bad: '#f85149', none: '#555' };
+
+/** Draw a speed gauge onto a canvas context.
+ *  @param {CanvasRenderingContext2D} ctx
+ *  @param {number} S — canvas size (square)
+ *  @param {string} worstCls — 'ok' | 'warn' | 'bad' | 'none'
+ *  @param {object} [opts] — { showDot, showBg } */
+const drawGauge = (ctx, S, worstCls, opts = {}) => {
+  const { showDot = false, showBg = false } = opts;
+  const color = FAVICON_COLORS[worstCls] || FAVICON_COLORS.none;
+  const fill = worstCls === 'ok' ? 1.0 : worstCls === 'warn' ? 0.65 : worstCls === 'bad' ? 0.3 : 0;
+  const scale = S / 32; // scale factor relative to 32px reference
+
+  ctx.clearRect(0, 0, S, S);
+
+  // ── Optional dark rounded background (favicon only) ──
+  if (showBg) {
+    ctx.beginPath();
+    ctx.roundRect(0, 0, S, S, 6 * scale);
+    ctx.fillStyle = '#161b22';
+    ctx.fill();
+  }
+
+  // ── Speed gauge arc (bottom half) ──
+  const cx = S / 2,
+    cy = S * 0.6;
+  const radius = 10 * scale;
+  // Background arc (dark grey)
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, Math.PI, 0);
+  ctx.lineWidth = 3 * scale;
+  ctx.strokeStyle = '#30363d';
+  ctx.lineCap = 'butt';
+  ctx.stroke();
+  // Colored arc
+  if (fill > 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, Math.PI, Math.PI + Math.PI * fill);
+    ctx.lineWidth = 3 * scale;
+    ctx.strokeStyle = color;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  // ── Needle ──
+  const angle = Math.PI + Math.PI * fill;
+  const nLen = 6 * scale;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(angle) * nLen, cy + Math.sin(angle) * nLen);
+  ctx.lineWidth = 2 * scale;
+  ctx.strokeStyle = '#e6edf3';
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  // Center dot
+  ctx.beginPath();
+  ctx.arc(cx, cy, 2 * scale, 0, 2 * Math.PI);
+  ctx.fillStyle = '#e6edf3';
+  ctx.fill();
+
+  // ── Optional status dot (top-right) ──
+  if (showDot) {
+    ctx.beginPath();
+    ctx.arc(S - 6 * scale, 6 * scale, 4 * scale, 0, 2 * Math.PI);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = 1.5 * scale;
+    ctx.strokeStyle = '#161b22';
+    ctx.stroke();
+  }
+};
+
+/** Generate favicon and update <link rel="icon"> */
+const updateFavicon = (worstCls) => {
+  const S = 32;
+  const c = document.createElement('canvas');
+  c.width = S;
+  c.height = S;
+  drawGauge(c.getContext('2d'), S, worstCls, { showDot: true, showBg: true });
+  let link = document.querySelector('link[rel="icon"]');
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  link.href = c.toDataURL('image/png');
+};
+
+/** Draw the gauge into the nav brand area */
+const updateNavGauge = (worstCls) => {
+  const brand = document.querySelector('nav .brand');
+  if (!brand) return;
+  let canvas = brand.querySelector('.brand-gauge');
+  if (!canvas) {
+    canvas = document.createElement('canvas');
+    canvas.className = 'brand-gauge';
+    canvas.width = 64;
+    canvas.height = 64;
+    brand.prepend(canvas);
+  }
+  const dpr = window.devicePixelRatio || 1;
+  const displaySize = 28;
+  canvas.width = displaySize * dpr;
+  canvas.height = displaySize * dpr;
+  canvas.style.width = displaySize + 'px';
+  canvas.style.height = displaySize + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  drawGauge(ctx, displaySize, worstCls);
+};
+
+/** Build one status bar row */
+const buildRow = (days, metricKey, label) => {
+  const pct = uptimePct(days, metricKey);
+  const nDays = days.length;
+
+  let barsHtml = '';
+  for (let i = 0; i < days.length; i++) {
+    const d = days[i];
+    const m = d.metrics?.[metricKey];
+    const color = m ? barColor(m.score) : 'var(--border)';
+    const tipDate = esc(d.date);
+    const tipLabel = m ? esc(m.label) : 'Aucune donnée';
+    const tipMedian = m ? esc(METRIC_LABELS[metricKey].format(m.median)) : '--';
+    const tipPts = m ? m.n + ' mesures' : '';
+
+    const tipPerf = m ? (100 * (1 - m.perf)).toFixed(0) : '';
+    const tipStab = m ? (100 * (1 - m.stab)).toFixed(0) : '';
+    const tipIqr = m ? (m.iqrRatio * 100).toFixed(1) : '';
+    const tipQ1 = m ? METRIC_LABELS[metricKey].format(m.q1) : '';
+    const tipQ3 = m ? METRIC_LABELS[metricKey].format(m.q3) : '';
+
+    barsHtml += `<div class="sb-bar" style="background:${color}" data-date="${tipDate}" data-label="${tipLabel}" data-median="${tipMedian}" data-pts="${tipPts}" data-score="${m ? m.score.toFixed(2) : ''}" data-perf="${tipPerf}" data-stab="${tipStab}" data-iqr="${tipIqr}" data-q1="${tipQ1}" data-q3="${tipQ3}" data-start="${d.dayStart}" data-end="${d.dayEnd}"></div>`;
+  }
+
+  const p = Number(pct);
+  const badge = badgeInfo(pct);
+
+  return `<div class="sb-row" data-metric="${metricKey}">
+    <div class="sb-header">
+      <span class="sb-name">${esc(label)}</span>
+      <span class="sb-header-right">
+        <span class="sb-pct">${pct}%</span>
+        <span class="sb-badge sb-badge-${badge.cls}" data-blabel="${esc(label)}" data-bpct="${pct}" data-blevel="${esc(badge.level)}">${badge.icon}</span>
+      </span>
+    </div>
+    <div class="sb-bars">${barsHtml}</div>
+  </div>`;
+};
+
+/** Tooltip element (shared, repositioned on hover) */
+let tipEl = null;
+
+const ensureTip = () => {
+  if (tipEl) return;
+  tipEl = document.createElement('div');
+  tipEl.className = 'sb-tip';
+  document.body.appendChild(tipEl);
+};
+
+const showTip = (bar) => {
+  ensureTip();
+  const date = bar.dataset.date;
+  const label = bar.dataset.label;
+  const median = bar.dataset.median;
+  const pts = bar.dataset.pts;
+
+  const perf = bar.dataset.perf;
+  const stab = bar.dataset.stab;
+  const score = bar.dataset.score;
+  const iqr = bar.dataset.iqr;
+  const q1 = bar.dataset.q1;
+  const q3 = bar.dataset.q3;
+
+  let html = `<strong>${date}</strong><br><span class="sb-tip-label" style="color:${bar.style.background}">${label}</span>`;
+  if (median !== '--') {
+    const qualPct = score !== '' ? (100 - parseFloat(score) * 100).toFixed(0) : '--';
+    html += `<div class="sb-tip-grid">`;
+    html += `<span class="sb-tip-k">Médiane</span><span class="sb-tip-v">${median}</span>`;
+    html += `<span class="sb-tip-k">Qualité</span><span class="sb-tip-v">${qualPct}% <span class="sb-tip-dim">(perf ${perf} + stab ${stab})</span></span>`;
+    html += `<span class="sb-tip-k">IQR/méd</span><span class="sb-tip-v">${iqr}% <span class="sb-tip-dim">(${q1} → ${q3})</span></span>`;
+    html += `</div>`;
+  }
+  if (pts) html += `<span class="sb-tip-pts">${pts}</span>`;
+
+  tipEl.innerHTML = html;
+  tipEl.className = 'sb-tip sb-tip-above';
+  tipEl.style.display = 'block';
+
+  const r = bar.getBoundingClientRect();
+  tipEl.style.left = `${r.left + r.width / 2}px`;
+  tipEl.style.top = `${r.top - 6}px`;
+};
+
+const showBadgeTip = (badge) => {
+  ensureTip();
+  const label = badge.dataset.blabel;
+  const pct = badge.dataset.bpct;
+  const level = badge.dataset.blevel;
+
+  if (!level) return;
+
+  tipEl.innerHTML = `<strong>Qualit\u00e9 ${label}</strong><br><span class="sb-tip-label">${level}</span>
+<div class="sb-tip-grid">
+  <span class="sb-tip-k">Jours OK</span><span class="sb-tip-v">${pct}%</span>
+  <span class="sb-tip-k">Seuil \u2713</span><span class="sb-tip-v">\u2265 90%</span>
+</div>
+<span class="sb-tip-pts">Qualit\u00e9 = perf 30% + stab 70%. Jour \u00ab OK \u00bb si qualit\u00e9 \u2265 40%</span>`;
+  tipEl.className = 'sb-tip sb-tip-below';
+  tipEl.style.display = 'block';
+
+  const r = badge.getBoundingClientRect();
+  tipEl.style.left = `${r.left + r.width / 2}px`;
+  tipEl.style.top = `${r.bottom + 6}px`;
+};
+
+const hideTip = () => {
+  if (tipEl) tipEl.style.display = 'none';
+};
+
+/** Initialize status bars. Call after data is loaded.
+ *  @param {function} [onBarClick] — called with (start, end) when a bar is clicked */
+export const initStatusBars = (onBarClick) => {
+  const container = document.getElementById('statusBars');
+  if (!container || !data.ts) return;
+
+  const days = computeDailyStatus(data.ts, data.dl, data.ul, data.pi, data.LEN, 30);
+
+  if (!days.length) {
+    container.style.display = 'none';
+    return;
+  }
+
+  const nDays = days.length;
+  container.innerHTML =
+    ROWS.map((r) => buildRow(days, r.key, r.label)).join('') +
+    `<div class="sb-footer">
+      <span>${nDays} jours</span>
+      <span>Auj.</span>
+    </div>`;
+
+  // Dynamic favicon: colored dot reflecting today's worst metric
+  const today = days[days.length - 1];
+  let todayCls = 'none';
+  if (today?.metrics) {
+    const scores = ROWS.map((r) => today.metrics[r.key]?.score ?? 1);
+    const worst = Math.max(...scores);
+    // Map score to badge class: <0.3 ok, <0.6 warn, else bad
+    todayCls = worst < 0.3 ? 'ok' : worst < 0.6 ? 'warn' : 'bad';
+  }
+  updateFavicon(todayCls);
+  updateNavGauge(todayCls);
+
+  // Event delegation for bar tooltip
+  container.addEventListener(
+    'mouseenter',
+    (e) => {
+      const bar = e.target.closest?.('.sb-bar');
+      if (bar) {
+        showTip(bar);
+        return;
+      }
+      const badge = e.target.closest?.('.sb-badge');
+      if (badge) showBadgeTip(badge);
+    },
+    true,
+  );
+
+  container.addEventListener(
+    'mouseleave',
+    (e) => {
+      const bar = e.target.closest?.('.sb-bar');
+      const badge = e.target.closest?.('.sb-badge');
+      if (bar || badge) hideTip();
+    },
+    true,
+  );
+
+  // Click on bar → navigate to that day's time range
+  container.addEventListener('click', (e) => {
+    const bar = e.target.closest?.('.sb-bar');
+    if (bar && bar.dataset.start && onBarClick) {
+      onBarClick(Number(bar.dataset.start), Number(bar.dataset.end));
+      hideTip();
+      return;
+    }
+    const badge = e.target.closest?.('.sb-badge');
+    if (badge) {
+      showBadgeTip(badge);
+      setTimeout(hideTip, 4000);
+    }
+  });
+};
+
+/** Highlight bars overlapping the current time range. Call after each render. */
+export const highlightActiveDay = () => {
+  const bars = document.querySelectorAll('.sb-bar');
+  for (const bar of bars) {
+    const s = Number(bar.dataset.start);
+    const e = Number(bar.dataset.end);
+    // Overlap: bar intersects [range.start, range.end]
+    bar.classList.toggle('sb-active', s < range.end && e > range.start);
+  }
+};

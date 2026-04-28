@@ -1,1 +1,41 @@
-import{HOUR as t}from"./lib.js";export const data={ts:null,dl:null,ul:null,pi:null,LEN:0};export const range={start:0,end:0,currentH:24,isLive:!0,isToday:!0,dataEnd:0};export const qualityData={};export const tzAbbr=(new Date).toLocaleTimeString("fr-FR",{timeZoneName:"short"}).split(" ").pop();export const initData=(a,e,n,r)=>{data.ts=a,data.dl=e,data.ul=n,data.pi=r,data.LEN=a.length,range.dataEnd=a[a.length-1],range.end=range.dataEnd+6e5;const l=new Date,o=new Date(l.getFullYear(),l.getMonth(),l.getDate()).getTime();range.start=o,range.currentH=(range.end-range.start)/t};
+// ── Shared mutable state for all UI components ──────────────
+// Single source of truth: imported by charts, controls, picker.
+// No DOM access. Pure data store.
+
+import { HOUR } from './lib.js';
+
+/** @type {{ ts: Float64Array, dl: Float64Array, ul: Float64Array, pi: Float64Array, LEN: number }} */
+export const data = { ts: null, dl: null, ul: null, pi: null, LEN: 0 };
+
+export const range = {
+  start: 0,
+  end: 0,
+  currentH: 24,
+  isLive: true,
+  isToday: true,
+  dataEnd: 0,
+};
+
+export const qualityData = {};
+
+/** Timezone abbreviation resolved once at startup */
+export const tzAbbr = new Date()
+  .toLocaleTimeString('fr-FR', { timeZoneName: 'short' })
+  .split(' ')
+  .pop();
+
+/** Initialize state from parsed InfluxDB data */
+export const initData = (ts, dl, ul, pi) => {
+  data.ts = ts;
+  data.dl = dl;
+  data.ul = ul;
+  data.pi = pi;
+  data.LEN = ts.length;
+  range.dataEnd = ts[ts.length - 1];
+  range.end = range.dataEnd + 600_000;
+  // Default: "today" = midnight local time → now
+  const now = new Date();
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  range.start = midnight;
+  range.currentH = (range.end - range.start) / HOUR;
+};
