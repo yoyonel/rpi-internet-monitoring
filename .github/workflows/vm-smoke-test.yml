@@ -21,28 +21,27 @@ on:
 jobs:
   vm-smoke:
     runs-on: ubuntu-latest
-    services:
-      victoriametrics:
-        image: victoriametrics/victoria-metrics:v1.142.0
-        ports:
-          - 8428:8428
-          - 8089:8089
-        options: >-
-          --health-cmd="wget -qO- http://localhost:8428/health || exit 1"
-          --health-interval=5s
-          --health-timeout=3s
-          --health-retries=10
 
     steps:
       - uses: actions/checkout@v6
 
-      - name: Wait for VictoriaMetrics
+      - name: Start VictoriaMetrics
         run: |
+          docker run -d --name victoriametrics \
+            -p 8428:8428 -p 8089:8089 \
+            victoriametrics/victoria-metrics:v1.142.0 \
+            -influxListenAddr=:8089
+
           echo "Waiting for VM to be healthy..."
           for i in $(seq 1 30); do
-            if wget -qO- http://localhost:8428/health 2>/dev/null; then
-              echo "VM is healthy"
+            if curl -sf http://localhost:8428/health >/dev/null 2>&1; then
+              echo "VM is healthy after ${i}s"
               break
+            fi
+            if [[ "$i" -eq 30 ]]; then
+              echo "VM did not become healthy in 30s"
+              docker logs victoriametrics
+              exit 1
             fi
             sleep 1
           done
@@ -116,3 +115,7 @@ jobs:
         run: |
           status=$(curl -sf -o /dev/null -w '%{http_code}' http://localhost:8428/vmui/)
           [[ "$status" == "200" ]] && echo "✓ vmui → 200" || { echo "✗ vmui → $status"; exit 1; }
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f victoriametrics 2>/dev/null || true
