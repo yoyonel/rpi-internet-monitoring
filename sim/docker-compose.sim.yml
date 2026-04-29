@@ -67,6 +67,10 @@ services:
     mem_limit: 256m
     memswap_limit: 384m
     hostname: rpi-sim
+    environment:
+      # When VICTORIA_METRICS_URL is empty, use a dummy URL to avoid Telegraf 1.38
+      # strict env handling crash. The connection will silently fail (no VM running).
+      VICTORIA_METRICS_URL: ${VICTORIA_METRICS_URL:-http://localhost:9}
     volumes:
       - ./sim/telegraf-sim.conf:/etc/telegraf/telegraf.conf:ro
       - /proc:/host/proc:ro
