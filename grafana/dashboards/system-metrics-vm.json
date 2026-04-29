@@ -1,0 +1,473 @@
+{
+  "uid": "system-metrics-vm-dashboard",
+  "title": "System Metrics (VM)",
+  "tags": ["system", "telegraf", "rpi", "victoriametrics"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Uptime",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "orange", "value": 3600 },
+              { "color": "green", "value": 86400 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "system_uptime",
+          "instant": true
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "CPU Cores",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "system_n_cpus",
+          "instant": true
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 3,
+      "type": "gauge",
+      "title": "CPU Usage",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "orange", "value": 80 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "100 - cpu_usage_idle{cpu=\"cpu-total\"}",
+          "instant": true
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "type": "gauge",
+      "title": "Memory Usage",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "orange", "value": 80 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "mem_used_percent",
+          "instant": true
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 5,
+      "type": "gauge",
+      "title": "Disk Usage /",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "orange", "value": 85 },
+              { "color": "red", "value": 95 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "disk_used_percent{path=\"/\"}",
+          "instant": true
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 6,
+      "type": "gauge",
+      "title": "CPU Temperature",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "orange", "value": 70 },
+              { "color": "red", "value": 80 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "cpu_temperature_value / 1000",
+          "instant": true
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "CPU Usage %",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "fillOpacity": 20, "lineWidth": 1 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "cpu_usage_user{cpu=\"cpu-total\"}",
+          "legendFormat": "user"
+        },
+        {
+          "refId": "B",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "cpu_usage_system{cpu=\"cpu-total\"}",
+          "legendFormat": "system"
+        },
+        {
+          "refId": "C",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "cpu_usage_iowait{cpu=\"cpu-total\"}",
+          "legendFormat": "iowait"
+        },
+        {
+          "refId": "D",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "cpu_usage_irq{cpu=\"cpu-total\"} + cpu_usage_softirq{cpu=\"cpu-total\"}",
+          "legendFormat": "irq"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "System Load",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": { "fillOpacity": 10, "lineWidth": 2 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "system_load1",
+          "legendFormat": "1m"
+        },
+        {
+          "refId": "B",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "system_load5",
+          "legendFormat": "5m"
+        },
+        {
+          "refId": "C",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "system_load15",
+          "legendFormat": "15m"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Memory",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "fillOpacity": 30, "lineWidth": 1, "stacking": { "mode": "normal" } }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "available" },
+            "properties": [
+              { "id": "custom.fillOpacity", "value": 5 },
+              { "id": "custom.stacking", "value": { "mode": "none" } },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "mem_used",
+          "legendFormat": "used"
+        },
+        {
+          "refId": "B",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "mem_cached",
+          "legendFormat": "cached"
+        },
+        {
+          "refId": "C",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "mem_buffered",
+          "legendFormat": "buffered"
+        },
+        {
+          "refId": "D",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "mem_available",
+          "legendFormat": "available"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Swap",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": { "fillOpacity": 20, "lineWidth": 1 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "swap_used",
+          "legendFormat": "used"
+        },
+        {
+          "refId": "B",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "swap_free",
+          "legendFormat": "free"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Disk I/O (bytes/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": { "fillOpacity": 15, "lineWidth": 1 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "rate(diskio_read_bytes[$__rate_interval])",
+          "legendFormat": "read"
+        },
+        {
+          "refId": "B",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "rate(diskio_write_bytes[$__rate_interval])",
+          "legendFormat": "write"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Network Traffic (bytes/s)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": { "fillOpacity": 15, "lineWidth": 1 }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "rate(net_bytes_recv{interface!=\"lo\"}[$__rate_interval])",
+          "legendFormat": "rx"
+        },
+        {
+          "refId": "B",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "rate(net_bytes_sent{interface!=\"lo\"}[$__rate_interval])",
+          "legendFormat": "tx"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 40,
+      "type": "timeseries",
+      "title": "CPU Temperature",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 28 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": { "fillOpacity": 10, "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 60 },
+              { "color": "orange", "value": 70 },
+              { "color": "red", "value": 80 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "cpu_temperature_value / 1000",
+          "legendFormat": "temperature"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 41,
+      "type": "timeseries",
+      "title": "Disk Usage %",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 28 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "custom": { "fillOpacity": 10, "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "orange", "value": 85 },
+              { "color": "red", "value": 95 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "disk_used_percent",
+          "legendFormat": "{{path}}"
+        }
+      ],
+      "options": { "tooltip": { "mode": "multi" } }
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}

@@ -11,7 +11,7 @@
 #   - InfluxDB & Chronograf exit immediately (entrypoint: true)
 #   - Telegraf writes only to VictoriaMetrics (telegraf-sim-vm-only.conf)
 #   - Speedtest writes to VM's InfluxDB-compatible HTTP API (transparent)
-#   - Grafana stays available but dashboards are empty (no Prometheus datasource yet — Phase 3)
+#   - Grafana with VictoriaMetrics (Prometheus) datasource and MetricsQL dashboards
 #   - VMUI accessible at http://localhost:8428/vmui
 #
 # Key trick: docker-entrypoint.sh uses INFLUXDB_HOST:INFLUXDB_PORT via curl.
