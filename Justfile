@@ -443,6 +443,57 @@ sim-vm-export match:
 sim-benchmark-ram *args:
     bash scripts/benchmark-ram.sh {{ args }}
 
+# ── RPi4 Simulation — Dual-write (InfluxDB + VictoriaMetrics) ──
+
+# Sim compose with dual-write: InfluxDB (reference) + VictoriaMetrics (migration target)
+sim_dual := "export VICTORIA_METRICS_URL=http://victoriametrics:8428 && " + sim_compose + " --profile vm"
+
+# Start dual-write simulation (InfluxDB + VictoriaMetrics, same data)
+sim-dual-up:
+    {{ sim_dual }} up -d
+    @echo "Waiting for VictoriaMetrics to respond on :8428..."
+    @i=0; while [ $i -lt 60 ]; do \
+        i=$((i+1)); \
+        if curl -sf http://localhost:8428/health >/dev/null 2>&1; then \
+            echo "  VM healthy after ~$((i*2))s ✓"; \
+            break; \
+        fi; \
+        if [ $i -eq 60 ]; then echo "  VM did not respond within 120s ✗"; exit 1; fi; \
+        sleep 2; \
+    done
+    @{{ sim_dual }} ps -a
+
+# Stop dual-write simulation
+sim-dual-stop:
+    {{ sim_dual }} stop
+
+# Stop and remove dual-write simulation containers (preserves volumes)
+sim-dual-down:
+    {{ sim_dual }} down
+
+# Stop, remove containers AND volumes (⚠️ destroys data)
+[confirm("⚠️  This will DELETE ALL dual simulation data. Continue?")]
+sim-dual-nuke:
+    {{ sim_dual }} down -v
+
+# Import production data from GitHub Pages into local InfluxDB + VictoriaMetrics
+sim-import-prod url="https://yoyonel.github.io/rpi-internet-monitoring/data.json":
+    bash scripts/import-prod-data.sh {{ url }}
+
+# Show dual-write simulation status
+sim-dual-status:
+    @{{ sim_dual }} ps -a
+    @echo ""
+    @curl -sf http://localhost:8428/health && echo "  VM /health: OK ✓" || echo "  VM /health: unreachable ✗"
+
+# Show dual-write simulation logs
+sim-dual-logs lines="50":
+    {{ sim_dual }} logs --tail={{ lines }}
+
+# Test Grafana dashboards: compare VM vs InfluxDB side by side (requires sim-dual-up)
+test-grafana-vm:
+    npx playwright test tests/grafana-dashboards.spec.js
+
 # ── RPi4 Simulation — VM-only (no InfluxDB) ────────────
 
 # Sim compose with VictoriaMetrics as sole backend (no InfluxDB)
