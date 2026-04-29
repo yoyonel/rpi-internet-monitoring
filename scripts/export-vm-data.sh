@@ -24,51 +24,59 @@ fetch_metric() {
     curl -sf "${VM_URL}/api/v1/export?match=${metric}&start=${START}&end=${END}" 2>/dev/null || echo ""
 }
 
-DL_JSON=$(fetch_metric "speedtest_download_bandwidth")
-UL_JSON=$(fetch_metric "speedtest_upload_bandwidth")
-PING_JSON=$(fetch_metric "speedtest_ping_latency")
+# Write JSONL to temp files (avoids ARG_MAX with large datasets)
+TMPDIR_EXPORT=$(mktemp -d)
+trap 'rm -rf "$TMPDIR_EXPORT"' EXIT
 
-if [[ -z "$DL_JSON" && -z "$UL_JSON" && -z "$PING_JSON" ]]; then
+fetch_metric "speedtest_download_bandwidth" >"$TMPDIR_EXPORT/dl.jsonl"
+fetch_metric "speedtest_upload_bandwidth" >"$TMPDIR_EXPORT/ul.jsonl"
+fetch_metric "speedtest_ping_latency" >"$TMPDIR_EXPORT/ping.jsonl"
+
+if [[ ! -s "$TMPDIR_EXPORT/dl.jsonl" && ! -s "$TMPDIR_EXPORT/ul.jsonl" && ! -s "$TMPDIR_EXPORT/ping.jsonl" ]]; then
     echo "ERROR: No data found in VictoriaMetrics at ${VM_URL}" >&2
     exit 1
 fi
 
 # ── Transform to InfluxDB JSON format ─────────────────────
-python3 -c "
-import json, sys
+python3 - "$TMPDIR_EXPORT" <<'PYEOF'
+import json, sys, os
 from datetime import datetime, timezone
 
-# Parse JSONL lines (one per metric)
-def parse_export(raw):
-    if not raw.strip():
-        return {}, []
-    data = json.loads(raw)
-    ts_ms = data.get('timestamps', [])
-    vals = data.get('values', [])
-    # Return dict: timestamp_ms -> value
-    return dict(zip(ts_ms, vals)), sorted(ts_ms)
+tmpdir = sys.argv[1]
 
-dl_map, dl_ts = parse_export('''$DL_JSON''')
-ul_map, ul_ts = parse_export('''$UL_JSON''')
-ping_map, ping_ts = parse_export('''$PING_JSON''')
+def parse_export(path):
+    merged = {}
+    if not os.path.isfile(path) or os.path.getsize(path) == 0:
+        return merged, []
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            data = json.loads(line)
+            ts_ms = data.get('timestamps', [])
+            vals = data.get('values', [])
+            for t, v in zip(ts_ms, vals):
+                merged[t] = v
+    return merged, sorted(merged.keys())
 
-# Merge all timestamps
+dl_map, dl_ts = parse_export(os.path.join(tmpdir, 'dl.jsonl'))
+ul_map, ul_ts = parse_export(os.path.join(tmpdir, 'ul.jsonl'))
+ping_map, ping_ts = parse_export(os.path.join(tmpdir, 'ping.jsonl'))
+
 all_ts = sorted(set(dl_ts + ul_ts + ping_ts))
 
 if not all_ts:
     print(json.dumps({'results': [{'series': []}]}))
     sys.exit(0)
 
-# Build InfluxDB-compatible values array
 values = []
 for ts in all_ts:
-    # Convert ms to RFC3339
     dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
     time_str = dt.strftime('%Y-%m-%dT%H:%M:%SZ')
     dl = dl_map.get(ts)
     ul = ul_map.get(ts)
     ping = ping_map.get(ts)
-    # Skip rows where all values are None
     if dl is None and ul is None and ping is None:
         continue
     values.append([time_str, dl, ul, ping])
@@ -84,4 +92,4 @@ result = {
 }
 
 print(json.dumps(result))
-"
+PYEOF
