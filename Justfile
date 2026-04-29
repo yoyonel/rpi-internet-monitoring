@@ -150,6 +150,7 @@ test:
 # Run unit tests (Node.js, no browser needed)
 test-unit:
     node --test tests/lib.test.js tests/status-bar.test.js
+    python3 tests/test_vm_to_datajson.py
 
 # Run unit tests with V8 coverage report
 test-coverage:

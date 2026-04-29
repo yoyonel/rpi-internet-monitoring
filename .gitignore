@@ -32,3 +32,4 @@ Thumbs.db
 
 # Deploy migrations tracking (machine-local state)
 .migrations-applied
+scripts/__pycache__/
