@@ -53,21 +53,38 @@ jobs:
           echo "Waiting for InfluxDB..."
           for i in $(seq 1 60); do
             if curl -sf http://localhost:8086/ping >/dev/null 2>&1; then
-              echo "InfluxDB healthy after ${i}s"
+              echo "InfluxDB responding after ${i}s"
               break
             fi
             [[ "$i" -eq 60 ]] && { echo "InfluxDB timeout"; docker logs influxdb; exit 1; }
             sleep 1
           done
 
-          # Create databases and grant access
-          QUERIES="CREATE DATABASE telegraf;"
-          QUERIES+="CREATE DATABASE speedtest;"
-          QUERIES+="GRANT ALL ON telegraf TO telegraf;"
-          QUERIES+="GRANT ALL ON speedtest TO telegraf"
-          curl -sf -XPOST 'http://localhost:8086/query' \
-            -u admin:cipass \
-            --data-urlencode "q=$QUERIES"
+          # Wait for init to complete (user creation via env vars)
+          echo "Waiting for InfluxDB init to finish..."
+          for i in $(seq 1 30); do
+            if curl -sf -u admin:cipass \
+              'http://localhost:8086/query' \
+              --data-urlencode 'q=SHOW USERS' 2>/dev/null \
+              | grep -q telegraf; then
+              echo "InfluxDB init complete after ${i}s"
+              break
+            fi
+            [[ "$i" -eq 30 ]] && { echo "Init timeout"; docker logs influxdb; exit 1; }
+            sleep 2
+          done
+
+          # Create databases and grant access (one query at a time)
+          for q in \
+            "CREATE DATABASE telegraf" \
+            "CREATE DATABASE speedtest" \
+            "GRANT ALL ON telegraf TO telegraf" \
+            "GRANT ALL ON speedtest TO telegraf"; do
+            curl -sf -XPOST 'http://localhost:8086/query' \
+              -u admin:cipass \
+              --data-urlencode "q=$q"
+            echo "  ✓ $q"
+          done
 
       - name: Start VictoriaMetrics
         run: |
