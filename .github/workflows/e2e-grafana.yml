@@ -125,6 +125,29 @@ jobs:
 
       - name: Seed test data into both backends
         run: |
+          # Verify connectivity first
+          echo "Testing InfluxDB write endpoint..."
+          curl -sf -o /dev/null -w 'HTTP %{http_code}\n' \
+            "http://localhost:8086/ping" || {
+            echo "InfluxDB not reachable!"
+            docker logs influxdb 2>&1 | tail -20
+            exit 1
+          }
+          echo "Testing VM write endpoint..."
+          curl -sf -o /dev/null -w 'HTTP %{http_code}\n' \
+            "http://localhost:8428/health" || {
+            echo "VM not reachable!"
+            docker logs victoriametrics 2>&1 | tail -20
+            exit 1
+          }
+
+          # Verify InfluxDB databases exist
+          curl -sf -u admin:cipass \
+            'http://localhost:8086/query' \
+            --data-urlencode 'q=SHOW DATABASES' \
+            | grep -q speedtest \
+            || { echo "speedtest DB missing!"; exit 1; }
+
           TS=$(date +%s)
           # Write 10 data points (last 10 minutes)
           for offset in $(seq 0 9); do
@@ -146,13 +169,13 @@ jobs:
             DCK="docker_container_cpu,container_name=grafana"
             DCK+=" usage_percent=1.5 ${T}"
 
-            # Write to InfluxDB
+            # Write to InfluxDB (use admin creds to bypass grants)
             curl -sf -d "$SPD" \
-              "http://localhost:8086/write?db=speedtest&u=telegraf&p=cipass"
+              "http://localhost:8086/write?db=speedtest&u=admin&p=cipass"
             printf '%s\n%s\n%s\n%s' \
               "$CPU" "$MEM_L" "$DSK" "$DCK" \
               | curl -sf -d @- \
-              "http://localhost:8086/write?db=telegraf&u=telegraf&p=cipass"
+              "http://localhost:8086/write?db=telegraf&u=admin&p=cipass"
 
             # Write to VictoriaMetrics
             curl -sf -d "$SPD" \
