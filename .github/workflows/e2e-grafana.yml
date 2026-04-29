@@ -209,6 +209,12 @@ jobs:
             -p 3000:3000 \
             -e GF_SECURITY_ADMIN_USER=admin \
             -e GF_SECURITY_ADMIN_PASSWORD=cipass \
+            -e GF_USERS_ALLOW_SIGN_UP=false \
+            -e GF_AUTH_DISABLE_LOGIN_FORM=false \
+            -e GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION=false \
+            -e GF_USERS_AUTO_ASSIGN_ORG=true \
+            -e GF_AUTH_ANONYMOUS_ENABLED=true \
+            -e GF_AUTH_ANONYMOUS_ORG_ROLE=Admin \
             -e INFLUXDB_USER=telegraf \
             -e INFLUXDB_USER_PASSWORD=cipass \
             -v "$PWD/grafana/provisioning:/etc/grafana/provisioning:ro" \
