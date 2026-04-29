@@ -130,7 +130,8 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "sum(docker_container_cpu_usage_percent)",
-          "instant": true
+          "instant": false,
+          "range": true
         }
       ]
     },
@@ -161,7 +162,8 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "sum(docker_container_mem_usage)",
-          "instant": true
+          "instant": false,
+          "range": true
         }
       ]
     },
@@ -187,7 +189,8 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "sum(docker_container_net_rx_bytes)",
-          "instant": true
+          "instant": false,
+          "range": true
         }
       ]
     },
