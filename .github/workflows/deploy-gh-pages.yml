@@ -40,32 +40,16 @@ jobs:
           npm install -g terser
           bash scripts/build-gh-pages.sh "$BUILD_DIR" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json"
 
-      - name: Push to gh-pages branch
+      - name: Prepare build for deployment
         run: |
-          set -euo pipefail
-          BUILD_DIR="/tmp/gh-pages-build"
-          REPO_URL="https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"
+          touch /tmp/gh-pages-build/.nojekyll
 
-          cd /tmp
-          git clone --depth 1 --branch gh-pages "$REPO_URL" gh-pages-deploy 2>/dev/null || {
-            mkdir gh-pages-deploy && cd gh-pages-deploy && git init -q && git checkout -q -b gh-pages
-            git remote add origin "$REPO_URL"
-          }
-          cd /tmp/gh-pages-deploy
-
-          # Update site files (preserves badges/ and other extra content)
-          cp "$BUILD_DIR"/index.html "$BUILD_DIR"/style.css .
-          cp "$BUILD_DIR"/*.js .
-          cp "$BUILD_DIR"/data.json "$BUILD_DIR"/alerts.json .
-          cp -r "$BUILD_DIR"/fonts .
-          touch .nojekyll
-
-          git config user.email "gh-pages-bot@users.noreply.github.com"
-          git config user.name "GitHub Pages Bot"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No changes to deploy"
-          else
-            git commit -q -m "Update monitoring page — $(date -Iseconds)"
-            git push -q origin gh-pages
-          fi
+      - name: Push to gh-pages branch
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          folder: /tmp/gh-pages-build
+          clean-exclude: |
+            pr-preview
+            badges
+          force: false
