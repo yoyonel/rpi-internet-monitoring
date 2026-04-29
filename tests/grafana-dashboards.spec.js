@@ -42,18 +42,29 @@ function dashUrl(uid) {
 
 /** Wait for Grafana panels to finish loading */
 async function waitForPanelsLoaded(page) {
-  await page.waitForLoadState('networkidle');
-  // Give Grafana extra time for canvas rendering
-  await page.waitForTimeout(3000);
+  await page.waitForLoadState('load');
+  // Give Grafana extra time for panel queries + canvas rendering
+  await page.waitForTimeout(5000);
 }
 
-/** Login to Grafana */
+/** Login to Grafana (skipped if anonymous access is enabled) */
 async function login(page) {
-  await page.goto(`${GRAFANA}/login`);
-  await page.fill('input[name="user"]', USER);
-  await page.fill('input[name="password"]', PASS);
-  await page.click('button[type="submit"]');
-  await page.waitForURL('**/**');
+  await page.goto(`${GRAFANA}/`);
+  // If we land on login page, authenticate
+  if (page.url().includes('/login')) {
+    await page.fill('input[name="user"]', USER);
+    await page.fill('input[name="password"]', PASS);
+    await page.click('button[type="submit"]');
+    // Handle optional change-password prompt (first login)
+    const skipBtn = page.locator('a[href*="skip"], button:has-text("Skip")');
+    if (await skipBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+      await skipBtn.click();
+    }
+    // Wait until we leave the login page
+    await page.waitForFunction(() => !window.location.pathname.includes('/login'), {
+      timeout: 10000,
+    });
+  }
 }
 
 /**
@@ -61,7 +72,7 @@ async function login(page) {
  * Hides the Grafana header/nav to reduce visual noise.
  */
 async function screenshotDashboard(page, uid, filename) {
-  await page.goto(dashUrl(uid));
+  await page.goto(dashUrl(uid), { waitUntil: 'domcontentloaded' });
   await waitForPanelsLoaded(page);
 
   // Hide Grafana chrome (top nav, sidenav) for cleaner comparison
