@@ -21,7 +21,9 @@ Telegraf ──→ VictoriaMetrics (:8428/write, InfluxDB line protocol)
                   ├── API export (:8428/api/v1/export)
                   └── VMUI (:8428/vmui)
 Speedtest ──→ VictoriaMetrics (:8428/write, via docker-entrypoint.sh)
-Grafana ──→ (datasource Prometheus à configurer — Phase 3)
+Grafana ──→ VictoriaMetrics (datasource Prometheus, uid: victoriametrics)
+            ├── 4 dashboards MetricsQL (*-vm.json)
+            └── Dashboards InfluxDB originaux conservés (dual-stack)
 ```
 
 **Principe clé** : VM accepte le même protocole d'écriture qu'InfluxDB (line
@@ -30,14 +32,19 @@ redirige l'URL cible et ça fonctionne.
 
 ### Fichiers ajoutés/modifiés
 
-| Fichier                              | Rôle                                                       |
-| ------------------------------------ | ---------------------------------------------------------- |
-| `sim/docker-compose.sim-vm-only.yml` | 3e overlay Compose : remplace InfluxDB par VM              |
-| `sim/telegraf-sim-vm-only.conf`      | Telegraf config avec VM comme seul output                  |
-| `sim/telegraf-vm-only.conf`          | Telegraf config pour tests d'intégration (x86 natif)       |
-| `scripts/export-vm-data.sh`          | Exporte les données speedtest de VM → format InfluxDB JSON |
-| `scripts/integration-test-vm.sh`     | Suite de tests d'intégration automatisée (23 tests)        |
-| `Justfile`                           | Recettes `sim-vm-only-*` et `test-vm-integration`          |
+| Fichier                                                | Rôle                                                       |
+| ------------------------------------------------------ | ---------------------------------------------------------- |
+| `sim/docker-compose.sim-vm-only.yml`                   | 3e overlay Compose : remplace InfluxDB par VM              |
+| `sim/telegraf-sim-vm-only.conf`                        | Telegraf config avec VM comme seul output                  |
+| `sim/telegraf-vm-only.conf`                            | Telegraf config pour tests d'intégration (x86 natif)       |
+| `scripts/export-vm-data.sh`                            | Exporte les données speedtest de VM → format InfluxDB JSON |
+| `scripts/integration-test-vm.sh`                       | Suite de tests d'intégration automatisée (23 tests)        |
+| `grafana/provisioning/datasources/victoriametrics.yml` | Datasource Grafana Prometheus → VM                         |
+| `grafana/dashboards/speedtest-vm.json`                 | Dashboard Internet Speedtest (MetricsQL)                   |
+| `grafana/dashboards/system-metrics-vm.json`            | Dashboard System Metrics (MetricsQL)                       |
+| `grafana/dashboards/docker-containers-vm.json`         | Dashboard Docker Containers (MetricsQL)                    |
+| `grafana/dashboards/rpi-alerts-vm.json`                | Dashboard RPi Alerts Overview (MetricsQL)                  |
+| `Justfile`                                             | Recettes `sim-vm-only-*` et `test-vm-integration`          |
 
 ---
 
@@ -172,7 +179,96 @@ sim stack.
 
 ---
 
-## 5. Contraintes QEMU identifiées
+## 5. Quick Start — Voir les dashboards Grafana avec VictoriaMetrics
+
+### Lancer la stack
+
+```bash
+just sim-vm-only-up       # Démarre VM + Telegraf + Grafana + Speedtest (~30s)
+```
+
+### URLs
+
+| Service       | URL                                                          | Identifiants        |
+| ------------- | ------------------------------------------------------------ | ------------------- |
+| **Grafana**   | [http://localhost:3000](http://localhost:3000)               | `admin` / `simpass` |
+| **VMUI**      | [http://localhost:8428/vmui](http://localhost:8428/vmui)     | —                   |
+| **VM health** | [http://localhost:8428/health](http://localhost:8428/health) | —                   |
+
+### Dashboards Grafana (accès direct)
+
+| Dashboard                | URL directe                                         |
+| ------------------------ | --------------------------------------------------- |
+| Internet Speedtest (VM)  | http://localhost:3000/d/speedtest-vm-dashboard      |
+| System Metrics (VM)      | http://localhost:3000/d/system-metrics-vm-dashboard |
+| Docker Containers (VM)   | http://localhost:3000/d/rpi-docker-vm-dashboard     |
+| RPi Alerts Overview (VM) | http://localhost:3000/d/rpi-alerts-vm-dashboard     |
+
+> **Note** : les dashboards InfluxDB originaux sont aussi provisionnés mais
+> n'affichent rien (pas d'InfluxDB dans la stack VM-only).
+
+### Arrêter
+
+```bash
+just sim-vm-only-down     # Stop + supprime containers (conserve données)
+just sim-vm-only-nuke     # Stop + supprime containers ET volumes
+```
+
+---
+
+## 6. Grafana — Datasource et Dashboards MetricsQL
+
+### 6.1 Datasource VictoriaMetrics
+
+Fichier : `grafana/provisioning/datasources/victoriametrics.yml`
+
+- **Type** : `prometheus` (VM expose une API Prometheus-compatible)
+- **UID** : `victoriametrics`
+- **URL** : `http://victoriametrics:8428`
+- **isDefault** : `false` (InfluxDB reste par défaut pendant la période dual-stack)
+
+### 6.2 Dashboards MetricsQL
+
+4 dashboards parallèles créés dans `grafana/dashboards/`, chacun miroir exact
+de son équivalent InfluxDB avec des requêtes MetricsQL :
+
+| Dashboard                | Fichier                     | Panels | Datasource UID    |
+| ------------------------ | --------------------------- | ------ | ----------------- |
+| Internet Speedtest (VM)  | `speedtest-vm.json`         | 5      | `victoriametrics` |
+| System Metrics (VM)      | `system-metrics-vm.json`    | 14     | `victoriametrics` |
+| Docker Containers (VM)   | `docker-containers-vm.json` | 12     | `victoriametrics` |
+| RPi Alerts Overview (VM) | `rpi-alerts-vm.json`        | 15     | `victoriametrics` |
+
+Les dashboards InfluxDB originaux sont conservés côte à côte pour la période
+dual-stack. Ils seront retirés lors de la Phase 5 (bascule production).
+
+### 6.3 Convention de nommage des métriques
+
+VictoriaMetrics reçoit les données Telegraf via InfluxDB line protocol. Le
+mapping automatique produit : `{measurement}_{field}` comme nom de métrique.
+
+| InfluxQL                                             | MetricsQL                                   |
+| ---------------------------------------------------- | ------------------------------------------- |
+| `SELECT mean("usage_idle") FROM "cpu"`               | `cpu_usage_idle`                            |
+| `SELECT last("uptime") FROM "system"`                | `system_uptime`                             |
+| `SELECT mean("download_bandwidth") FROM "speedtest"` | `speedtest_download_bandwidth`              |
+| `100 - mean("usage_idle")`                           | `100 - cpu_usage_idle{cpu="cpu-total"}`     |
+| `non_negative_derivative(mean("read_bytes"), 1s)`    | `rate(diskio_read_bytes[$__rate_interval])` |
+| `GROUP BY time($__interval), "tag"`                  | via `legendFormat: {{tag}}`                 |
+| `SHOW TAG VALUES ... WITH KEY = container_name`      | `label_values(metric, container_name)`      |
+
+### 6.4 Validation en sim stack
+
+Toutes les requêtes des dashboards ont été testées contre la stack VM-only
+avec 197 métriques actives. Résultats :
+
+- CPU, Load, Mem, Disk, Temp, Swap : valeurs réalistes retournées
+- Docker : 5 containers détectés, séries par container_name
+- Rate (disk I/O, network) : 10+ séries avec rate() fonctionnel
+
+---
+
+## 7. Contraintes QEMU identifiées
 
 L'émulation ARM64 via QEMU introduit une contrainte critique :
 
@@ -183,21 +279,22 @@ L'émulation ARM64 via QEMU introduit une contrainte critique :
 
 ---
 
-## 6. Ce qui reste à faire
+## 8. Ce qui reste à faire
 
-| Étape                         | Description                                     | Statut     |
-| ----------------------------- | ----------------------------------------------- | ---------- |
-| Simulation VM-only            | Stack ARM64 complète, tous les flux validés     | ✅ Done    |
-| Tests d'intégration           | 23 assertions, pipeline complet                 | ✅ Done    |
-| Export VM → data.json         | Format InfluxDB JSON compatible frontend        | ✅ Done    |
-| Grafana datasource Prometheus | Remplacer les dashboards InfluxQL par MetricsQL | ⬜ Phase 3 |
-| Migration données historiques | Import des données InfluxDB existantes dans VM  | ⬜ Phase 4 |
-| Déploiement RPi4              | Basculer la stack production sur VM             | ⬜ Phase 5 |
-| Alertes Grafana               | Re-pointer les alertes vers la datasource VM    | ⬜ Phase 3 |
+| Étape                         | Description                                       | Statut           |
+| ----------------------------- | ------------------------------------------------- | ---------------- |
+| Simulation VM-only            | Stack ARM64 complète, tous les flux validés       | ✅ Done          |
+| Tests d'intégration           | 23 assertions, pipeline complet                   | ✅ Done          |
+| Export VM → data.json         | Format InfluxDB JSON compatible frontend          | ✅ Done          |
+| Grafana datasource Prometheus | Datasource Prometheus → VM (uid: victoriametrics) | ✅ Done (#47)    |
+| Dashboards MetricsQL          | 4 dashboards parallèles \*-vm.json                | ✅ Done (#48)    |
+| Alertes Grafana               | Re-pointer les alertes vers la datasource VM      | ⬜ Phase 3 (#57) |
+| Migration données historiques | Import des données InfluxDB existantes dans VM    | ⬜ Phase 4 (#51) |
+| Déploiement RPi4              | Basculer la stack production sur VM               | ⬜ Phase 5 (#54) |
 
 ---
 
-## 7. Recettes Just — référence rapide
+## 9. Recettes Just — référence rapide
 
 ### Lifecycle
 

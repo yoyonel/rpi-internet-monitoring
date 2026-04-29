@@ -206,12 +206,23 @@ cp .env.example .env
 
 ## Dashboards
 
+### InfluxDB (dashboards actuels)
+
 | Dashboard           | UID                    | Dossier    | Description                              |
 | ------------------- | ---------------------- | ---------- | ---------------------------------------- |
 | SpeedTest           | `Ha9ke1iRk`            | General    | Download, upload, ping                   |
 | System              | `000000128`            | General    | CPU, RAM, disk, réseau, température      |
 | Docker Containers   | `rpi-docker-dashboard` | General    | CPU, RAM, réseau, I/O par container      |
 | RPi Alerts Overview | `rpi-alerts-dashboard` | RPi Alerts | Gauges + graphiques avec seuils d'alerte |
+
+### VictoriaMetrics (MetricsQL — branch feat/victoriametrics)
+
+| Dashboard                | UID                           | Description                              |
+| ------------------------ | ----------------------------- | ---------------------------------------- |
+| Internet Speedtest (VM)  | `speedtest-vm-dashboard`      | Download, upload, ping (MetricsQL)       |
+| System Metrics (VM)      | `system-metrics-vm-dashboard` | CPU, RAM, disk, réseau, température      |
+| Docker Containers (VM)   | `rpi-docker-vm-dashboard`     | CPU, RAM, réseau, I/O par container      |
+| RPi Alerts Overview (VM) | `rpi-alerts-vm-dashboard`     | Gauges + graphiques avec seuils d'alerte |
 
 ## Alertes
 
