@@ -424,9 +424,9 @@ if [[ "$MODE" == "sim" && "$TEST_VM" == "true" ]]; then
         fail "VM write path broken (HTTP $VM_INJECT)"
     fi
 
-    # Flush and verify
+    # Flush and verify (latencyOffset=5s in sim → wait 7s for point to become visible)
     curl -sf "$VM_URL/internal/force_flush" >/dev/null 2>&1
-    sleep 1
+    sleep 7
     vm_val=$(curl -sf "$VM_URL/api/v1/query" \
         --data-urlencode 'query=speedtest_download_bandwidth{result_id="ci-vm-smoke"}' |
         jq -r '.data.result[0].value[1] // empty' 2>/dev/null)
