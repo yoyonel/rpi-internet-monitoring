@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Export speedtest data from InfluxDB and publish a static monitoring page.
+# Export speedtest data from InfluxDB or VictoriaMetrics and publish a static
+# monitoring page.
 #
-# Usage: bash scripts/publish-gh-pages.sh [--preview] [days]
-#   --preview  Build locally and serve on http://localhost:8080 (no push)
-#   days       Number of days of history to export (default: 30)
+# Usage: bash scripts/publish-gh-pages.sh [--preview] [--backend vm|influxdb] [days]
+#   --preview           Build locally and serve on http://localhost:8080 (no push)
+#   --backend vm        Use VictoriaMetrics instead of InfluxDB
+#   --backend influxdb  Use InfluxDB (default)
+#   days                Number of days of history to export (default: 30)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
@@ -16,9 +19,12 @@ load_env "$SCRIPT_DIR/.env"
 # Parse args
 PREVIEW=false
 DAYS=30
+BACKEND="${TSDB_BACKEND:-influxdb}"
 for arg in "$@"; do
     case "$arg" in
         --preview) PREVIEW=true ;;
+        --backend) : ;; # value handled below
+        vm | influxdb) BACKEND="$arg" ;;
         *) DAYS="$arg" ;;
     esac
 done
@@ -41,20 +47,26 @@ _influx_admin_pass=$(_read_env INFLUXDB_ADMIN_PASSWORD)
 
 echo "╔══════════════════════════════════════════╗"
 echo "║  Publish GitHub Pages — $NOW"
+echo "║  Backend: $BACKEND"
 echo "╚══════════════════════════════════════════╝"
 echo ""
 
-# ── 1. Export data from InfluxDB ──────────────────────────
-echo "── Exporting last ${DAYS}d of speedtest data from InfluxDB ──"
+# ── 1. Export data from TSDB ──────────────────────────────
+echo "── Exporting last ${DAYS}d of speedtest data from ${BACKEND} ──"
 
-QUERY="SELECT download_bandwidth, upload_bandwidth, ping_latency FROM speedtest WHERE time > now() - ${DAYS}d ORDER BY time ASC"
+if [[ "$BACKEND" == "vm" ]]; then
+    VM_URL="${VICTORIA_METRICS_URL:-http://localhost:8428}"
+    JSON_DATA=$(bash "$SCRIPT_DIR/scripts/export-vm-data.sh" "$VM_URL" "$DAYS")
+else
+    QUERY="SELECT download_bandwidth, upload_bandwidth, ping_latency FROM speedtest WHERE time > now() - ${DAYS}d ORDER BY time ASC"
 
-JSON_DATA=$("$DOCKER" exec influxdb influx \
-    -username "${_influx_admin:-admin}" -password "${_influx_admin_pass}" \
-    -execute "$QUERY" \
-    -database speedtest \
-    -precision rfc3339 \
-    -format json 2>/dev/null)
+    JSON_DATA=$("$DOCKER" exec influxdb influx \
+        -username "${_influx_admin:-admin}" -password "${_influx_admin_pass}" \
+        -execute "$QUERY" \
+        -database speedtest \
+        -precision rfc3339 \
+        -format json 2>/dev/null)
+fi
 
 POINT_COUNT=$(echo "$JSON_DATA" | python3 -c "
 import sys, json
