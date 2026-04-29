@@ -54,8 +54,9 @@
         {
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
-          "expr": "speedtest_ping_latency",
-          "instant": true
+          "expr": "avg without(result_id, db)(avg_over_time(speedtest_ping_latency[$__interval]))",
+          "instant": false,
+          "range": true
         }
       ],
       "title": "Ping",
@@ -101,8 +102,9 @@
         {
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
-          "expr": "speedtest_download_bandwidth / 125000",
-          "instant": true
+          "expr": "avg without(result_id, db)(avg_over_time(speedtest_download_bandwidth[$__interval])) / 125000",
+          "instant": false,
+          "range": true
         }
       ],
       "title": "Download",
@@ -148,8 +150,9 @@
         {
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
-          "expr": "speedtest_upload_bandwidth / 125000",
-          "instant": true
+          "expr": "avg without(result_id, db)(avg_over_time(speedtest_upload_bandwidth[$__interval])) / 125000",
+          "instant": false,
+          "range": true
         }
       ],
       "title": "Upload",
@@ -170,7 +173,18 @@
             "gradientMode": "scheme",
             "pointSize": 5,
             "showPoints": "always",
-            "lineInterpolation": "linear"
+            "lineInterpolation": "linear",
+            "axisLabel": "bandwidth",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 250 }
+            ]
           }
         },
         "overrides": [
@@ -198,13 +212,13 @@
         {
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
-          "expr": "speedtest_download_bandwidth / 125000",
+          "expr": "avg without(result_id, db)(avg_over_time(speedtest_download_bandwidth[$__interval])) / 125000",
           "legendFormat": "download"
         },
         {
           "refId": "B",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
-          "expr": "speedtest_upload_bandwidth / 125000",
+          "expr": "avg without(result_id, db)(avg_over_time(speedtest_upload_bandwidth[$__interval])) / 125000",
           "legendFormat": "upload"
         }
       ],
@@ -226,7 +240,8 @@
             "gradientMode": "scheme",
             "pointSize": 5,
             "showPoints": "always",
-            "lineInterpolation": "linear"
+            "lineInterpolation": "linear",
+            "axisLabel": "latency"
           }
         },
         "overrides": [
@@ -250,7 +265,7 @@
         {
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
-          "expr": "speedtest_ping_latency",
+          "expr": "avg without(result_id, db)(avg_over_time(speedtest_ping_latency[$__interval]))",
           "legendFormat": "ping"
         }
       ],
