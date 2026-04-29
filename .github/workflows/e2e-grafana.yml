@@ -142,11 +142,20 @@ jobs:
           }
 
           # Verify InfluxDB databases exist
-          curl -sf -u admin:cipass \
+          DBS=$(curl -sf -u admin:cipass \
             'http://localhost:8086/query' \
-            --data-urlencode 'q=SHOW DATABASES' \
-            | grep -q speedtest \
+            --data-urlencode 'q=SHOW DATABASES')
+          echo "Databases: $DBS"
+          echo "$DBS" | grep -q speedtest \
             || { echo "speedtest DB missing!"; exit 1; }
+
+          # Test write with verbose output
+          echo "Testing first write..."
+          TS_TEST=$(date +%s)000000000
+          curl -v --data-binary \
+            "test_metric,host=ci value=1 $TS_TEST" \
+            "http://localhost:8086/write?db=telegraf&u=admin&p=cipass" \
+            2>&1 || { echo "Test write failed!"; exit 1; }
 
           TS=$(date +%s)
           # Write 10 data points (last 10 minutes)
@@ -170,19 +179,19 @@ jobs:
             DCK+=" usage_percent=1.5 ${T}"
 
             # Write to InfluxDB (use admin creds to bypass grants)
-            curl -sf -d "$SPD" \
+            curl -sf --data-binary "$SPD" \
               "http://localhost:8086/write?db=speedtest&u=admin&p=cipass"
             printf '%s\n%s\n%s\n%s' \
               "$CPU" "$MEM_L" "$DSK" "$DCK" \
-              | curl -sf -d @- \
+              | curl -sf --data-binary @- \
               "http://localhost:8086/write?db=telegraf&u=admin&p=cipass"
 
             # Write to VictoriaMetrics
-            curl -sf -d "$SPD" \
+            curl -sf --data-binary "$SPD" \
               'http://localhost:8428/write?db=speedtest'
             printf '%s\n%s\n%s\n%s' \
               "$CPU" "$MEM_L" "$DSK" "$DCK" \
-              | curl -sf -d @- \
+              | curl -sf --data-binary @- \
               'http://localhost:8428/write?db=telegraf'
           done
 
