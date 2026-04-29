@@ -33,18 +33,18 @@ graph LR
     D --> E[git push --force<br/>→ gh-pages branch]
 ```
 
-### 3. PR preview (Surge)
+### 3. PR preview (GitHub Pages)
 
-Triggered on pull requests. Builds from **test fixtures** (no production dependency).
+Triggered on pull requests. Builds from **production data** (live GitHub Pages).
 
 ```mermaid
 graph LR
     A[Pull Request] --> B[preview-pr.yml]
-    B --> C[tests/fixtures/<br/>data.json + alerts.json]
+    B --> C[curl prod site<br/>data.json + alerts.json]
     C --> D[render-template.py]
     D --> E[extract-live-data.py<br/>round-trip validation]
-    E --> F[Deploy to Surge]
-    F --> G[E2E tests + Lighthouse]
+    E --> F[E2E tests<br/>local server]
+    F --> G[Deploy to GitHub Pages<br/>pr-preview/pr-N/]
 ```
 
 ## Data flow — Before vs After
@@ -72,7 +72,7 @@ graph TD
     subgraph "PR Preview"
         A1[tests/fixtures/] --> A2[render-template.py]
         A2 --> A3[extract-live-data.py<br/>round-trip check]
-        A3 --> A4[✅ Surge + E2E + Lighthouse]
+        A3 --> A4[✅ GitHub Pages preview + E2E]
     end
 
     subgraph "Deploy workflow"
