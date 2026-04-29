@@ -380,6 +380,10 @@ sim-test *args:
 sim-test-vm:
     bash test-stack.sh --mode sim --backend vm
 
+# Full VM integration test: prove VM can replace InfluxDB end-to-end
+test-vm-integration *args:
+    bash scripts/integration-test-vm.sh {{ args }}
+
 # ── VictoriaMetrics (VM) ────────────────────────────────
 
 # Sim compose with VM profile enabled
@@ -438,3 +442,72 @@ sim-vm-export match:
 # Benchmark RAM usage of sim containers (--wait N to wait N seconds first)
 sim-benchmark-ram *args:
     bash scripts/benchmark-ram.sh {{ args }}
+
+# ── RPi4 Simulation — VM-only (no InfluxDB) ────────────
+
+# Sim compose with VictoriaMetrics as sole backend (no InfluxDB)
+# --profile vm activates the VM service defined in base compose
+sim_vm_only := sim_compose + " -f sim/docker-compose.sim-vm-only.yml --profile vm"
+
+# Start RPi4 simulation with VictoriaMetrics only (no InfluxDB)
+sim-vm-only-up:
+    {{ sim_vm_only }} up -d
+    @echo "Waiting for VictoriaMetrics to respond on :8428..."
+    @i=0; while [ $i -lt 60 ]; do \
+        i=$((i+1)); \
+        if curl -sf http://localhost:8428/health >/dev/null 2>&1; then \
+            echo "  VM healthy after ~$((i*2))s ✓"; \
+            break; \
+        fi; \
+        if [ $i -eq 60 ]; then echo "  VM did not respond within 120s ✗"; exit 1; fi; \
+        sleep 2; \
+    done
+    @{{ sim_vm_only }} ps -a
+
+# Stop VM-only simulation
+sim-vm-only-stop:
+    {{ sim_vm_only }} stop
+
+# Stop and remove VM-only simulation containers (preserves volumes)
+sim-vm-only-down:
+    {{ sim_vm_only }} down
+
+# Stop, remove containers AND VM-only simulation volumes (⚠️ destroys data)
+[confirm("⚠️  This will DELETE ALL VM-only simulation data. Continue?")]
+sim-vm-only-nuke:
+    {{ sim_vm_only }} down -v
+
+# Show VM-only simulation status
+sim-vm-only-status:
+    @{{ sim_vm_only }} ps -a
+    @echo ""
+    @{{ CONTAINER_CLI }} inspect rpi-sim-victoriametrics rpi-sim-grafana rpi-sim-telegraf rpi-sim-speedtest-cron 2>/dev/null \
+        | jq -r '.[] | "  \(.Name | ltrimstr("/")): \(.State.Health.Status // "n/a")"' || true
+    @echo ""
+    @curl -sf http://localhost:8428/health && echo "  VM /health: OK ✓" || echo "  VM /health: unreachable ✗"
+
+# Show VM-only simulation logs
+sim-vm-only-logs lines="50":
+    {{ sim_vm_only }} logs --tail={{ lines }}
+
+# Follow VM-only simulation logs in real-time
+sim-vm-only-logs-follow:
+    {{ sim_vm_only }} logs -f --tail=20
+
+# Run a manual speedtest in VM-only simulation
+sim-vm-only-speedtest:
+    {{ sim_vm_only }} run --rm speedtest
+
+# Export VM-only simulation data to InfluxDB JSON format
+sim-vm-only-export days="30" output="/tmp/sim-vm-only-data.json":
+    bash scripts/export-vm-data.sh http://localhost:8428 {{ days }} > {{ output }}
+    @echo "Exported to {{ output }}"
+
+# Preview frontend with VM-only simulation data
+sim-vm-only-preview port="8080":
+    just sim-vm-only-export
+    bash scripts/preview-dev.sh {{ port }} --data /tmp/sim-vm-only-data.json
+
+# Run smoke tests against VM-only simulation
+sim-vm-only-test:
+    bash test-stack.sh --mode sim --backend vm
