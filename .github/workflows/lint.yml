@@ -38,6 +38,9 @@ jobs:
             --test-reporter spec --test-reporter-destination stdout \
             tests/lib.test.js tests/status-bar.test.js
 
+      - name: Run Python unit tests
+        run: python3 tests/test_vm_to_datajson.py -v
+
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
