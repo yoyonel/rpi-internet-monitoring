@@ -1,7 +1,8 @@
-name: Preview PR — Surge
+name: Preview PR — GitHub Pages
 
 on:
   pull_request:
+    types: [opened, reopened, synchronize, closed]
     paths:
       - 'gh-pages/**'
       - 'scripts/build-gh-pages.sh'
@@ -14,11 +15,13 @@ on:
       - '.github/workflows/preview-pr.yml'
 
 permissions:
+  contents: write
   pull-requests: write
 
 jobs:
-  deploy-and-test:
-    name: Deploy preview & E2E tests
+  build-and-test:
+    name: Build & E2E tests
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -27,7 +30,7 @@ jobs:
         run: |
           set -euo pipefail
           PROD_URL="https://yoyonel.github.io/rpi-internet-monitoring"
-          BUILD_DIR="/tmp/surge-build"
+          BUILD_DIR="/tmp/preview-build"
           mkdir -p "$BUILD_DIR"
 
           echo "── Fetching data from production site ──"
@@ -40,53 +43,56 @@ jobs:
           bash scripts/build-gh-pages.sh "$BUILD_DIR" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "(PR preview)"
           python3 scripts/extract-live-data.py "$BUILD_DIR/index.html" "$BUILD_DIR"
 
-          mkdir -p _surge_deploy
-          cp "$BUILD_DIR"/index.html "$BUILD_DIR"/style.css _surge_deploy/
-          cp "$BUILD_DIR"/data.json "$BUILD_DIR"/alerts.json _surge_deploy/
-          cp "$BUILD_DIR"/*.js _surge_deploy/
-          cp -r "$BUILD_DIR"/fonts _surge_deploy/
-
-      - name: Deploy to Surge
-        id: surge
-        uses: afc163/surge-preview@v1
-        with:
-          surge_token: ${{ secrets.SURGE_TOKEN }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          dist: _surge_deploy
-          build: echo "already built"
-
       - name: Install dependencies and Playwright
         run: |
           npm ci
           npx playwright install --with-deps chromium
 
-      - name: E2E smoke tests
+      - name: Start preview server and run E2E tests
         run: |
-          URL="${{ steps.surge.outputs.preview_url }}"
-          # Ensure URL has https:// prefix
-          [[ "$URL" == http* ]] || URL="https://$URL"
-          echo "Testing $URL"
-          E2E_BASE_URL="$URL" npx playwright test
+          BUILD_DIR="/tmp/preview-build"
+          cd "$BUILD_DIR" && python3 -m http.server 8080 &
+          sleep 2
+          E2E_BASE_URL="http://localhost:8080" npx playwright test
 
-      - name: Publish screenshot to preview
-        if: success()
-        env:
-          SURGE_TOKEN: ${{ secrets.SURGE_TOKEN }}
+      - name: Prepare preview site
         run: |
-          URL="${{ steps.surge.outputs.preview_url }}"
-          [[ "$URL" == http* ]] || URL="https://$URL"
-          DOMAIN="${URL#https://}"
-          cp test-results/preview.png _surge_deploy/
-          npx surge _surge_deploy "$DOMAIN" --token "$SURGE_TOKEN"
+          BUILD_DIR="/tmp/preview-build"
+          mkdir -p _preview_site
+          cp "$BUILD_DIR"/index.html "$BUILD_DIR"/style.css _preview_site/
+          cp "$BUILD_DIR"/data.json "$BUILD_DIR"/alerts.json _preview_site/
+          cp "$BUILD_DIR"/*.js _preview_site/
+          cp -r "$BUILD_DIR"/fonts _preview_site/
+          # Include E2E screenshot if available
+          [ -f test-results/preview.png ] && cp test-results/preview.png _preview_site/ || true
 
-      - name: Comment PR with screenshot
-        if: success()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          URL="${{ steps.surge.outputs.preview_url }}"
-          [[ "$URL" == http* ]] || URL="https://$URL"
-          bash scripts/pr-comment-screenshot.sh \
-            "$URL" \
-            "${{ github.event.pull_request.number }}" \
-            "${{ github.sha }}"
+      - name: Upload preview artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: preview-site
+          path: _preview_site/
+
+  deploy-preview:
+    name: Deploy PR preview
+    needs: [build-and-test]
+    if: always()
+    runs-on: ubuntu-latest
+    concurrency: preview-${{ github.ref }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download preview artifact
+        if: github.event.action != 'closed'
+        uses: actions/download-artifact@v4
+        with:
+          name: preview-site
+          path: preview-site
+
+      - name: Deploy PR Preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: ./preview-site/
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
+          action: auto
+          comment: true

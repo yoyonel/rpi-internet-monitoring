@@ -1,9 +1,9 @@
 name: Lighthouse Audit
 
 on:
-  # Run AFTER Surge preview is deployed (PRs) or gh-pages deploy (master)
+  # Run AFTER GitHub Pages preview is deployed (PRs) or gh-pages deploy (master)
   workflow_run:
-    workflows: ['Preview PR — Surge', 'Deploy GitHub Pages']
+    workflows: ['Preview PR — GitHub Pages', 'Deploy GitHub Pages']
     types: [completed]
   # Weekly standalone run (Monday 06:00 UTC)
   schedule:
@@ -34,12 +34,12 @@ jobs:
         id: url
         run: |
           PROD_URL="https://yoyonel.github.io/rpi-internet-monitoring/"
-          if [[ "${{ github.event.workflow_run.name }}" == "Preview PR — Surge" ]]; then
+          if [[ "${{ github.event.workflow_run.name }}" == "Preview PR — GitHub Pages" ]]; then
             # Extract PR number from the triggering workflow run
             PR=$(echo '${{ toJSON(github.event.workflow_run.pull_requests) }}' \
               | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['number'])")
-            URL="https://yoyonel-rpi-internet-monitoring-deploy-and-test-pr-${PR}.surge.sh/"
-            echo "Surge preview for PR #${PR}: $URL"
+            URL="https://yoyonel.github.io/rpi-internet-monitoring/pr-preview/pr-${PR}/"
+            echo "GitHub Pages preview for PR #${PR}: $URL"
           else
             URL="$PROD_URL"
           fi
@@ -106,7 +106,7 @@ jobs:
   comment:
     name: Comment PR with Lighthouse scores
     needs: lighthouse
-    if: github.event.workflow_run.name == 'Preview PR — Surge'
+    if: github.event.workflow_run.name == 'Preview PR — GitHub Pages'
     runs-on: ubuntu-latest
     steps:
       - name: Download reports
@@ -139,7 +139,7 @@ jobs:
               echo "| $(badge "$M")$(badge "$D") ${LABEL} | **${M}** | **${D}** |"
             done
             echo ''
-            echo "_Audited on Surge preview_"
+            echo "_Audited on GitHub Pages preview_"
             echo 'EOFCOMMENT'
           } >> "$GITHUB_OUTPUT"
 
@@ -184,7 +184,7 @@ jobs:
   badges:
     name: Update Lighthouse badges
     needs: lighthouse
-    if: github.event.workflow_run.name != 'Preview PR — Surge'
+    if: github.event.workflow_run.name != 'Preview PR — GitHub Pages'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

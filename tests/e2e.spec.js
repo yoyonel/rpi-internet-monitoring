@@ -5,7 +5,7 @@ const isRemote = BASE.startsWith('https://');
 
 /**
  * Wait until the app has finished rendering (stats cards + charts).
- * Uses a generous timeout to survive slow networks (GH Pages CDN via Surge).
+ * Uses a generous timeout to survive slow networks (GH Pages CDN).
  */
 async function waitForAppReady(page) {
   await page.waitForFunction(
