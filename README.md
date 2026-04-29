@@ -324,8 +324,8 @@ just preview-dev
 just e2e                          # contre http://localhost:8080 (défaut)
 just e2e http://localhost:9090    # port alternatif
 
-# Contre une URL distante (preview Surge, production…)
-just e2e https://yoyonel-rpi-internet-monitoring-preview-pr-2.surge.sh
+# Contre une URL distante (PR preview, production…)
+just e2e https://yoyonel.github.io/rpi-internet-monitoring/pr-preview/pr-2/
 just e2e https://yoyonel.github.io/rpi-internet-monitoring/
 ```
 
@@ -371,11 +371,11 @@ tests/e2e.spec.js        → 12 tests en 2 groupes, ~210 lignes
 Justfile (just e2e)      → Point d'entrée local : E2E_BASE_URL=<url> npx playwright test
 ```
 
-Le `baseURL` est configurable via la variable d'environnement `E2E_BASE_URL` (défaut: `http://localhost:8080`). Cela permet d'exécuter les mêmes tests contre n'importe quel déploiement : local, Surge preview, ou production.
+Le `baseURL` est configurable via la variable d'environnement `E2E_BASE_URL` (défaut: `http://localhost:8080`). Cela permet d'exécuter les mêmes tests contre n'importe quel déploiement : local, PR preview GitHub Pages, ou production.
 
 #### Stratégie de stabilité
 
-Les tests E2E sont conçus pour être **rapides et non-flaky**, même contre des URLs distantes (GitHub Pages, Surge) :
+Les tests E2E sont conçus pour être **rapides et non-flaky**, même contre des URLs distantes (GitHub Pages) :
 
 | Technique                        | Impact                                                                                  |
 | -------------------------------- | --------------------------------------------------------------------------------------- |
@@ -389,13 +389,12 @@ Les tests E2E sont conçus pour être **rapides et non-flaky**, même contre des
 
 #### Pipeline CI
 
-Les tests E2E s'exécutent automatiquement dans le workflow **Preview PR — Surge** (`.github/workflows/preview-pr.yml`) :
+Les tests E2E s'exécutent automatiquement dans le workflow **Preview PR — GitHub Pages** (`.github/workflows/preview-pr.yml`) :
 
 1. Build de la page avec les données live
-2. Déploiement sur Surge.sh
-3. `npm ci` + installation de Chromium headless
-4. Exécution des 12 tests Playwright contre l'URL Surge déployée
-5. Retry automatique (2 retries par test en cas de flakiness réseau Surge)
+2. Tests E2E locaux contre un serveur HTTP
+3. Déploiement du preview sur GitHub Pages (`pr-preview/pr-<N>/`)
+4. Commentaire automatique sur la PR avec le lien de preview
 
 Déclenché sur chaque PR modifiant : `gh-pages/**`, `scripts/*.py`, `tests/**`, `playwright.config.js`.
 
