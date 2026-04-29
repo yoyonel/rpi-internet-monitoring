@@ -1,0 +1,222 @@
+name: E2E — Grafana Dashboards
+
+on:
+  push:
+    branches: [master, feat/victoriametrics] # TODO: remove feat branch before merge
+    paths:
+      - 'grafana/**'
+      - 'tests/grafana-dashboards.spec.js'
+      - '.github/workflows/e2e-grafana.yml'
+  pull_request:
+    paths:
+      - 'grafana/**'
+      - 'tests/grafana-dashboards.spec.js'
+      - '.github/workflows/e2e-grafana.yml'
+  workflow_dispatch:
+
+env:
+  GF_SECURITY_ADMIN_USER: admin
+  GF_SECURITY_ADMIN_PASSWORD: cipass
+  INFLUXDB_ADMIN_USER: admin
+  INFLUXDB_ADMIN_PASSWORD: cipass
+  INFLUXDB_USER: telegraf
+  INFLUXDB_USER_PASSWORD: cipass
+
+jobs:
+  grafana-e2e:
+    name: Grafana dashboard parity (InfluxDB ↔ VM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install dependencies and Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Start InfluxDB
+        run: |
+          docker run -d --name influxdb --network host \
+            -e INFLUXDB_HTTP_AUTH_ENABLED=true \
+            -e INFLUXDB_ADMIN_USER=admin \
+            -e INFLUXDB_ADMIN_PASSWORD=cipass \
+            -e INFLUXDB_USER=telegraf \
+            -e INFLUXDB_USER_PASSWORD=cipass \
+            influxdb:1.8.10
+
+          echo "Waiting for InfluxDB..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8086/ping >/dev/null 2>&1; then
+              echo "InfluxDB healthy after ${i}s"
+              break
+            fi
+            [[ "$i" -eq 60 ]] && { echo "InfluxDB timeout"; docker logs influxdb; exit 1; }
+            sleep 1
+          done
+
+          # Create databases and grant access
+          QUERIES="CREATE DATABASE telegraf;"
+          QUERIES+="CREATE DATABASE speedtest;"
+          QUERIES+="GRANT ALL ON telegraf TO telegraf;"
+          QUERIES+="GRANT ALL ON speedtest TO telegraf"
+          curl -sf -XPOST 'http://localhost:8086/query' \
+            -u admin:cipass \
+            --data-urlencode "q=$QUERIES"
+
+      - name: Start VictoriaMetrics
+        run: |
+          docker run -d --name victoriametrics --network host \
+            victoriametrics/victoria-metrics:v1.142.0 \
+            -search.latencyOffset=0s \
+            -influxListenAddr=:8089 \
+            -httpListenAddr=:8428
+
+          echo "Waiting for VictoriaMetrics..."
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8428/health >/dev/null 2>&1; then
+              echo "VM healthy after ${i}s"
+              break
+            fi
+            [[ "$i" -eq 30 ]] && { echo "VM timeout"; docker logs victoriametrics; exit 1; }
+            sleep 1
+          done
+
+      - name: Seed test data into both backends
+        run: |
+          TS=$(date +%s)
+          # Write 10 data points (last 10 minutes) to both backends
+          for offset in $(seq 0 9); do
+            T=$(( (TS - (9 - offset) * 60) ))000000000
+            DL=$(( 800000000 + RANDOM % 200000000 ))
+            UL=$(( 500000000 + RANDOM % 200000000 ))
+            PING="$(( 8 + RANDOM % 15 )).$(( RANDOM % 10 ))"
+            CPU_IDLE="$(( 80 + RANDOM % 15 )).$(( RANDOM % 10 ))"
+            MEM="$(( 30 + RANDOM % 30 )).$(( RANDOM % 10 ))"
+
+            # Speedtest data
+            SPD="speedtest,result_id=ci-${offset}"
+            SPD+=" ping_latency=${PING}"
+            SPD+=",download_bandwidth=${DL}i"
+            SPD+=",upload_bandwidth=${UL}i ${T}"
+            # System metrics
+            CPU="cpu,cpu=cpu-total,host=ci usage_idle=${CPU_IDLE},usage_system=2.1 ${T}"
+            MEM_LINE="mem,host=ci used_percent=${MEM} ${T}"
+            DISK="disk,host=ci,path=/ used_percent=45.2 ${T}"
+            # Docker metrics
+            DOCKER="docker_container_cpu,container_name=grafana usage_percent=1.5 ${T}"
+
+            # Write to InfluxDB
+            curl -sf -d "$SPD" "http://localhost:8086/write?db=speedtest&u=telegraf&p=cipass"
+            curl -sf -d "${CPU}
+          ${MEM_LINE}
+          ${DISK}
+          ${DOCKER}" "http://localhost:8086/write?db=telegraf&u=telegraf&p=cipass"
+
+            # Write to VictoriaMetrics
+            curl -sf -d "$SPD" 'http://localhost:8428/write?db=speedtest'
+            curl -sf -d "${CPU}
+          ${MEM_LINE}
+          ${DISK}
+          ${DOCKER}" 'http://localhost:8428/write?db=telegraf'
+          done
+
+          # Flush VM index
+          curl -sf http://localhost:8428/internal/force_flush
+          sleep 2
+          echo "✓ Seeded 10 data points into both backends"
+
+      - name: Start Grafana
+        run: |
+          docker run -d --name grafana --network host \
+            -e GF_SECURITY_ADMIN_USER=admin \
+            -e GF_SECURITY_ADMIN_PASSWORD=cipass \
+            -e INFLUXDB_USER=telegraf \
+            -e INFLUXDB_USER_PASSWORD=cipass \
+            -v "$PWD/grafana/provisioning:/etc/grafana/provisioning:ro" \
+            -v "$PWD/grafana/dashboards:/var/lib/grafana/dashboards:ro" \
+            grafana/grafana:12.4.3
+
+          echo "Waiting for Grafana..."
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:3000/api/health >/dev/null 2>&1; then
+              echo "Grafana healthy after ${i}s"
+              break
+            fi
+            [[ "$i" -eq 60 ]] && { echo "Grafana timeout"; docker logs grafana; exit 1; }
+            sleep 1
+          done
+
+      - name: Patch datasource URLs for host networking
+        run: |
+          # Provisioned datasources use Docker service names (influxdb, victoriametrics).
+          # With --network host, we need localhost. Patch via Grafana API.
+          AUTH="admin:cipass"
+
+          # Get current VM datasource and patch URL
+          curl -sf -u "$AUTH" -X PUT http://localhost:3000/api/datasources/uid/victoriametrics \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "name": "VictoriaMetrics",
+              "type": "prometheus",
+              "uid": "victoriametrics",
+              "access": "proxy",
+              "url": "http://localhost:8428",
+              "isDefault": false
+            }'
+
+          # Patch InfluxDB datasources
+          curl -sf -u "$AUTH" -X PUT http://localhost:3000/api/datasources/uid/2QPKy_O4k \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "name": "InfluxDB",
+              "type": "influxdb",
+              "uid": "2QPKy_O4k",
+              "access": "proxy",
+              "url": "http://localhost:8086",
+              "database": "telegraf",
+              "user": "telegraf",
+              "secureJsonData": { "password": "cipass" },
+              "isDefault": true
+            }'
+
+          curl -sf -u "$AUTH" -X PUT http://localhost:3000/api/datasources/uid/influxdb-speedtest \
+            -H 'Content-Type: application/json' \
+            -d '{
+              "name": "InfluxDB-Speedtest",
+              "type": "influxdb",
+              "uid": "influxdb-speedtest",
+              "access": "proxy",
+              "url": "http://localhost:8086",
+              "database": "speedtest",
+              "user": "telegraf",
+              "secureJsonData": { "password": "cipass" },
+              "isDefault": false
+            }'
+
+          echo "✓ Datasource URLs patched for host networking"
+
+      - name: Run Grafana E2E tests
+        run: |
+          GRAFANA_URL=http://localhost:3000 \
+          GRAFANA_USER=admin \
+          GRAFANA_PASS=cipass \
+          npx playwright test tests/grafana-dashboards.spec.js
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grafana-e2e-screenshots
+          path: test-results/
+          retention-days: 7
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f grafana victoriametrics influxdb 2>/dev/null || true
