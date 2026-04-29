@@ -59,7 +59,10 @@ cleanup() {
     fi
     echo ""
     echo "── Cleanup ──"
-    [[ -n "$PREVIEW_PID" ]] && kill "$PREVIEW_PID" 2>/dev/null && wait "$PREVIEW_PID" 2>/dev/null || true
+    if [[ -n "$PREVIEW_PID" ]]; then
+        kill "$PREVIEW_PID" 2>/dev/null
+        wait "$PREVIEW_PID" 2>/dev/null
+    fi
     "$DOCKER" rm -f "$VM_CONTAINER" "$TELEGRAF_CONTAINER" 2>/dev/null || true
     "$DOCKER" network rm "$NETWORK" 2>/dev/null || true
     [[ -n "$DATA_FILE" && -f "$DATA_FILE" ]] && rm -f "$DATA_FILE"
@@ -333,7 +336,8 @@ else
     fi
 
     # Stop preview
-    kill "$PREVIEW_PID" 2>/dev/null && wait "$PREVIEW_PID" 2>/dev/null || true
+    kill "$PREVIEW_PID" 2>/dev/null
+    wait "$PREVIEW_PID" 2>/dev/null
     PREVIEW_PID=""
     echo ""
 fi
