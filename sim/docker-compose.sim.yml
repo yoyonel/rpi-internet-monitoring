@@ -84,6 +84,7 @@ services:
     environment:
       INFLUXDB_USER: ${INFLUXDB_ADMIN_USER:-admin}
       INFLUXDB_USER_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD}
+      VICTORIA_METRICS_URL: ${VICTORIA_METRICS_URL:-}
 
   # Periodic speedtest — replaces the systemd timer from production.
   # Runs every SPEEDTEST_INTERVAL seconds (default 600 = 10 min).
@@ -100,6 +101,7 @@ services:
     environment:
       INFLUXDB_USER: ${INFLUXDB_ADMIN_USER:-admin}
       INFLUXDB_USER_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD}
+      VICTORIA_METRICS_URL: ${VICTORIA_METRICS_URL:-}
       SPEEDTEST_INTERVAL: '600'
     networks:
       - speedtest
