@@ -205,25 +205,25 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "cpu_usage_user{cpu=\"cpu-total\"}",
-          "legendFormat": "user"
+          "legendFormat": "cpu.user"
         },
         {
           "refId": "B",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "cpu_usage_system{cpu=\"cpu-total\"}",
-          "legendFormat": "system"
+          "legendFormat": "cpu.system"
         },
         {
           "refId": "C",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "cpu_usage_iowait{cpu=\"cpu-total\"}",
-          "legendFormat": "iowait"
+          "legendFormat": "cpu.iowait"
         },
         {
           "refId": "D",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "cpu_usage_irq{cpu=\"cpu-total\"} + cpu_usage_softirq{cpu=\"cpu-total\"}",
-          "legendFormat": "irq"
+          "legendFormat": "cpu.irq"
         }
       ],
       "options": { "tooltip": { "mode": "multi" } }
@@ -246,19 +246,19 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "system_load1",
-          "legendFormat": "1m"
+          "legendFormat": "system.1m"
         },
         {
           "refId": "B",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "system_load5",
-          "legendFormat": "5m"
+          "legendFormat": "system.5m"
         },
         {
           "refId": "C",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "system_load15",
-          "legendFormat": "15m"
+          "legendFormat": "system.15m"
         }
       ],
       "options": { "tooltip": { "mode": "multi" } }
@@ -276,7 +276,7 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "available" },
+            "matcher": { "id": "byName", "options": "mem.available" },
             "properties": [
               { "id": "custom.fillOpacity", "value": 5 },
               { "id": "custom.stacking", "value": { "mode": "none" } },
@@ -290,25 +290,25 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "mem_used",
-          "legendFormat": "used"
+          "legendFormat": "mem.used"
         },
         {
           "refId": "B",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "mem_cached",
-          "legendFormat": "cached"
+          "legendFormat": "mem.cached"
         },
         {
           "refId": "C",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "mem_buffered",
-          "legendFormat": "buffered"
+          "legendFormat": "mem.buffered"
         },
         {
           "refId": "D",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "mem_available",
-          "legendFormat": "available"
+          "legendFormat": "mem.available"
         }
       ],
       "options": { "tooltip": { "mode": "multi" } }
@@ -331,13 +331,13 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "swap_used",
-          "legendFormat": "used"
+          "legendFormat": "swap.used"
         },
         {
           "refId": "B",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "swap_free",
-          "legendFormat": "free"
+          "legendFormat": "swap.free"
         }
       ],
       "options": { "tooltip": { "mode": "multi" } }
@@ -359,14 +359,14 @@
         {
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
-          "expr": "rate(diskio_read_bytes[$__rate_interval])",
-          "legendFormat": "read"
+          "expr": "sum(rate(diskio_read_bytes[$__rate_interval]))",
+          "legendFormat": "diskio.read"
         },
         {
           "refId": "B",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
-          "expr": "rate(diskio_write_bytes[$__rate_interval])",
-          "legendFormat": "write"
+          "expr": "sum(rate(diskio_write_bytes[$__rate_interval]))",
+          "legendFormat": "diskio.write"
         }
       ],
       "options": { "tooltip": { "mode": "multi" } }
@@ -388,14 +388,14 @@
         {
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
-          "expr": "rate(net_bytes_recv{interface!=\"lo\"}[$__rate_interval])",
-          "legendFormat": "rx"
+          "expr": "sum(rate(net_bytes_recv{interface!=\"lo\"}[$__rate_interval]))",
+          "legendFormat": "net.rx"
         },
         {
           "refId": "B",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
-          "expr": "rate(net_bytes_sent{interface!=\"lo\"}[$__rate_interval])",
-          "legendFormat": "tx"
+          "expr": "sum(rate(net_bytes_sent{interface!=\"lo\"}[$__rate_interval]))",
+          "legendFormat": "net.tx"
         }
       ],
       "options": { "tooltip": { "mode": "multi" } }
@@ -428,7 +428,7 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "cpu_temperature_value / 1000",
-          "legendFormat": "temperature"
+          "legendFormat": "cpu_temperature.temperature"
         }
       ],
       "options": { "tooltip": { "mode": "multi" } }
@@ -462,7 +462,7 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "disk_used_percent",
-          "legendFormat": "{{path}}"
+          "legendFormat": "disk.mean { path: {{path}} }"
         }
       ],
       "options": { "tooltip": { "mode": "multi" } }
