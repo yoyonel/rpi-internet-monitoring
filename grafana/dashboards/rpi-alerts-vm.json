@@ -37,7 +37,8 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "100 - cpu_usage_idle{cpu=\"cpu-total\"}",
-          "instant": true
+          "instant": false,
+          "range": true
         }
       ]
     },
@@ -69,7 +70,8 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "cpu_temperature_value / 1000",
-          "instant": true
+          "instant": false,
+          "range": true
         }
       ]
     },
@@ -103,7 +105,8 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "mem_used_percent",
-          "instant": true
+          "instant": false,
+          "range": true
         }
       ]
     },
@@ -137,7 +140,8 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "swap_used_percent",
-          "instant": true
+          "instant": false,
+          "range": true
         }
       ]
     },
@@ -171,7 +175,8 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "disk_used_percent{path=\"/\"}",
-          "instant": true
+          "instant": false,
+          "range": true
         }
       ]
     },
@@ -203,7 +208,8 @@
           "refId": "A",
           "datasource": { "uid": "victoriametrics", "type": "prometheus" },
           "expr": "system_load1",
-          "instant": true
+          "instant": false,
+          "range": true
         }
       ]
     },
