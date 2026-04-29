@@ -40,9 +40,14 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
+      - name: Create Docker network
+        run: docker network create grafana-ci
+
       - name: Start InfluxDB
         run: |
-          docker run -d --name influxdb --network host \
+          docker run -d --name influxdb \
+            --network grafana-ci \
+            -p 8086:8086 \
             -e INFLUXDB_HTTP_AUTH_ENABLED=true \
             -e INFLUXDB_ADMIN_USER=admin \
             -e INFLUXDB_ADMIN_PASSWORD=cipass \
@@ -56,7 +61,11 @@ jobs:
               echo "InfluxDB responding after ${i}s"
               break
             fi
-            [[ "$i" -eq 60 ]] && { echo "InfluxDB timeout"; docker logs influxdb; exit 1; }
+            if [[ "$i" -eq 60 ]]; then
+              echo "InfluxDB timeout"
+              docker logs influxdb
+              exit 1
+            fi
             sleep 1
           done
 
@@ -70,11 +79,15 @@ jobs:
               echo "InfluxDB init complete after ${i}s"
               break
             fi
-            [[ "$i" -eq 30 ]] && { echo "Init timeout"; docker logs influxdb; exit 1; }
+            if [[ "$i" -eq 30 ]]; then
+              echo "Init timeout"
+              docker logs influxdb
+              exit 1
+            fi
             sleep 2
           done
 
-          # Create databases and grant access (one query at a time)
+          # Create databases and grant access
           for q in \
             "CREATE DATABASE telegraf" \
             "CREATE DATABASE speedtest" \
@@ -88,7 +101,9 @@ jobs:
 
       - name: Start VictoriaMetrics
         run: |
-          docker run -d --name victoriametrics --network host \
+          docker run -d --name victoriametrics \
+            --network grafana-ci \
+            -p 8428:8428 \
             victoriametrics/victoria-metrics:v1.142.0 \
             -search.latencyOffset=0s \
             -influxListenAddr=:8089 \
@@ -100,14 +115,18 @@ jobs:
               echo "VM healthy after ${i}s"
               break
             fi
-            [[ "$i" -eq 30 ]] && { echo "VM timeout"; docker logs victoriametrics; exit 1; }
+            if [[ "$i" -eq 30 ]]; then
+              echo "VM timeout"
+              docker logs victoriametrics
+              exit 1
+            fi
             sleep 1
           done
 
       - name: Seed test data into both backends
         run: |
           TS=$(date +%s)
-          # Write 10 data points (last 10 minutes) to both backends
+          # Write 10 data points (last 10 minutes)
           for offset in $(seq 0 9); do
             T=$(( (TS - (9 - offset) * 60) ))000000000
             DL=$(( 800000000 + RANDOM % 200000000 ))
@@ -116,31 +135,32 @@ jobs:
             CPU_IDLE="$(( 80 + RANDOM % 15 )).$(( RANDOM % 10 ))"
             MEM="$(( 30 + RANDOM % 30 )).$(( RANDOM % 10 ))"
 
-            # Speedtest data
             SPD="speedtest,result_id=ci-${offset}"
             SPD+=" ping_latency=${PING}"
             SPD+=",download_bandwidth=${DL}i"
             SPD+=",upload_bandwidth=${UL}i ${T}"
-            # System metrics
-            CPU="cpu,cpu=cpu-total,host=ci usage_idle=${CPU_IDLE},usage_system=2.1 ${T}"
-            MEM_LINE="mem,host=ci used_percent=${MEM} ${T}"
-            DISK="disk,host=ci,path=/ used_percent=45.2 ${T}"
-            # Docker metrics
-            DOCKER="docker_container_cpu,container_name=grafana usage_percent=1.5 ${T}"
+            CPU="cpu,cpu=cpu-total,host=ci"
+            CPU+=" usage_idle=${CPU_IDLE},usage_system=2.1 ${T}"
+            MEM_L="mem,host=ci used_percent=${MEM} ${T}"
+            DSK="disk,host=ci,path=/ used_percent=45.2 ${T}"
+            DCK="docker_container_cpu,container_name=grafana"
+            DCK+=" usage_percent=1.5 ${T}"
 
             # Write to InfluxDB
-            curl -sf -d "$SPD" "http://localhost:8086/write?db=speedtest&u=telegraf&p=cipass"
-            curl -sf -d "${CPU}
-          ${MEM_LINE}
-          ${DISK}
-          ${DOCKER}" "http://localhost:8086/write?db=telegraf&u=telegraf&p=cipass"
+            curl -sf -d "$SPD" \
+              "http://localhost:8086/write?db=speedtest&u=telegraf&p=cipass"
+            printf '%s\n%s\n%s\n%s' \
+              "$CPU" "$MEM_L" "$DSK" "$DCK" \
+              | curl -sf -d @- \
+              "http://localhost:8086/write?db=telegraf&u=telegraf&p=cipass"
 
             # Write to VictoriaMetrics
-            curl -sf -d "$SPD" 'http://localhost:8428/write?db=speedtest'
-            curl -sf -d "${CPU}
-          ${MEM_LINE}
-          ${DISK}
-          ${DOCKER}" 'http://localhost:8428/write?db=telegraf'
+            curl -sf -d "$SPD" \
+              'http://localhost:8428/write?db=speedtest'
+            printf '%s\n%s\n%s\n%s' \
+              "$CPU" "$MEM_L" "$DSK" "$DCK" \
+              | curl -sf -d @- \
+              'http://localhost:8428/write?db=telegraf'
           done
 
           # Flush VM index
@@ -150,7 +170,11 @@ jobs:
 
       - name: Start Grafana
         run: |
-          docker run -d --name grafana --network host \
+          # Grafana connects to influxdb/victoriametrics via Docker
+          # network names (matching provisioning config).
+          docker run -d --name grafana \
+            --network grafana-ci \
+            -p 3000:3000 \
             -e GF_SECURITY_ADMIN_USER=admin \
             -e GF_SECURITY_ADMIN_PASSWORD=cipass \
             -e INFLUXDB_USER=telegraf \
@@ -165,58 +189,13 @@ jobs:
               echo "Grafana healthy after ${i}s"
               break
             fi
-            [[ "$i" -eq 60 ]] && { echo "Grafana timeout"; docker logs grafana; exit 1; }
+            if [[ "$i" -eq 60 ]]; then
+              echo "Grafana timeout"
+              docker logs grafana
+              exit 1
+            fi
             sleep 1
           done
-
-      - name: Patch datasource URLs for host networking
-        run: |
-          # Provisioned datasources use Docker service names (influxdb, victoriametrics).
-          # With --network host, we need localhost. Patch via Grafana API.
-          AUTH="admin:cipass"
-
-          # Get current VM datasource and patch URL
-          curl -sf -u "$AUTH" -X PUT http://localhost:3000/api/datasources/uid/victoriametrics \
-            -H 'Content-Type: application/json' \
-            -d '{
-              "name": "VictoriaMetrics",
-              "type": "prometheus",
-              "uid": "victoriametrics",
-              "access": "proxy",
-              "url": "http://localhost:8428",
-              "isDefault": false
-            }'
-
-          # Patch InfluxDB datasources
-          curl -sf -u "$AUTH" -X PUT http://localhost:3000/api/datasources/uid/2QPKy_O4k \
-            -H 'Content-Type: application/json' \
-            -d '{
-              "name": "InfluxDB",
-              "type": "influxdb",
-              "uid": "2QPKy_O4k",
-              "access": "proxy",
-              "url": "http://localhost:8086",
-              "database": "telegraf",
-              "user": "telegraf",
-              "secureJsonData": { "password": "cipass" },
-              "isDefault": true
-            }'
-
-          curl -sf -u "$AUTH" -X PUT http://localhost:3000/api/datasources/uid/influxdb-speedtest \
-            -H 'Content-Type: application/json' \
-            -d '{
-              "name": "InfluxDB-Speedtest",
-              "type": "influxdb",
-              "uid": "influxdb-speedtest",
-              "access": "proxy",
-              "url": "http://localhost:8086",
-              "database": "speedtest",
-              "user": "telegraf",
-              "secureJsonData": { "password": "cipass" },
-              "isDefault": false
-            }'
-
-          echo "✓ Datasource URLs patched for host networking"
 
       - name: Run Grafana E2E tests
         run: |
@@ -237,3 +216,4 @@ jobs:
         if: always()
         run: |
           docker rm -f grafana victoriametrics influxdb 2>/dev/null || true
+          docker network rm grafana-ci 2>/dev/null || true
