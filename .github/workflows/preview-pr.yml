@@ -53,7 +53,8 @@ jobs:
           BUILD_DIR="/tmp/preview-build"
           cd "$BUILD_DIR" && python3 -m http.server 8080 &
           sleep 2
-          E2E_BASE_URL="http://localhost:8080" npx playwright test
+          E2E_BASE_URL="http://localhost:8080" \
+            npx playwright test tests/e2e.spec.js
 
       - name: Prepare preview site
         run: |
