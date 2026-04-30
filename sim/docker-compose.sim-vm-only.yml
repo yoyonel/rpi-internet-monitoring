@@ -1,0 +1,92 @@
+# docker-compose.sim-vm-only.yml — VM-only RPi4 simulation (no InfluxDB)
+#
+# Usage (3rd overlay, applied on top of base + sim):
+#   docker compose -f docker-compose.yml \
+#     -f sim/docker-compose.sim.yml \
+#     -f sim/docker-compose.sim-vm-only.yml \
+#     --env-file sim/.env.sim -p rpi-sim up -d
+#
+# What this does:
+#   - Replaces InfluxDB with VictoriaMetrics as the sole time-series backend
+#   - InfluxDB & Chronograf exit immediately (entrypoint: true)
+#   - Telegraf writes only to VictoriaMetrics (telegraf-sim-vm-only.conf)
+#   - Speedtest writes to VM's InfluxDB-compatible HTTP API (transparent)
+#   - Grafana with VictoriaMetrics (Prometheus) datasource and MetricsQL dashboards
+#   - VMUI accessible at http://localhost:8428/vmui
+#
+# Key trick: docker-entrypoint.sh uses INFLUXDB_HOST:INFLUXDB_PORT via curl.
+# VM accepts the same wire format on :8428/write. We just redirect there.
+
+services:
+  # ── Disabled services (replaced by VictoriaMetrics) ─────────
+
+  influxdb:
+    entrypoint: ['true']
+    restart: 'no'
+    healthcheck:
+      disable: true
+
+  chronograf:
+    entrypoint: ['true']
+    restart: 'no'
+    healthcheck:
+      disable: true
+    depends_on:
+      influxdb:
+        condition: service_completed_successfully
+
+  # ── VictoriaMetrics (primary backend) ───────────────────────
+
+  victoriametrics:
+    container_name: rpi-sim-victoriametrics
+    platform: linux/arm64
+    mem_limit: 512m
+    memswap_limit: 768m
+    # QEMU emulation makes wget inside ARM64 container impossibly slow.
+    # Disable Docker healthcheck; use host-side curl in Justfile recipes instead.
+    healthcheck:
+      disable: true
+
+  # ── Telegraf → VictoriaMetrics only ─────────────────────────
+
+  telegraf:
+    environment:
+      VM_OUTPUT_URL: http://victoriametrics:8428
+    volumes:
+      - ./sim/telegraf-sim-vm-only.conf:/etc/telegraf/telegraf.conf:ro
+    depends_on:
+      influxdb:
+        condition: service_completed_successfully
+      victoriametrics:
+        condition: service_started
+
+  # ── Speedtest → VM's InfluxDB-compatible API ────────────────
+  # INFLUXDB_HOST/PORT redirect docker-entrypoint.sh to VM transparently.
+  # VICTORIA_METRICS_URL is empty — no dual-write (VM IS the primary).
+
+  speedtest:
+    environment:
+      INFLUXDB_HOST: victoriametrics
+      INFLUXDB_PORT: '8428'
+      INFLUXDB_USER: ''
+      INFLUXDB_USER_PASSWORD: ''
+      VICTORIA_METRICS_URL: ''
+    depends_on:
+      influxdb:
+        condition: service_completed_successfully
+      victoriametrics:
+        condition: service_started
+
+  speedtest-cron:
+    environment:
+      INFLUXDB_HOST: victoriametrics
+      INFLUXDB_PORT: '8428'
+      INFLUXDB_USER: ''
+      INFLUXDB_USER_PASSWORD: ''
+      VICTORIA_METRICS_URL: ''
+      SPEEDTEST_INTERVAL: 600
+    depends_on:
+      influxdb:
+        condition: service_completed_successfully
+      victoriametrics:
+        condition: service_started

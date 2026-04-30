@@ -1,0 +1,493 @@
+{
+  "uid": "rpi-docker-vm-dashboard",
+  "title": "Docker Containers (VM)",
+  "tags": ["docker", "telegraf", "victoriametrics"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "container",
+        "type": "query",
+        "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+        "query": "label_values(docker_container_cpu_usage_percent, container_name)",
+        "definition": "label_values(docker_container_cpu_usage_percent, container_name)",
+        "multi": true,
+        "includeAll": true,
+        "current": { "text": "All", "value": "$__all" },
+        "refresh": 2
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Running Containers",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "graphMode": "none", "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "docker_n_containers_running",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Stopped",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "graphMode": "none", "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "docker_n_containers_stopped",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Total Images",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "graphMode": "none", "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "docker_n_images",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Total CPU %",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "orange", "value": 80 },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "graphMode": "area", "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "sum(docker_container_cpu_usage_percent)",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Total RAM",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1073741824 },
+              { "color": "red", "value": 3221225472 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "graphMode": "area", "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "sum(docker_container_mem_usage)",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Total Net RX",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "graphMode": "area", "colorMode": "background", "reduceOptions": { "calcs": ["lastNotNull"] }, "textMode": "auto" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "sum(docker_container_net_rx_bytes)",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "CPU Usage per Container",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "gradientMode": "scheme",
+            "showPoints": "never",
+            "stacking": { "mode": "none" }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max", "lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "docker_container_cpu_usage_percent{container_name=~\"$container\"}",
+          "legendFormat": "{{container_name}}"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Memory Usage per Container",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "gradientMode": "scheme",
+            "showPoints": "never",
+            "stacking": { "mode": "none" }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max", "lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "docker_container_mem_usage{container_name=~\"$container\"}",
+          "legendFormat": "{{container_name}}"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Memory % per Container",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 20,
+            "gradientMode": "scheme",
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max", "lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "docker_container_mem_usage_percent{container_name=~\"$container\"}",
+          "legendFormat": "{{container_name}}"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Network I/O per Container",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "scheme",
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "rate(docker_container_net_rx_bytes{container_name=~\"$container\"}[$__rate_interval])",
+          "legendFormat": "{{container_name}} RX"
+        },
+        {
+          "refId": "B",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "-rate(docker_container_net_tx_bytes{container_name=~\"$container\"}[$__rate_interval])",
+          "legendFormat": "{{container_name}} TX"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Block I/O per Container",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "scheme",
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean", "max"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "rate(docker_container_blkio_io_service_bytes_recursive_read{container_name=~\"$container\"}[$__rate_interval])",
+          "legendFormat": "{{container_name}} Read"
+        },
+        {
+          "refId": "B",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "-rate(docker_container_blkio_io_service_bytes_recursive_write{container_name=~\"$container\"}[$__rate_interval])",
+          "legendFormat": "{{container_name}} Write"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "table",
+      "title": "Container Status",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Value #A" },
+            "properties": [
+              { "id": "displayName", "value": "CPU %" },
+              { "id": "unit", "value": "percent" },
+              { "id": "decimals", "value": 1 },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    { "color": "green", "value": null },
+                    { "color": "yellow", "value": 25 },
+                    { "color": "orange", "value": 50 },
+                    { "color": "red", "value": 80 }
+                  ]
+                }
+              },
+              { "id": "custom.cellOptions", "value": { "type": "color-background" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Value #B" },
+            "properties": [
+              { "id": "displayName", "value": "Memory" },
+              { "id": "unit", "value": "bytes" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Value #C" },
+            "properties": [
+              { "id": "displayName", "value": "Uptime" },
+              { "id": "unit", "value": "ns" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Value #D" },
+            "properties": [
+              { "id": "displayName", "value": "Restarts" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Value #E" },
+            "properties": [
+              { "id": "displayName", "value": "OOM Killed" }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "CPU %", "desc": true }]
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true, "__name__": true, "host": true },
+            "renameByName": {
+              "container_name": "Container"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "docker_container_cpu_usage_percent",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "docker_container_mem_usage",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "C",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "docker_container_status_uptime_ns",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "D",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "docker_container_status_restart_count",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "E",
+          "datasource": { "uid": "victoriametrics", "type": "prometheus" },
+          "expr": "docker_container_status_oomkilled",
+          "format": "table",
+          "instant": true
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}

@@ -225,3 +225,86 @@ test.describe('interactive', () => {
     await expect(rangeLabel).not.toHaveText(initialText);
   });
 });
+
+// ═════════════════════════════════════════════════════════════
+// Data integrity tests — verify numeric coherence
+// ═════════════════════════════════════════════════════════════
+test.describe('data integrity', () => {
+  /** @type {import('@playwright/test').Page} */
+  let page;
+
+  test.beforeAll(async ({ browser }) => {
+    page = await browser.newPage();
+    await gotoAndWait(page);
+  });
+
+  test.afterAll(async () => {
+    await page?.close();
+  });
+
+  // ── 12. No unexpected zeros in data values ──────────────────
+  test('data values have no unexpected zeros', async () => {
+    const stats = await page.evaluate(async () => {
+      const resp = await fetch('data.json');
+      const data = await resp.json();
+      const values = data?.results?.[0]?.series?.[0]?.values ?? [];
+      let zeroDl = 0,
+        zeroUl = 0,
+        zeroPing = 0;
+      for (const [, dl, ul, ping] of values) {
+        if (dl === 0) zeroDl++;
+        if (ul === 0) zeroUl++;
+        if (ping === 0) zeroPing++;
+      }
+      return { total: values.length, zeroDl, zeroUl, zeroPing };
+    });
+
+    // Allow up to 5% zero values (network outages happen), but not systemic
+    const threshold = Math.max(1, Math.floor(stats.total * 0.05));
+    expect(stats.zeroDl).toBeLessThanOrEqual(threshold);
+    expect(stats.zeroUl).toBeLessThanOrEqual(threshold);
+    expect(stats.zeroPing).toBeLessThanOrEqual(threshold);
+  });
+
+  // ── 13. Bandwidth values are in realistic range ─────────────
+  test('bandwidth values are in realistic range', async () => {
+    const { minDl, maxDl, minUl, maxUl, minPing, maxPing } = await page.evaluate(async () => {
+      const resp = await fetch('data.json');
+      const data = await resp.json();
+      const values = data?.results?.[0]?.series?.[0]?.values ?? [];
+      let minDl = Infinity,
+        maxDl = 0,
+        minUl = Infinity,
+        maxUl = 0;
+      let minPing = Infinity,
+        maxPing = 0;
+      for (const [, dl, ul, ping] of values) {
+        if (dl != null && dl > 0) {
+          minDl = Math.min(minDl, dl);
+          maxDl = Math.max(maxDl, dl);
+        }
+        if (ul != null && ul > 0) {
+          minUl = Math.min(minUl, ul);
+          maxUl = Math.max(maxUl, ul);
+        }
+        if (ping != null && ping > 0) {
+          minPing = Math.min(minPing, ping);
+          maxPing = Math.max(maxPing, ping);
+        }
+      }
+      return { minDl, maxDl, minUl, maxUl, minPing, maxPing };
+    });
+
+    // Download: at least 1 Mbps (125000 B/s), at most 10 Gbps
+    expect(minDl).toBeGreaterThan(125_000);
+    expect(maxDl).toBeLessThan(10_000_000_000);
+
+    // Upload: at least 100 Kbps (12500 B/s), at most 10 Gbps
+    expect(minUl).toBeGreaterThan(12_500);
+    expect(maxUl).toBeLessThan(10_000_000_000);
+
+    // Ping: 0.1ms to 5000ms
+    expect(minPing).toBeGreaterThan(0.1);
+    expect(maxPing).toBeLessThan(5000);
+  });
+});

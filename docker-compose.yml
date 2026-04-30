@@ -127,6 +127,8 @@ services:
     environment:
       INFLUXDB_USER: ${INFLUXDB_USER}
       INFLUXDB_USER_PASSWORD: ${INFLUXDB_USER_PASSWORD}
+      # Set to enable dual-write to VictoriaMetrics (e.g. http://victoriametrics:8428)
+      VICTORIA_METRICS_URL: ${VICTORIA_METRICS_URL:-}
     networks:
       - speedtest
     depends_on:
@@ -162,6 +164,7 @@ services:
     environment:
       INFLUXDB_USER: ${INFLUXDB_USER}
       INFLUXDB_USER_PASSWORD: ${INFLUXDB_USER_PASSWORD}
+      VICTORIA_METRICS_URL: ${VICTORIA_METRICS_URL:-}
     networks:
       - speedtest
     depends_on:
@@ -183,6 +186,7 @@ services:
     environment:
       INFLUXDB_USER: ${INFLUXDB_USER}
       INFLUXDB_USER_PASSWORD: ${INFLUXDB_USER_PASSWORD}
+      VICTORIA_METRICS_URL: ${VICTORIA_METRICS_URL:-}
       SPEEDTEST_INTERVAL: 600
     networks:
       - speedtest
@@ -198,6 +202,38 @@ services:
     cap_drop:
       - ALL
 
+  victoriametrics:
+    container_name: victoriametrics
+    image: victoriametrics/victoria-metrics:v1.142.0
+    restart: unless-stopped
+    volumes:
+      - victoriametrics-data:/storage
+    command:
+      - '--storageDataPath=/storage'
+      - '--influxListenAddr=:8089'
+      - '--httpListenAddr=:8428'
+      - '--retentionPeriod=365d'
+      - '--search.latencyOffset=5s'
+    networks:
+      - speedtest
+    ports:
+      - '127.0.0.1:8428:8428'
+    expose:
+      - '8089'
+    security_opt:
+      - no-new-privileges:true
+      - label=disable
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:8428/health || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    profiles:
+      - vm
+
 networks:
   speedtest:
     name: speedtest
@@ -207,3 +243,4 @@ volumes:
   grafana-storage:
   influxdb-data:
   chronograf-data:
+  victoriametrics-data:

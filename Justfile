@@ -150,6 +150,7 @@ test:
 # Run unit tests (Node.js, no browser needed)
 test-unit:
     node --test tests/lib.test.js tests/status-bar.test.js
+    python3 tests/test_vm_to_datajson.py
 
 # Run unit tests with V8 coverage report
 test-coverage:
@@ -189,6 +190,15 @@ preview days="30":
 preview-dev port="8080":
     bash scripts/preview-dev.sh {{ port }}
 
+# Preview monitoring page using VictoriaMetrics data
+preview-vm port="8080" vm_url="http://localhost:8428":
+    bash scripts/export-vm-data.sh {{ vm_url }} 30 > /tmp/vm-data.json
+    bash scripts/preview-dev.sh {{ port }} --data /tmp/vm-data.json
+
+# Preview monitoring page using VM fixture data (offline, no VM needed)
+preview-vm-fixture port="8080":
+    bash scripts/preview-dev.sh {{ port }} --data tests/fixtures/data-vm.json
+
 # Publish updated template to GitHub Pages using live data (no RPi needed)
 publish-template:
     bash scripts/publish-template.sh
@@ -227,19 +237,20 @@ cron:
 
 # Lint all source files
 lint:
-    shellcheck scripts/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
+    shellcheck scripts/*.sh scripts/ci/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
+    shfmt -d -i 4 -ci scripts/*.sh scripts/ci/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
     hadolint Dockerfile
     yamllint docker-compose.yml .github/workflows/*.yml grafana/provisioning/alerting/alerts.yml .yamllint.yml .hadolint.yaml
     npx prettier --check 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
-    ruff check scripts/*.py
-    ruff format --check scripts/*.py
+    ruff check scripts/*.py scripts/ci/*.py
+    ruff format --check scripts/*.py scripts/ci/*.py
     @echo "All linters passed ✅"
 
 # Auto-format all source files
 fmt:
-    shfmt -w -i 4 -ci scripts/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
+    shfmt -w -i 4 -ci scripts/*.sh scripts/ci/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
     npx prettier --write 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
-    ruff format scripts/*.py
+    ruff format scripts/*.py scripts/ci/*.py
     @echo "All files formatted ✅"
 
 # E2E tests against a local or remote preview (default: http://127.0.0.1:8080)
@@ -306,18 +317,7 @@ sim-influx-shell:
 
 # Show simulation stats (databases, counts, disk)
 sim-stats:
-    @echo "── Databases ──"
-    @{{ CONTAINER_CLI }} exec rpi-sim-influxdb influx -username admin -password simpass -execute "SHOW DATABASES"
-    @echo ""
-    @echo "── Retention Policies ──"
-    @for db in speedtest telegraf; do \
-        echo "  $db:"; \
-        {{ CONTAINER_CLI }} exec rpi-sim-influxdb influx -username admin -password simpass -execute "SHOW RETENTION POLICIES ON $db" 2>/dev/null | tail -2; \
-        echo ""; \
-    done
-    @echo "── Data Counts ──"
-    @printf "  Speedtest points: %s\n" "$({{ CONTAINER_CLI }} exec rpi-sim-influxdb influx -username admin -password simpass -execute 'SELECT COUNT(download_bandwidth) FROM speedtest' -database speedtest 2>/dev/null | tail -1 | awk '{print $2}')"
-    @printf "  Telegraf cpu (last 1h): %s\n" "$({{ CONTAINER_CLI }} exec rpi-sim-influxdb influx -username admin -password simpass -execute 'SELECT COUNT(usage_idle) FROM cpu WHERE time > now() - 1h' -database telegraf 2>/dev/null | tail -1 | awk '{print $2}')"
+    bash scripts/sim-stats.sh
 
 # Restore an RPi backup into the sim stack (e.g. just sim-restore-backup backups-rpi/20260416-205640)
 sim-restore-backup dir:
@@ -329,40 +329,161 @@ sim-verify-backup:
 
 # Full backup test: nuke sim, restart, restore, verify (e.g. just sim-test-backup backups-rpi/20260416-205640)
 sim-test-backup dir:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo "── Step 0/5: Offline integrity check ──"
-    bash scripts/backup-check.sh {{ dir }}
-    echo ""
-    echo "── Step 1/5: Nuke sim stack ──"
-    {{ sim_compose }} down -v 2>/dev/null || true
-    echo ""
-    echo "── Step 2/5: Start fresh sim stack ──"
-    {{ sim_compose }} up -d
-    echo ""
-    echo "── Step 3/5: Wait for InfluxDB healthy ──"
-    for i in $(seq 1 60); do
-        if curl -sf "http://localhost:8086/ping" >/dev/null 2>&1; then
-            echo "  ✅ InfluxDB healthy after ~$((i * 5))s"
-            break
-        fi
-        if [[ "$i" -eq 60 ]]; then
-            echo "  ❌ InfluxDB not healthy after 300s"
-            exit 1
-        fi
-        sleep 5
-    done
-    echo ""
-    echo "── Step 4/5: Restore ──"
-    bash scripts/sim-restore-backup.sh {{ dir }}
-    echo ""
-    echo "── Step 5/5: Verify ──"
-    bash scripts/sim-verify-backup.sh
+    bash scripts/sim-test-backup.sh {{ dir }} bash -c '{{ sim_compose }} "$@"' --
 
 # Register QEMU user-static (needed once per host reboot)
 sim-binfmt:
     {{ CONTAINER_CLI }} run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
-# Run the sim smoke test suite (25 checks)
-sim-test:
-    bash test-stack.sh --mode sim
+# Run the sim smoke test suite (default: auto-detect backend)
+sim-test *args:
+    bash test-stack.sh --mode sim {{ args }}
+
+# Run sim smoke tests against VictoriaMetrics only
+sim-test-vm:
+    bash test-stack.sh --mode sim --backend vm
+
+# Full VM integration test: prove VM can replace InfluxDB end-to-end
+test-vm-integration *args:
+    bash scripts/integration-test-vm.sh {{ args }}
+
+# ── VictoriaMetrics (VM) ────────────────────────────────
+
+# Sim compose with VM profile enabled
+sim_vm := sim_compose + " --profile vm"
+
+# Start the sim stack with VictoriaMetrics dual-write
+sim-vm-up:
+    VICTORIA_METRICS_URL=http://victoriametrics:8428 {{ sim_vm }} up -d
+
+# Show VM container health and status
+sim-vm-status:
+    @{{ CONTAINER_CLI }} inspect rpi-sim-victoriametrics 2>/dev/null \
+        | jq -r '.[] | "  Status: \(.State.Status)\n  Health: \(.State.Health.Status // "n/a")\n  Uptime: \(.State.StartedAt)"' \
+        || echo "  ⚠ victoriametrics container not found"
+    @echo ""
+    @curl -sf http://localhost:8428/health && echo " ← /health OK" || echo "  ✗ /health unreachable"
+
+# Execute a MetricsQL query (e.g. just sim-vm-query 'cpu_usage_idle{cpu="cpu-total"}')
+sim-vm-query query:
+    @curl -sf 'http://localhost:8428/api/v1/query' \
+        --data-urlencode 'query={{ query }}' | jq .
+
+# Show VM internal stats (active series, ingestion rate, storage)
+sim-vm-stats:
+    bash scripts/sim-vm-stats.sh
+
+# Open vmui in the default browser
+sim-vm-ui:
+    xdg-open http://localhost:8428/vmui/ 2>/dev/null || open http://localhost:8428/vmui/ 2>/dev/null || echo "Open http://localhost:8428/vmui/ in your browser"
+
+# Export data matching a selector (e.g. just sim-vm-export '{__name__=~"speedtest_.*"}')
+sim-vm-export match:
+    @curl -sf 'http://localhost:8428/api/v1/export' \
+        --data-urlencode 'match={{ match }}'
+
+# Benchmark RAM usage of sim containers (--wait N to wait N seconds first)
+sim-benchmark-ram *args:
+    bash scripts/benchmark-ram.sh {{ args }}
+
+# ── RPi4 Simulation — Dual-write (InfluxDB + VictoriaMetrics) ──
+
+# Sim compose with dual-write: InfluxDB (reference) + VictoriaMetrics (migration target)
+sim_dual := "export VICTORIA_METRICS_URL=http://victoriametrics:8428 && " + sim_compose + " --profile vm"
+
+# Start dual-write simulation (InfluxDB + VictoriaMetrics, same data)
+sim-dual-up:
+    {{ sim_dual }} up -d
+    bash scripts/wait-for-health.sh http://localhost:8428/health VictoriaMetrics
+    @{{ sim_dual }} ps -a
+
+# Stop dual-write simulation
+sim-dual-stop:
+    {{ sim_dual }} stop
+
+# Stop and remove dual-write simulation containers (preserves volumes)
+sim-dual-down:
+    {{ sim_dual }} down
+
+# Stop, remove containers AND volumes (⚠️ destroys data)
+[confirm("⚠️  This will DELETE ALL dual simulation data. Continue?")]
+sim-dual-nuke:
+    {{ sim_dual }} down -v
+
+# Import production data from GitHub Pages into local InfluxDB + VictoriaMetrics
+sim-import-prod url="https://yoyonel.github.io/rpi-internet-monitoring/data.json":
+    bash scripts/import-prod-data.sh {{ url }}
+
+# Show dual-write simulation status
+sim-dual-status:
+    @{{ sim_dual }} ps -a
+    @echo ""
+    @curl -sf http://localhost:8428/health && echo "  VM /health: OK ✓" || echo "  VM /health: unreachable ✗"
+
+# Show dual-write simulation logs
+sim-dual-logs lines="50":
+    {{ sim_dual }} logs --tail={{ lines }}
+
+# Test Grafana dashboards: compare VM vs InfluxDB side by side (requires sim-dual-up)
+test-grafana-vm:
+    npx playwright test tests/grafana-dashboards.spec.js
+
+# ── RPi4 Simulation — VM-only (no InfluxDB) ────────────
+
+# Sim compose with VictoriaMetrics as sole backend (no InfluxDB)
+# --profile vm activates the VM service defined in base compose
+sim_vm_only := sim_compose + " -f sim/docker-compose.sim-vm-only.yml --profile vm"
+
+# Start RPi4 simulation with VictoriaMetrics only (no InfluxDB)
+sim-vm-only-up:
+    {{ sim_vm_only }} up -d
+    bash scripts/wait-for-health.sh http://localhost:8428/health VictoriaMetrics
+    @{{ sim_vm_only }} ps -a
+
+# Stop VM-only simulation
+sim-vm-only-stop:
+    {{ sim_vm_only }} stop
+
+# Stop and remove VM-only simulation containers (preserves volumes)
+sim-vm-only-down:
+    {{ sim_vm_only }} down
+
+# Stop, remove containers AND VM-only simulation volumes (⚠️ destroys data)
+[confirm("⚠️  This will DELETE ALL VM-only simulation data. Continue?")]
+sim-vm-only-nuke:
+    {{ sim_vm_only }} down -v
+
+# Show VM-only simulation status
+sim-vm-only-status:
+    @{{ sim_vm_only }} ps -a
+    @echo ""
+    @{{ CONTAINER_CLI }} inspect rpi-sim-victoriametrics rpi-sim-grafana rpi-sim-telegraf rpi-sim-speedtest-cron 2>/dev/null \
+        | jq -r '.[] | "  \(.Name | ltrimstr("/")): \(.State.Health.Status // "n/a")"' || true
+    @echo ""
+    @curl -sf http://localhost:8428/health && echo "  VM /health: OK ✓" || echo "  VM /health: unreachable ✗"
+
+# Show VM-only simulation logs
+sim-vm-only-logs lines="50":
+    {{ sim_vm_only }} logs --tail={{ lines }}
+
+# Follow VM-only simulation logs in real-time
+sim-vm-only-logs-follow:
+    {{ sim_vm_only }} logs -f --tail=20
+
+# Run a manual speedtest in VM-only simulation
+sim-vm-only-speedtest:
+    {{ sim_vm_only }} run --rm speedtest
+
+# Export VM-only simulation data to InfluxDB JSON format
+sim-vm-only-export days="30" output="/tmp/sim-vm-only-data.json":
+    bash scripts/export-vm-data.sh http://localhost:8428 {{ days }} > {{ output }}
+    @echo "Exported to {{ output }}"
+
+# Preview frontend with VM-only simulation data
+sim-vm-only-preview port="8080":
+    just sim-vm-only-export
+    bash scripts/preview-dev.sh {{ port }} --data /tmp/sim-vm-only-data.json
+
+# Run smoke tests against VM-only simulation
+sim-vm-only-test:
+    bash test-stack.sh --mode sim --backend vm

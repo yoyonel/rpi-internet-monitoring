@@ -3,9 +3,11 @@
 # Automatically finds a free port for the preview server.
 set -euo pipefail
 
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
 # ── Find a free port ──────────────────────────────────────
 find_free_port() {
-    python3 -c 'import socket; s=socket.socket(); s.bind(("",0)); print(s.getsockname()[1]); s.close()'
+    python3 "$REPO_ROOT/scripts/find-free-port.py"
 }
 
 PORT=$(find_free_port)

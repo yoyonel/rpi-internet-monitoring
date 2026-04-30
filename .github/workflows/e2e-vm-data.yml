@@ -1,0 +1,46 @@
+name: E2E — VM Data
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  e2e-vm:
+    name: E2E tests with VictoriaMetrics data
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install dependencies and Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Rebase fixture timestamps to now
+        run: python3 scripts/ci/rebase-fixture-timestamps.py tests/fixtures/data-vm.json
+
+      - name: Start preview with VM fixture data
+        run: |
+          bash scripts/preview-dev.sh 8080 --data tests/fixtures/data-vm.json &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8080/ > /dev/null 2>&1 && break
+            sleep 1
+          done
+
+      - name: Run E2E tests
+        run: |
+          E2E_BASE_URL=http://localhost:8080 \
+            npx playwright test tests/e2e.spec.js
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-vm-results
+          path: test-results/
+          retention-days: 7

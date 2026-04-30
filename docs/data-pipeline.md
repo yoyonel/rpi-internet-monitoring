@@ -157,12 +157,26 @@ publish-gh-pages.timer (systemd user timer)
 
 #### 3a. Export des données speedtest
 
+Le script `publish-gh-pages.sh` supporte deux backends TSDB :
+
+**InfluxDB** (défaut) :
+
 ```bash
 influx -execute "SELECT * FROM speedtest WHERE time > now() - 30d"
 ```
 
-→ Query InfluxDB pour les 30 derniers jours de données speedtest.
-Résultat : fichier `data.json` (~4000+ points).
+**VictoriaMetrics** (`--backend vm` ou `TSDB_BACKEND=vm`) :
+
+```bash
+bash scripts/export-vm-data.sh http://localhost:8428 30
+```
+
+Le script `export-vm-data.sh` exporte les 3 métriques speedtest depuis l'API
+`/api/v1/export` de VictoriaMetrics (format JSONL), puis délègue la
+transformation en format InfluxDB JSON au script Python `vm-to-datajson.py`.
+
+→ Résultat identique quel que soit le backend : fichier `data.json` au format
+InfluxDB JSON (~4000+ points), consommé par le frontend sans modification.
 
 #### 3b. Export des alertes Grafana
 

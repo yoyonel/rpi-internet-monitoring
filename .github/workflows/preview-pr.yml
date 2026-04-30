@@ -27,21 +27,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Build page with production data
-        run: |
-          set -euo pipefail
-          PROD_URL="https://yoyonel.github.io/rpi-internet-monitoring"
-          BUILD_DIR="/tmp/preview-build"
-          mkdir -p "$BUILD_DIR"
-
-          echo "── Fetching data from production site ──"
-          curl -fsSL "$PROD_URL/data.json"   -o "$BUILD_DIR/data.json"
-          curl -fsSL "$PROD_URL/alerts.json" -o "$BUILD_DIR/alerts.json"
-          echo "  data.json:   $(wc -c < "$BUILD_DIR/data.json") bytes"
-          echo "  alerts.json: $(wc -c < "$BUILD_DIR/alerts.json") bytes"
-
-          echo "── Verifying extract-live-data.py round-trip ──"
-          bash scripts/build-gh-pages.sh "$BUILD_DIR" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json" "(PR preview)"
-          python3 scripts/extract-live-data.py "$BUILD_DIR/index.html" "$BUILD_DIR"
+        run: bash scripts/ci/build-preview.sh /tmp/preview-build
 
       - name: Install dependencies and Playwright
         run: |
@@ -53,18 +39,11 @@ jobs:
           BUILD_DIR="/tmp/preview-build"
           cd "$BUILD_DIR" && python3 -m http.server 8080 &
           sleep 2
-          E2E_BASE_URL="http://localhost:8080" npx playwright test
+          E2E_BASE_URL="http://localhost:8080" \
+            npx playwright test tests/e2e.spec.js
 
       - name: Prepare preview site
-        run: |
-          BUILD_DIR="/tmp/preview-build"
-          mkdir -p _preview_site
-          cp "$BUILD_DIR"/index.html "$BUILD_DIR"/style.css _preview_site/
-          cp "$BUILD_DIR"/data.json "$BUILD_DIR"/alerts.json _preview_site/
-          cp "$BUILD_DIR"/*.js _preview_site/
-          cp -r "$BUILD_DIR"/fonts _preview_site/
-          # Include E2E screenshot if available
-          [ -f test-results/preview.png ] && cp test-results/preview.png _preview_site/ || true
+        run: bash scripts/ci/prepare-preview-site.sh /tmp/preview-build _preview_site
 
       - name: Upload preview artifact
         uses: actions/upload-artifact@v4

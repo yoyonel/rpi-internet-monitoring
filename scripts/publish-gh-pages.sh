@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Export speedtest data from InfluxDB and publish a static monitoring page.
+# Export speedtest data from InfluxDB or VictoriaMetrics and publish a static
+# monitoring page.
 #
-# Usage: bash scripts/publish-gh-pages.sh [--preview] [days]
-#   --preview  Build locally and serve on http://localhost:8080 (no push)
-#   days       Number of days of history to export (default: 30)
+# Usage: bash scripts/publish-gh-pages.sh [--preview] [--backend vm|influxdb] [days]
+#   --preview           Build locally and serve on http://localhost:8080 (no push)
+#   --backend vm        Use VictoriaMetrics instead of InfluxDB
+#   --backend influxdb  Use InfluxDB (default)
+#   days                Number of days of history to export (default: 30)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../" && pwd)"
@@ -16,9 +19,12 @@ load_env "$SCRIPT_DIR/.env"
 # Parse args
 PREVIEW=false
 DAYS=30
+BACKEND="${TSDB_BACKEND:-influxdb}"
 for arg in "$@"; do
     case "$arg" in
         --preview) PREVIEW=true ;;
+        --backend) : ;; # value handled below
+        vm | influxdb) BACKEND="$arg" ;;
         *) DAYS="$arg" ;;
     esac
 done
@@ -41,27 +47,28 @@ _influx_admin_pass=$(_read_env INFLUXDB_ADMIN_PASSWORD)
 
 echo "╔══════════════════════════════════════════╗"
 echo "║  Publish GitHub Pages — $NOW"
+echo "║  Backend: $BACKEND"
 echo "╚══════════════════════════════════════════╝"
 echo ""
 
-# ── 1. Export data from InfluxDB ──────────────────────────
-echo "── Exporting last ${DAYS}d of speedtest data from InfluxDB ──"
+# ── 1. Export data from TSDB ──────────────────────────────
+echo "── Exporting last ${DAYS}d of speedtest data from ${BACKEND} ──"
 
-QUERY="SELECT download_bandwidth, upload_bandwidth, ping_latency FROM speedtest WHERE time > now() - ${DAYS}d ORDER BY time ASC"
+if [[ "$BACKEND" == "vm" ]]; then
+    VM_URL="${VICTORIA_METRICS_URL:-http://localhost:8428}"
+    JSON_DATA=$(bash "$SCRIPT_DIR/scripts/export-vm-data.sh" "$VM_URL" "$DAYS")
+else
+    QUERY="SELECT download_bandwidth, upload_bandwidth, ping_latency FROM speedtest WHERE time > now() - ${DAYS}d ORDER BY time ASC"
 
-JSON_DATA=$("$DOCKER" exec influxdb influx \
-    -username "${_influx_admin:-admin}" -password "${_influx_admin_pass}" \
-    -execute "$QUERY" \
-    -database speedtest \
-    -precision rfc3339 \
-    -format json 2>/dev/null)
+    JSON_DATA=$("$DOCKER" exec influxdb influx \
+        -username "${_influx_admin:-admin}" -password "${_influx_admin_pass}" \
+        -execute "$QUERY" \
+        -database speedtest \
+        -precision rfc3339 \
+        -format json 2>/dev/null)
+fi
 
-POINT_COUNT=$(echo "$JSON_DATA" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-s = d.get('results', [{}])[0].get('series', [{}])
-print(len(s[0].get('values', [])) if s else 0)
-")
+POINT_COUNT=$(echo "$JSON_DATA" | python3 "$SCRIPT_DIR/scripts/json-count-points.py")
 echo "  → $POINT_COUNT data points exported"
 
 if [[ "$POINT_COUNT" -eq 0 ]]; then
@@ -80,31 +87,8 @@ setup_grafana_auth "$_gf_user" "$_gf_pass"
 
 ALERTS_JSON=$(curl -sf -K <(printf 'user = "%s"\n' "$GRAFANA_CREDS") "http://localhost:3000/api/prometheus/grafana/api/v1/rules" 2>/dev/null || echo '{}')
 
-ALERTS_DATA=$(echo "$ALERTS_JSON" | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-alerts = []
-last_eval = ''
-for g in d.get('data', {}).get('groups', []):
-    ge = g.get('lastEvaluation', '')
-    if ge > last_eval: last_eval = ge
-    for r in g.get('rules', []):
-        val = ''
-        re_val = r.get('lastEvaluation', ge)
-        for a in r.get('alerts', []):
-            s = a.get('annotations', {}).get('summary', '')
-            if s: val = s
-        alerts.append({
-            'name': r['name'],
-            'state': r['state'],
-            'health': r.get('health', ''),
-            'severity': r.get('labels', {}).get('severity', ''),
-            'summary': val,
-            'lastEvaluation': re_val
-        })
-print(json.dumps({'alerts': alerts, 'lastEvaluation': last_eval}))
-")
-ALERT_COUNT=$(echo "$ALERTS_DATA" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('alerts', d) if isinstance(d, dict) else d))")
+ALERTS_DATA=$(echo "$ALERTS_JSON" | python3 "$SCRIPT_DIR/scripts/extract-alerts.py")
+ALERT_COUNT=$(echo "$ALERTS_DATA" | python3 "$SCRIPT_DIR/scripts/extract-alerts.py" --count)
 echo "  → $ALERT_COUNT alert rules exported"
 
 # ── 2. Build the static page ─────────────────────────────
@@ -125,17 +109,7 @@ if [[ "$PREVIEW" == "true" ]]; then
     echo "  Press Ctrl+C to stop"
     echo ""
     cd "$BUILD_DIR"
-    python3 -c "
-from http.server import SimpleHTTPRequestHandler
-from socketserver import ThreadingTCPServer
-
-class Handler(SimpleHTTPRequestHandler):
-    protocol_version = 'HTTP/1.1'
-
-ThreadingTCPServer.allow_reuse_address = True
-with ThreadingTCPServer(('', 8080), Handler) as s:
-    s.serve_forever()
-"
+    python3 "$SCRIPT_DIR/scripts/http-server.py" --port 8080
 else
     echo ""
     echo "── Pushing to gh-pages branch ──"

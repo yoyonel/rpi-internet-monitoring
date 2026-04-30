@@ -56,3 +56,44 @@ Terser doit utiliser `--module` pour les fichiers ES module (`app.js`, `lib.js`)
 
 - `just preview-dev [port]` — Preview avec données live GitHub Pages
 - `just preview [N]` — Preview avec données InfluxDB locales
+
+## Règles CI/CD — scripts/ci/
+
+### Pas de logique métier inline dans les workflows
+
+Les fichiers `.github/workflows/*.yml` sont des **orchestrateurs**, pas des scripts. Toute logique non-triviale DOIT être dans un script externe sous `scripts/ci/`.
+
+**Règle des 5 lignes** : si un bloc `run:` dépasse 5 lignes OU contient des boucles, conditions, ou appels API complexes → extraire dans `scripts/ci/<nom>.sh` (ou `.py`).
+
+**Autorisé inline** (≤5 lignes, sans logique) :
+
+- `npm ci && npx playwright install --with-deps chromium`
+- `docker network create grafana-ci`
+- `docker rm -f grafana 2>/dev/null || true`
+- Appel simple : `bash scripts/ci/start-influxdb.sh --network grafana-ci`
+
+**Interdit inline** :
+
+- Boucles `for`/`while` (health checks, data seeding, retries)
+- Scripts Python embarqués dans des `run:` blocks
+- Logique conditionnelle complexe (extraction de PR number, badge generation)
+- Construction de payloads JSON/HTTP
+- Toute logique métier testable
+
+### Convention de nommage
+
+- `scripts/ci/start-<service>.sh` — Démarrage de containers Docker
+- `scripts/ci/seed-<context>-data.sh` — Injection de données de test
+- `scripts/ci/<workflow>-<action>.sh` — Action spécifique à un workflow
+- `scripts/ci/<utility>.py` — Utilitaires Python
+
+### Paramétrage
+
+- Les scripts CI acceptent des arguments CLI (`--network`, `--influx-listen-addr`) plutôt que de hardcoder des valeurs
+- Les credentials passent par variables d'environnement (`INFLUXDB_ADMIN_USER`, etc.)
+- `$GITHUB_OUTPUT` et `$GITHUB_ENV` sont utilisés via `>>"${GITHUB_ENV:-/dev/null}"` pour être testables localement
+
+### Lint
+
+- `scripts/ci/*.sh` est couvert par `shellcheck` et `shfmt` dans `just lint`
+- `scripts/ci/*.py` est couvert par `ruff` dans `just lint`

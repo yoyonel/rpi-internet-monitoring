@@ -67,6 +67,10 @@ services:
     mem_limit: 256m
     memswap_limit: 384m
     hostname: rpi-sim
+    environment:
+      # When VICTORIA_METRICS_URL is empty, use a dummy URL to avoid Telegraf 1.38
+      # strict env handling crash. The connection will silently fail (no VM running).
+      VICTORIA_METRICS_URL: ${VICTORIA_METRICS_URL:-http://localhost:9}
     volumes:
       - ./sim/telegraf-sim.conf:/etc/telegraf/telegraf.conf:ro
       - /proc:/host/proc:ro
@@ -84,6 +88,7 @@ services:
     environment:
       INFLUXDB_USER: ${INFLUXDB_ADMIN_USER:-admin}
       INFLUXDB_USER_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD}
+      VICTORIA_METRICS_URL: ${VICTORIA_METRICS_URL:-}
 
   # Periodic speedtest — replaces the systemd timer from production.
   # Runs every SPEEDTEST_INTERVAL seconds (default 600 = 10 min).
@@ -100,6 +105,7 @@ services:
     environment:
       INFLUXDB_USER: ${INFLUXDB_ADMIN_USER:-admin}
       INFLUXDB_USER_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD}
+      VICTORIA_METRICS_URL: ${VICTORIA_METRICS_URL:-}
       SPEEDTEST_INTERVAL: '600'
     networks:
       - speedtest
@@ -112,3 +118,18 @@ services:
     restart: unless-stopped
     cap_drop:
       - ALL
+
+  victoriametrics:
+    container_name: rpi-sim-victoriametrics
+    platform: linux/arm64
+    mem_limit: 256m
+    memswap_limit: 384m
+    ports:
+      - '127.0.0.1:8428:8428'
+      - '127.0.0.1:8089:8089'
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:8428/health || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s

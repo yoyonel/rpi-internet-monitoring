@@ -1,6 +1,9 @@
 # Monitoring Débit Internet — RPi4
 
 [![Lint](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/lint.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/lint.yml)
+[![E2E — VM Data](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-vm-data.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-vm-data.yml)
+[![E2E — Grafana Dashboards](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-grafana.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-grafana.yml)
+[![VM Smoke Tests](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/vm-smoke-test.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/vm-smoke-test.yml)
 [![E2E Nightly — Production](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-nightly.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-nightly.yml)
 [![Sim Stack E2E — Nightly](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/sim-e2e-nightly.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/sim-e2e-nightly.yml)
 [![Deploy GitHub Pages](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/deploy-gh-pages.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/deploy-gh-pages.yml)
@@ -88,15 +91,15 @@ just install-timers
 
 ### Monitoring & Diagnostics
 
-| Commande                  | Description                                 |
-| ------------------------- | ------------------------------------------- |
-| `just status`             | État des containers et health checks        |
-| `just check`              | Health check rapide (4 services)            |
-| `just versions`           | Versions de tous les services               |
-| `just stats`              | Statistiques : bases, compteurs, disk usage |
-| `just logs [N]`           | Dernières N lignes de logs (défaut: 50)     |
-| `just logs-svc <svc> [N]` | Logs d'un service spécifique                |
-| `just logs-follow`        | Suivre les logs en temps réel               |
+| Commande                  | Description                                  |
+| ------------------------- | -------------------------------------------- |
+| `just status`             | État des containers et health checks         |
+| `just check`              | Health check rapide (4 services)             |
+| `just versions`           | Versions de tous les services                |
+| `just stats`              | Statistiques TSDB (auto-détecte InfluxDB/VM) |
+| `just logs [N]`           | Dernières N lignes de logs (défaut: 50)      |
+| `just logs-svc <svc> [N]` | Logs d'un service spécifique                 |
+| `just logs-follow`        | Suivre les logs en temps réel                |
 
 ### Data
 
@@ -119,19 +122,19 @@ just install-timers
 
 ### Testing
 
-| Commande                     | RPi requis | Description                                                           |
-| ---------------------------- | ---------- | --------------------------------------------------------------------- |
-| `just test`                  | **oui**    | Suite de régression complète (17 checks)                              |
-| `just test-unit`             | non        | Tests unitaires lib.js + status-bar.js (Node.js, 94 tests, ~1s)       |
-| `just test-coverage`         | non        | Tests unitaires + rapport couverture V8 (lcov dans `coverage/`)       |
-| `just test-e2e`              | non        | Tests E2E Playwright (12 tests, nécessite un preview actif sur :8080) |
-| `just check`                 | **oui**    | Health check rapide des 4 services                                    |
-| `just e2e [url]`             | non        | Tests E2E Playwright contre une preview (défaut: :8080)               |
-| `just sim-test`              | non        | Smoke tests de la stack sim (25 checks)                               |
-| `just lint`                  | non        | Vérifier le formatage et le linting de tous les sources               |
-| `just fmt`                   | non        | Auto-formater tous les fichiers sources                               |
-| `just lighthouse [flags]`    | non        | Audit Lighthouse sur la page prod (mobile+desktop par défaut)         |
-| `just lighthouse-report [p]` | non        | Analyse priorisée des rapports Lighthouse (mobile/desktop/both)       |
+| Commande                     | RPi requis | Description                                                                 |
+| ---------------------------- | ---------- | --------------------------------------------------------------------------- |
+| `just test`                  | **oui**    | Suite de régression complète (17 checks)                                    |
+| `just test-unit`             | non        | Tests unitaires lib.js + status-bar.js + vm-to-datajson.py (107 tests, ~1s) |
+| `just test-coverage`         | non        | Tests unitaires + rapport couverture V8 (lcov dans `coverage/`)             |
+| `just test-e2e`              | non        | Tests E2E Playwright (12 tests, nécessite un preview actif sur :8080)       |
+| `just check`                 | **oui**    | Health check rapide (auto-détecte InfluxDB/VM)                              |
+| `just e2e [url]`             | non        | Tests E2E Playwright contre une preview (défaut: :8080)                     |
+| `just sim-test`              | non        | Smoke tests de la stack sim (25 checks)                                     |
+| `just lint`                  | non        | Vérifier le formatage et le linting de tous les sources                     |
+| `just fmt`                   | non        | Auto-formater tous les fichiers sources                                     |
+| `just lighthouse [flags]`    | non        | Audit Lighthouse sur la page prod (mobile+desktop par défaut)               |
+| `just lighthouse-report [p]` | non        | Analyse priorisée des rapports Lighthouse (mobile/desktop/both)             |
 
 ### Publication & Preview
 
@@ -169,8 +172,8 @@ Stack de simulation locale : tous les containers tournent en ARM64 via QEMU, rep
 | `just sim-build`                | Build l'image speedtest pour ARM64                  |
 | `just sim-speedtest`            | Lancer un speedtest manuellement                    |
 | `just sim-test`                 | Suite de smoke tests (25 checks)                    |
-| `just sim-stats`                | Bases de données, rétention, compteurs              |
-| `just sim-restore-backup <dir>` | Restaurer un backup RPi dans la sim                 |
+| `just sim-stats`                | Stats sim (auto-détecte InfluxDB/VM)                |
+| `just sim-restore-backup <dir>` | Restaurer un backup dans la sim (InfluxDB ou VM)    |
 | `just sim-verify-backup`        | Vérifier l'intégrité des données restaurées         |
 | `just sim-test-backup <dir>`    | Pipeline complet : nuke → restore → verify          |
 
@@ -196,6 +199,20 @@ Installer avec `just install-hooks`. Deux hooks sont fournis :
 
 Le hook `pre-push` détecte automatiquement un port disponible pour éviter les conflits avec d'autres services (ex: port 8080 déjà occupé). Il démarre toujours son propre serveur preview isolé.
 
+### Outils de lint & format
+
+`just lint` et `just fmt` couvrent **tous** les fichiers sources du projet. En CI, le workflow `lint.yml` exécute `pre-commit/action` qui lance les mêmes vérifications.
+
+| Outil          | Cibles                                                     | lint (`just lint`) | format (`just fmt`) |
+| -------------- | ---------------------------------------------------------- | ------------------ | ------------------- |
+| shellcheck     | `scripts/*.sh`, `scripts/ci/*.sh`, `docker-entrypoint.sh`… | ✅                 | —                   |
+| shfmt          | idem                                                       | ✅ (diff)          | ✅ (write)          |
+| ruff check     | `scripts/*.py`, `scripts/ci/*.py`                          | ✅                 | —                   |
+| ruff format    | idem                                                       | ✅ (check)         | ✅ (write)          |
+| hadolint       | `Dockerfile`                                               | ✅                 | —                   |
+| yamllint       | `docker-compose.yml`, `.github/workflows/*.yml`…           | ✅                 | —                   |
+| Prettier 3.8.3 | `gh-pages/*.{html,css,js}`, `**/*.json`, `**/*.md`, YAML   | ✅ (check)         | ✅ (write)          |
+
 ## Configuration
 
 Les credentials sont dans `.env` (non versionné). Copier `.env.example` :
@@ -206,12 +223,23 @@ cp .env.example .env
 
 ## Dashboards
 
+### InfluxDB (dashboards actuels)
+
 | Dashboard           | UID                    | Dossier    | Description                              |
 | ------------------- | ---------------------- | ---------- | ---------------------------------------- |
 | SpeedTest           | `Ha9ke1iRk`            | General    | Download, upload, ping                   |
 | System              | `000000128`            | General    | CPU, RAM, disk, réseau, température      |
 | Docker Containers   | `rpi-docker-dashboard` | General    | CPU, RAM, réseau, I/O par container      |
 | RPi Alerts Overview | `rpi-alerts-dashboard` | RPi Alerts | Gauges + graphiques avec seuils d'alerte |
+
+### VictoriaMetrics (MetricsQL — branch feat/victoriametrics)
+
+| Dashboard                | UID                           | Description                              |
+| ------------------------ | ----------------------------- | ---------------------------------------- |
+| Internet Speedtest (VM)  | `speedtest-vm-dashboard`      | Download, upload, ping (MetricsQL)       |
+| System Metrics (VM)      | `system-metrics-vm-dashboard` | CPU, RAM, disk, réseau, température      |
+| Docker Containers (VM)   | `rpi-docker-vm-dashboard`     | CPU, RAM, réseau, I/O par container      |
+| RPi Alerts Overview (VM) | `rpi-alerts-vm-dashboard`     | Gauges + graphiques avec seuils d'alerte |
 
 ## Alertes
 
@@ -415,6 +443,23 @@ just fmt       # Auto-formater tous les fichiers
 | ruff       | Python (lint + format)              |
 
 La CI exécute `just lint` sur chaque push et PR via `.github/workflows/lint.yml`.
+
+#### E2E — VM Data
+
+Le workflow `.github/workflows/e2e-vm-data.yml` valide le frontend GitHub Pages avec des données VictoriaMetrics. Déclenché sur chaque push/PR. Il démarre un preview local, exécute les tests E2E Playwright (`tests/e2e.spec.js`) et vérifie que les graphiques affichent correctement les données VM.
+
+#### E2E — Grafana Dashboards
+
+Le workflow `.github/workflows/e2e-grafana.yml` vérifie la **parité visuelle** entre les dashboards Grafana InfluxDB et VictoriaMetrics. Déclenché sur push/PR modifiant `grafana/**` ou `tests/grafana-dashboards.spec.js`. Il :
+
+1. Démarre 3 containers Docker (InfluxDB, VictoriaMetrics, Grafana) sur un réseau dédié
+2. Seed des données de test identiques dans les deux backends
+3. Exécute 7 tests Playwright : 3 vérifications API + 4 comparaisons visuelles de dashboards
+4. Vérifie que chaque dashboard VM n'a pas plus d'erreurs ou de panels "No data" que son homologue InfluxDB
+
+#### VM Smoke Tests
+
+Le workflow `.github/workflows/vm-smoke-test.yml` vérifie que la stack Docker (docker-compose, telegraf, VictoriaMetrics) démarre correctement. Déclenché sur push/PR modifiant `docker-compose.yml`, `sim/**`, `telegraf/**` ou `docker-entrypoint.sh`.
 
 #### Sim Stack — Nightly E2E
 
