@@ -12,4 +12,6 @@ cp "$BUILD_DIR"/data.json "$BUILD_DIR"/alerts.json "$OUTPUT_DIR/"
 cp "$BUILD_DIR"/*.js "$OUTPUT_DIR/"
 cp -r "$BUILD_DIR"/fonts "$OUTPUT_DIR/"
 # Include E2E screenshot if available
-[ -f test-results/preview.png ] && cp test-results/preview.png "$OUTPUT_DIR/" || true
+if [[ -f test-results/preview.png ]]; then
+    cp test-results/preview.png "$OUTPUT_DIR/"
+fi
