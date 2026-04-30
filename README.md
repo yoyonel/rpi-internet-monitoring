@@ -1,6 +1,9 @@
 # Monitoring Débit Internet — RPi4
 
 [![Lint](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/lint.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/lint.yml)
+[![E2E — VM Data](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-vm-data.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-vm-data.yml)
+[![E2E — Grafana Dashboards](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-grafana.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-grafana.yml)
+[![VM Smoke Tests](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/vm-smoke-test.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/vm-smoke-test.yml)
 [![E2E Nightly — Production](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-nightly.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/e2e-nightly.yml)
 [![Sim Stack E2E — Nightly](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/sim-e2e-nightly.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/sim-e2e-nightly.yml)
 [![Deploy GitHub Pages](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/deploy-gh-pages.yml/badge.svg)](https://github.com/yoyonel/rpi-internet-monitoring/actions/workflows/deploy-gh-pages.yml)
@@ -426,6 +429,23 @@ just fmt       # Auto-formater tous les fichiers
 | ruff       | Python (lint + format)              |
 
 La CI exécute `just lint` sur chaque push et PR via `.github/workflows/lint.yml`.
+
+#### E2E — VM Data
+
+Le workflow `.github/workflows/e2e-vm-data.yml` valide le frontend GitHub Pages avec des données VictoriaMetrics. Déclenché sur chaque push/PR. Il démarre un preview local, exécute les tests E2E Playwright (`tests/e2e.spec.js`) et vérifie que les graphiques affichent correctement les données VM.
+
+#### E2E — Grafana Dashboards
+
+Le workflow `.github/workflows/e2e-grafana.yml` vérifie la **parité visuelle** entre les dashboards Grafana InfluxDB et VictoriaMetrics. Déclenché sur push/PR modifiant `grafana/**` ou `tests/grafana-dashboards.spec.js`. Il :
+
+1. Démarre 3 containers Docker (InfluxDB, VictoriaMetrics, Grafana) sur un réseau dédié
+2. Seed des données de test identiques dans les deux backends
+3. Exécute 7 tests Playwright : 3 vérifications API + 4 comparaisons visuelles de dashboards
+4. Vérifie que chaque dashboard VM n'a pas plus d'erreurs ou de panels "No data" que son homologue InfluxDB
+
+#### VM Smoke Tests
+
+Le workflow `.github/workflows/vm-smoke-test.yml` vérifie que la stack Docker (docker-compose, telegraf, VictoriaMetrics) démarre correctement. Déclenché sur push/PR modifiant `docker-compose.yml`, `sim/**`, `telegraf/**` ou `docker-entrypoint.sh`.
 
 #### Sim Stack — Nightly E2E
 
