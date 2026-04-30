@@ -91,15 +91,15 @@ just install-timers
 
 ### Monitoring & Diagnostics
 
-| Commande                  | Description                                 |
-| ------------------------- | ------------------------------------------- |
-| `just status`             | État des containers et health checks        |
-| `just check`              | Health check rapide (4 services)            |
-| `just versions`           | Versions de tous les services               |
-| `just stats`              | Statistiques : bases, compteurs, disk usage |
-| `just logs [N]`           | Dernières N lignes de logs (défaut: 50)     |
-| `just logs-svc <svc> [N]` | Logs d'un service spécifique                |
-| `just logs-follow`        | Suivre les logs en temps réel               |
+| Commande                  | Description                                  |
+| ------------------------- | -------------------------------------------- |
+| `just status`             | État des containers et health checks         |
+| `just check`              | Health check rapide (4 services)             |
+| `just versions`           | Versions de tous les services                |
+| `just stats`              | Statistiques TSDB (auto-détecte InfluxDB/VM) |
+| `just logs [N]`           | Dernières N lignes de logs (défaut: 50)      |
+| `just logs-svc <svc> [N]` | Logs d'un service spécifique                 |
+| `just logs-follow`        | Suivre les logs en temps réel                |
 
 ### Data
 
@@ -128,7 +128,7 @@ just install-timers
 | `just test-unit`             | non        | Tests unitaires lib.js + status-bar.js + vm-to-datajson.py (107 tests, ~1s) |
 | `just test-coverage`         | non        | Tests unitaires + rapport couverture V8 (lcov dans `coverage/`)             |
 | `just test-e2e`              | non        | Tests E2E Playwright (12 tests, nécessite un preview actif sur :8080)       |
-| `just check`                 | **oui**    | Health check rapide des 4 services                                          |
+| `just check`                 | **oui**    | Health check rapide (auto-détecte InfluxDB/VM)                              |
 | `just e2e [url]`             | non        | Tests E2E Playwright contre une preview (défaut: :8080)                     |
 | `just sim-test`              | non        | Smoke tests de la stack sim (25 checks)                                     |
 | `just lint`                  | non        | Vérifier le formatage et le linting de tous les sources                     |
@@ -172,8 +172,8 @@ Stack de simulation locale : tous les containers tournent en ARM64 via QEMU, rep
 | `just sim-build`                | Build l'image speedtest pour ARM64                  |
 | `just sim-speedtest`            | Lancer un speedtest manuellement                    |
 | `just sim-test`                 | Suite de smoke tests (25 checks)                    |
-| `just sim-stats`                | Bases de données, rétention, compteurs              |
-| `just sim-restore-backup <dir>` | Restaurer un backup RPi dans la sim                 |
+| `just sim-stats`                | Stats sim (auto-détecte InfluxDB/VM)                |
+| `just sim-restore-backup <dir>` | Restaurer un backup dans la sim (InfluxDB ou VM)    |
 | `just sim-verify-backup`        | Vérifier l'intégrité des données restaurées         |
 | `just sim-test-backup <dir>`    | Pipeline complet : nuke → restore → verify          |
 
@@ -198,6 +198,20 @@ Installer avec `just install-hooks`. Deux hooks sont fournis :
 | `pre-push`   | `git push`   | E2E tests Playwright (démarre un serveur preview sur un port libre auto-détecté)                |
 
 Le hook `pre-push` détecte automatiquement un port disponible pour éviter les conflits avec d'autres services (ex: port 8080 déjà occupé). Il démarre toujours son propre serveur preview isolé.
+
+### Outils de lint & format
+
+`just lint` et `just fmt` couvrent **tous** les fichiers sources du projet. En CI, le workflow `lint.yml` exécute `pre-commit/action` qui lance les mêmes vérifications.
+
+| Outil          | Cibles                                                     | lint (`just lint`) | format (`just fmt`) |
+| -------------- | ---------------------------------------------------------- | ------------------ | ------------------- |
+| shellcheck     | `scripts/*.sh`, `scripts/ci/*.sh`, `docker-entrypoint.sh`… | ✅                 | —                   |
+| shfmt          | idem                                                       | ✅ (diff)          | ✅ (write)          |
+| ruff check     | `scripts/*.py`, `scripts/ci/*.py`                          | ✅                 | —                   |
+| ruff format    | idem                                                       | ✅ (check)         | ✅ (write)          |
+| hadolint       | `Dockerfile`                                               | ✅                 | —                   |
+| yamllint       | `docker-compose.yml`, `.github/workflows/*.yml`…           | ✅                 | —                   |
+| Prettier 3.8.3 | `gh-pages/*.{html,css,js}`, `**/*.json`, `**/*.md`, YAML   | ✅ (check)         | ✅ (write)          |
 
 ## Configuration
 
