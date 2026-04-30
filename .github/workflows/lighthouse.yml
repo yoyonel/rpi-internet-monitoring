@@ -33,22 +33,9 @@ jobs:
       - name: Determine target URL
         id: url
         run: |
-          PROD_URL="https://yoyonel.github.io/rpi-internet-monitoring/"
-          if [[ "${{ github.event.workflow_run.name }}" == "Preview PR — GitHub Pages" ]]; then
-            # Extract PR number from the triggering workflow run
-            PR=$(echo '${{ toJSON(github.event.workflow_run.pull_requests) }}' \
-              | python3 -c "import json,sys; prs=json.load(sys.stdin); print(prs[0]['number'] if prs else '')")
-            if [[ -n "$PR" ]]; then
-              URL="https://yoyonel.github.io/rpi-internet-monitoring/pr-preview/pr-${PR}/"
-              echo "GitHub Pages preview for PR #${PR}: $URL"
-            else
-              echo "No open PR found — falling back to production URL"
-              URL="$PROD_URL"
-            fi
-          else
-            URL="$PROD_URL"
-          fi
-          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          bash scripts/ci/lighthouse-target-url.sh \
+            "${{ github.event.workflow_run.name }}" \
+            '${{ toJSON(github.event.workflow_run.pull_requests) }}'
 
       - name: Run Lighthouse (${{ matrix.preset }})
         run: |
@@ -67,37 +54,12 @@ jobs:
 
       - name: Extract scores & build summary
         id: scores
+        env:
+          TARGET_URL: ${{ steps.url.outputs.url }}
         run: |
-          set -euo pipefail
-          JSON="./lighthouse-${{ matrix.preset }}.report.json"
-          read_score() {
-            python3 -c "import json; d=json.load(open('$JSON')); \
-              print(int(d['categories']['$1']['score']*100))"
-          }
-          PERF=$(read_score performance)
-          A11Y=$(read_score accessibility)
-          BP=$(read_score best-practices)
-          SEO=$(read_score seo)
-          {
-            echo "perf=$PERF"
-            echo "a11y=$A11Y"
-            echo "bp=$BP"
-            echo "seo=$SEO"
-          } >> "$GITHUB_OUTPUT"
-
-          badge() { if (( $1 >= 90 )); then echo "🟢"; elif (( $1 >= 50 )); then echo "🟠"; else echo "🔴"; fi; }
-          {
-            echo "## Lighthouse — ${{ matrix.preset }}"
-            echo ""
-            echo "> Audited: \`${{ steps.url.outputs.url }}\`"
-            echo ""
-            echo "| Category | Score |"
-            echo "|----------|------:|"
-            echo "| $(badge "$PERF") Performance   | **${PERF}** |"
-            echo "| $(badge "$A11Y") Accessibility  | **${A11Y}** |"
-            echo "| $(badge "$BP") Best Practices | **${BP}** |"
-            echo "| $(badge "$SEO") SEO            | **${SEO}** |"
-          } >> "$GITHUB_STEP_SUMMARY"
+          bash scripts/ci/lighthouse-extract-scores.sh \
+            "./lighthouse-${{ matrix.preset }}.report.json" \
+            "${{ matrix.preset }}"
 
       - name: Upload Lighthouse report
         uses: actions/upload-artifact@v6
@@ -121,70 +83,17 @@ jobs:
 
       - name: Build comment body
         id: body
-        run: |
-          set -euo pipefail
-          badge() { if (( $1 >= 90 )); then echo "🟢"; elif (( $1 >= 50 )); then echo "🟠"; else echo "🔴"; fi; }
-          read_score() {
-            python3 -c "import json; d=json.load(open('$1')); print(int(d['categories']['$2']['score']*100))"
-          }
-
-          {
-            echo 'body<<EOFCOMMENT'
-            echo '## 🔦 Lighthouse Audit'
-            echo ''
-            echo '| Category | Mobile | Desktop |'
-            echo '|----------|-------:|--------:|'
-            for cat in performance accessibility best-practices seo; do
-              M_JSON="reports/lighthouse-mobile/lighthouse-mobile.report.json"
-              D_JSON="reports/lighthouse-desktop/lighthouse-desktop.report.json"
-              M=$(read_score "$M_JSON" "$cat")
-              D=$(read_score "$D_JSON" "$cat")
-              LABEL="$cat"
-              [[ "$cat" == "best-practices" ]] && LABEL="best practices"
-              echo "| $(badge "$M")$(badge "$D") ${LABEL} | **${M}** | **${D}** |"
-            done
-            echo ''
-            echo "_Audited on GitHub Pages preview_"
-            echo 'EOFCOMMENT'
-          } >> "$GITHUB_OUTPUT"
+        run: bash scripts/ci/lighthouse-comment-body.sh reports
 
       - name: Post or update PR comment
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
-          # Get PR number: from workflow_run or by branch name via API
-          if [[ -n '${{ github.event.workflow_run.pull_requests }}' ]] && \
-             [[ '${{ github.event.workflow_run.pull_requests }}' != '[]' ]]; then
-            PR=$(echo '${{ toJSON(github.event.workflow_run.pull_requests) }}' \
-              | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['number'])")
-          else
-            # Fallback: find PR by branch name via API
-            OWNER="${{ github.repository_owner }}"
-            BRANCH="${{ github.ref_name }}"
-            PR=$(gh api "repos/${{ github.repository }}/pulls?head=${OWNER}:${BRANCH}&state=open" \
-              --jq '.[0].number')
-          fi
-          [[ -n "$PR" ]] || { echo "⚠ No PR found — skipping comment"; exit 0; }
-
-          REPO="${{ github.repository }}"
-          MARKER="<!-- lighthouse-audit -->"
-          BODY="${MARKER}
-          ${{ steps.body.outputs.body }}"
-
-          # Find existing comment by marker
-          COMMENT_ID=$(gh api "repos/${REPO}/issues/${PR}/comments" \
-            --jq ".[] | select(.body | startswith(\"${MARKER}\")) | .id" | head -1)
-
-          if [[ -n "$COMMENT_ID" ]]; then
-            gh api "repos/${REPO}/issues/comments/${COMMENT_ID}" \
-              -X PATCH -f body="$BODY"
-            echo "Updated comment $COMMENT_ID on PR #$PR"
-          else
-            gh api "repos/${REPO}/issues/${PR}/comments" \
-              -f body="$BODY"
-            echo "Posted new comment on PR #$PR"
-          fi
+          bash scripts/ci/lighthouse-post-comment.sh \
+            "${{ steps.body.outputs.body }}" \
+            "${{ github.repository }}" \
+            '${{ toJSON(github.event.workflow_run.pull_requests) }}' \
+            "${{ github.ref_name }}"
 
   badges:
     name: Update Lighthouse badges
@@ -202,55 +111,9 @@ jobs:
           path: reports
 
       - name: Generate badge JSON files
-        run: |
-          set -euo pipefail
-          mkdir -p badges
-
-          for preset in mobile desktop; do
-            JSON="reports/lighthouse-${preset}/lighthouse-${preset}.report.json"
-            [[ -f "$JSON" ]] || { echo "⚠ No report for $preset"; continue; }
-
-            for cat in performance accessibility best-practices seo; do
-              score=$(python3 -c "
-          import json
-          d = json.load(open('$JSON'))
-          print(int(d['categories']['$cat']['score'] * 100))
-          ")
-              if (( score >= 90 )); then color="brightgreen"
-              elif (( score >= 50 )); then color="orange"
-              else color="red"; fi
-
-              # shields.io endpoint format
-              label="${cat}"
-              [[ "$cat" == "best-practices" ]] && label="best practices"
-              cat > "badges/lighthouse-${cat}-${preset}.json" <<EOF
-          {
-            "schemaVersion": 1,
-            "label": "Lighthouse ${label} (${preset})",
-            "message": "${score}",
-            "color": "${color}"
-          }
-          EOF
-            done
-          done
-          ls -la badges/
+        run: bash scripts/ci/lighthouse-generate-badges.sh reports badges
 
       - name: Push badges to gh-pages
         run: |
-          set -euo pipefail
-          cd /tmp
-          git clone --depth 1 --branch gh-pages \
-            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" gh-pages-badges
-          cd gh-pages-badges
-          mkdir -p badges
-          cp "$GITHUB_WORKSPACE"/badges/*.json badges/
-          git config user.email "gh-pages-bot@users.noreply.github.com"
-          git config user.name "GitHub Pages Bot"
-          git add badges/
-          if git diff --cached --quiet; then
-            echo "No badge changes"
-          else
-            git commit -m "chore: update Lighthouse badges — $(date -Iseconds)"
-            git pull --rebase origin gh-pages
-            git push origin gh-pages
-          fi
+          bash scripts/ci/lighthouse-push-badges.sh badges \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git"

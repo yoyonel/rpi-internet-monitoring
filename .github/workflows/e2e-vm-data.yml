@@ -22,27 +22,7 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Rebase fixture timestamps to now
-        run: |
-          python3 -c "
-          import json, time
-          with open('tests/fixtures/data-vm.json') as f:
-              d = json.load(f)
-          series = d['results'][0]['series'][0]
-          vals = series['values']
-          # Parse ISO timestamps, compute offset to make last point = 5 min ago
-          from datetime import datetime, timezone
-          def parse_ts(s):
-              return datetime.fromisoformat(s.replace('Z', '+00:00')).timestamp()
-          latest = max(parse_ts(r[0]) for r in vals)
-          offset = time.time() - 300 - latest  # last point = 5 min ago
-          for r in vals:
-              old_ts = parse_ts(r[0])
-              new_dt = datetime.fromtimestamp(old_ts + offset, tz=timezone.utc)
-              r[0] = new_dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-          with open('tests/fixtures/data-vm.json', 'w') as f:
-              json.dump(d, f)
-          print(f'Rebased {len(vals)} points, offset={offset:.0f}s')
-          "
+        run: python3 scripts/ci/rebase-fixture-timestamps.py tests/fixtures/data-vm.json
 
       - name: Start preview with VM fixture data
         run: |

@@ -6,11 +6,19 @@ on:
     paths:
       - 'grafana/**'
       - 'tests/grafana-dashboards.spec.js'
+      - 'scripts/ci/start-influxdb.sh'
+      - 'scripts/ci/start-victoriametrics.sh'
+      - 'scripts/ci/seed-grafana-data.sh'
+      - 'scripts/ci/start-grafana.sh'
       - '.github/workflows/e2e-grafana.yml'
   pull_request:
     paths:
       - 'grafana/**'
       - 'tests/grafana-dashboards.spec.js'
+      - 'scripts/ci/start-influxdb.sh'
+      - 'scripts/ci/start-victoriametrics.sh'
+      - 'scripts/ci/seed-grafana-data.sh'
+      - 'scripts/ci/start-grafana.sh'
       - '.github/workflows/e2e-grafana.yml'
   workflow_dispatch:
 
@@ -44,196 +52,16 @@ jobs:
         run: docker network create grafana-ci
 
       - name: Start InfluxDB
-        run: |
-          docker run -d --name influxdb \
-            --network grafana-ci \
-            -p 8086:8086 \
-            -e INFLUXDB_HTTP_AUTH_ENABLED=true \
-            -e INFLUXDB_ADMIN_USER=admin \
-            -e INFLUXDB_ADMIN_PASSWORD=cipass \
-            -e INFLUXDB_USER=telegraf \
-            -e INFLUXDB_USER_PASSWORD=cipass \
-            influxdb:1.8.10
-
-          echo "Waiting for InfluxDB..."
-          for i in $(seq 1 60); do
-            if curl -sf http://localhost:8086/ping >/dev/null 2>&1; then
-              echo "InfluxDB responding after ${i}s"
-              break
-            fi
-            if [[ "$i" -eq 60 ]]; then
-              echo "InfluxDB timeout"
-              docker logs influxdb
-              exit 1
-            fi
-            sleep 1
-          done
-
-          # Wait for init to complete (user creation via env vars)
-          echo "Waiting for InfluxDB init to finish..."
-          for i in $(seq 1 30); do
-            if curl -sf -u admin:cipass \
-              'http://localhost:8086/query' \
-              --data-urlencode 'q=SHOW USERS' 2>/dev/null \
-              | grep -q telegraf; then
-              echo "InfluxDB init complete after ${i}s"
-              break
-            fi
-            if [[ "$i" -eq 30 ]]; then
-              echo "Init timeout"
-              docker logs influxdb
-              exit 1
-            fi
-            sleep 2
-          done
-
-          # Create databases and grant access
-          for q in \
-            "CREATE DATABASE telegraf" \
-            "CREATE DATABASE speedtest" \
-            "GRANT ALL ON telegraf TO telegraf" \
-            "GRANT ALL ON speedtest TO telegraf"; do
-            curl -sf -XPOST 'http://localhost:8086/query' \
-              -u admin:cipass \
-              --data-urlencode "q=$q"
-            echo "  ✓ $q"
-          done
+        run: bash scripts/ci/start-influxdb.sh --network grafana-ci
 
       - name: Start VictoriaMetrics
-        run: |
-          docker run -d --name victoriametrics \
-            --network grafana-ci \
-            -p 8428:8428 \
-            victoriametrics/victoria-metrics:v1.142.0 \
-            -search.latencyOffset=0s \
-            -influxListenAddr=:8089 \
-            -httpListenAddr=:8428
-
-          echo "Waiting for VictoriaMetrics..."
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8428/health >/dev/null 2>&1; then
-              echo "VM healthy after ${i}s"
-              break
-            fi
-            if [[ "$i" -eq 30 ]]; then
-              echo "VM timeout"
-              docker logs victoriametrics
-              exit 1
-            fi
-            sleep 1
-          done
+        run: bash scripts/ci/start-victoriametrics.sh --network grafana-ci --influx-listen-addr :8089
 
       - name: Seed test data into both backends
-        run: |
-          # Verify connectivity first
-          echo "Testing InfluxDB write endpoint..."
-          curl -sf -o /dev/null -w 'HTTP %{http_code}\n' \
-            "http://localhost:8086/ping" || {
-            echo "InfluxDB not reachable!"
-            docker logs influxdb 2>&1 | tail -20
-            exit 1
-          }
-          echo "Testing VM write endpoint..."
-          curl -sf -o /dev/null -w 'HTTP %{http_code}\n' \
-            "http://localhost:8428/health" || {
-            echo "VM not reachable!"
-            docker logs victoriametrics 2>&1 | tail -20
-            exit 1
-          }
-
-          # Verify InfluxDB databases exist
-          DBS=$(curl -sf -u admin:cipass \
-            'http://localhost:8086/query' \
-            --data-urlencode 'q=SHOW DATABASES')
-          echo "Databases: $DBS"
-          echo "$DBS" | grep -q speedtest \
-            || { echo "speedtest DB missing!"; exit 1; }
-
-          # Test write with verbose output
-          echo "Testing first write..."
-          TS_TEST=$(date +%s)000000000
-          curl -v --data-binary \
-            "test_metric,host=ci value=1 $TS_TEST" \
-            "http://localhost:8086/write?db=telegraf&u=admin&p=cipass" \
-            2>&1 || { echo "Test write failed!"; exit 1; }
-
-          TS=$(date +%s)
-          # Write 10 data points (last 10 minutes)
-          for offset in $(seq 0 9); do
-            T=$(( (TS - (9 - offset) * 60) ))000000000
-            DL=$(( 800000000 + RANDOM % 200000000 ))
-            UL=$(( 500000000 + RANDOM % 200000000 ))
-            PING="$(( 8 + RANDOM % 15 )).$(( RANDOM % 10 ))"
-            CPU_IDLE="$(( 80 + RANDOM % 15 )).$(( RANDOM % 10 ))"
-            MEM="$(( 30 + RANDOM % 30 )).$(( RANDOM % 10 ))"
-
-            SPD="speedtest,result_id=ci-${offset}"
-            SPD+=" ping_latency=${PING}"
-            SPD+=",download_bandwidth=${DL}i"
-            SPD+=",upload_bandwidth=${UL}i ${T}"
-            CPU="cpu,cpu=cpu-total,host=ci"
-            CPU+=" usage_idle=${CPU_IDLE},usage_system=2.1 ${T}"
-            MEM_L="mem,host=ci used_percent=${MEM} ${T}"
-            DSK="disk,host=ci,path=/ used_percent=45.2 ${T}"
-            DCK="docker_container_cpu,container_name=grafana"
-            DCK+=" usage_percent=1.5 ${T}"
-
-            # Write to InfluxDB (use admin creds to bypass grants)
-            curl -sf --data-binary "$SPD" \
-              "http://localhost:8086/write?db=speedtest&u=admin&p=cipass"
-            printf '%s\n%s\n%s\n%s' \
-              "$CPU" "$MEM_L" "$DSK" "$DCK" \
-              | curl -sf --data-binary @- \
-              "http://localhost:8086/write?db=telegraf&u=admin&p=cipass"
-
-            # Write to VictoriaMetrics
-            curl -sf --data-binary "$SPD" \
-              'http://localhost:8428/write?db=speedtest'
-            printf '%s\n%s\n%s\n%s' \
-              "$CPU" "$MEM_L" "$DSK" "$DCK" \
-              | curl -sf --data-binary @- \
-              'http://localhost:8428/write?db=telegraf'
-          done
-
-          # Flush VM index
-          curl -sf http://localhost:8428/internal/force_flush
-          sleep 2
-          echo "✓ Seeded 10 data points into both backends"
+        run: bash scripts/ci/seed-grafana-data.sh
 
       - name: Start Grafana
-        run: |
-          # Grafana connects to influxdb/victoriametrics via Docker
-          # network names (matching provisioning config).
-          docker run -d --name grafana \
-            --network grafana-ci \
-            -p 3000:3000 \
-            -e GF_SECURITY_ADMIN_USER=admin \
-            -e GF_SECURITY_ADMIN_PASSWORD=cipass \
-            -e GF_USERS_ALLOW_SIGN_UP=false \
-            -e GF_AUTH_DISABLE_LOGIN_FORM=false \
-            -e GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION=false \
-            -e GF_USERS_AUTO_ASSIGN_ORG=true \
-            -e GF_AUTH_ANONYMOUS_ENABLED=true \
-            -e GF_AUTH_ANONYMOUS_ORG_ROLE=Admin \
-            -e INFLUXDB_USER=telegraf \
-            -e INFLUXDB_USER_PASSWORD=cipass \
-            -v "$PWD/grafana/provisioning:/etc/grafana/provisioning:ro" \
-            -v "$PWD/grafana/dashboards:/var/lib/grafana/dashboards:ro" \
-            grafana/grafana:12.4.3
-
-          echo "Waiting for Grafana..."
-          for i in $(seq 1 60); do
-            if curl -sf http://localhost:3000/api/health >/dev/null 2>&1; then
-              echo "Grafana healthy after ${i}s"
-              break
-            fi
-            if [[ "$i" -eq 60 ]]; then
-              echo "Grafana timeout"
-              docker logs grafana
-              exit 1
-            fi
-            sleep 1
-          done
+        run: bash scripts/ci/start-grafana.sh --network grafana-ci
 
       - name: Run Grafana E2E tests
         run: |

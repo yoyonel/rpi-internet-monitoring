@@ -16,16 +16,7 @@ jobs:
           node-version: '22'
 
       - name: Install system dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq shellcheck
-          sudo wget -qO /usr/local/bin/hadolint \
-            https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64
-          sudo chmod +x /usr/local/bin/hadolint
-          sudo wget -qO /usr/local/bin/shfmt \
-            https://github.com/mvdan/sh/releases/download/v3.10.0/shfmt_v3.10.0_linux_amd64
-          sudo chmod +x /usr/local/bin/shfmt
-          pip install --quiet yamllint ruff
+        run: bash scripts/ci/install-lint-tools.sh
 
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
