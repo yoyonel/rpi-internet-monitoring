@@ -17,6 +17,7 @@ DB="speedtest"
 # Load sim env for credentials
 if [[ -f sim/.env.sim ]]; then
     set -a
+    # shellcheck disable=SC1091
     . sim/.env.sim
     set +a
 fi
@@ -32,53 +33,8 @@ curl -sf "$DATA_URL" -o "$TMPDIR/data.json"
 COUNT=$(jq '.results[0].series[0].values | length' "$TMPDIR/data.json")
 echo "   $COUNT data points downloaded"
 
-echo "🔄 Converting to InfluxDB line protocol..."
-python3 -c "
-import json, re, sys
-from datetime import datetime, timezone
-
-with open('$TMPDIR/data.json') as f:
-    data = json.load(f)
-values = data['results'][0]['series'][0]['values']
-lines = []
-for row in values:
-    ts_str, dl, ul, ping = row
-    m = re.match(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.?(\d*)Z', ts_str)
-    dt = datetime.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc)
-    sec_ns = int(dt.timestamp()) * 1_000_000_000
-    frac = m.group(2) if m.group(2) else '0'
-    frac_ns = int(frac.ljust(9, '0')[:9])
-    ts_ns = sec_ns + frac_ns
-    lines.append(f'speedtest download_bandwidth={dl}i,upload_bandwidth={ul}i,ping_latency={ping} {ts_ns}')
-with open('$TMPDIR/influx.line', 'w') as f:
-    f.write('\n'.join(lines) + '\n')
-print(f'   {len(lines)} InfluxDB line protocol entries')
-"
-
-echo "🔄 Converting to Prometheus exposition format..."
-python3 -c "
-import json, re
-from datetime import datetime, timezone
-
-with open('$TMPDIR/data.json') as f:
-    data = json.load(f)
-values = data['results'][0]['series'][0]['values']
-lines = []
-for row in values:
-    ts_str, dl, ul, ping = row
-    m = re.match(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})\.?(\d*)Z', ts_str)
-    dt = datetime.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc)
-    ts_ms = int(dt.timestamp() * 1000)
-    frac = m.group(2) if m.group(2) else '0'
-    frac_ms = int(frac.ljust(9, '0')[:9]) // 1_000_000
-    ts_ms += frac_ms
-    lines.append(f'speedtest_download_bandwidth {dl} {ts_ms}')
-    lines.append(f'speedtest_upload_bandwidth {ul} {ts_ms}')
-    lines.append(f'speedtest_ping_latency {ping} {ts_ms}')
-with open('$TMPDIR/vm.prom', 'w') as f:
-    f.write('\n'.join(lines) + '\n')
-print(f'   {len(lines)} Prometheus metric lines')
-"
+echo "🔄 Converting to InfluxDB line protocol + Prometheus format..."
+python3 "$(dirname "$0")/convert-datajson.py" "$TMPDIR/data.json" "$TMPDIR"
 
 # --- InfluxDB import ---
 echo ""

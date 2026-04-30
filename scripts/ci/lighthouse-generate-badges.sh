@@ -16,11 +16,7 @@ for preset in mobile desktop; do
     }
 
     for cat in performance accessibility best-practices seo; do
-        score=$(python3 -c "
-import json
-d = json.load(open('$JSON'))
-print(int(d['categories']['$cat']['score'] * 100))
-")
+        score=$(python3 "$(dirname "$0")/../lighthouse-read-score.py" "$JSON" "$cat")
         if ((score >= 90)); then
             color="brightgreen"
         elif ((score >= 50)); then

@@ -10,7 +10,7 @@ PROD_URL="https://yoyonel.github.io/rpi-internet-monitoring/"
 
 if [[ "$WORKFLOW_NAME" == "Preview PR — GitHub Pages" ]]; then
     PR=$(echo "$PR_JSON" |
-        python3 -c "import json,sys; prs=json.load(sys.stdin); print(prs[0]['number'] if prs else '')")
+        python3 "$(dirname "$0")/extract-pr-number.py")
     if [[ -n "$PR" ]]; then
         URL="https://yoyonel.github.io/rpi-internet-monitoring/pr-preview/pr-${PR}/"
         echo "GitHub Pages preview for PR #${PR}: $URL"

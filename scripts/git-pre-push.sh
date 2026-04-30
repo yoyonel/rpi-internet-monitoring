@@ -5,7 +5,7 @@ set -euo pipefail
 
 # ── Find a free port ──────────────────────────────────────
 find_free_port() {
-    python3 -c 'import socket; s=socket.socket(); s.bind(("",0)); print(s.getsockname()[1]); s.close()'
+    python3 "$(dirname "$0")/find-free-port.py"
 }
 
 PORT=$(find_free_port)

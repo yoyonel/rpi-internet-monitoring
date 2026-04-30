@@ -63,14 +63,4 @@ echo ""
 echo "── Serving on http://localhost:${PORT} ──"
 echo "  Press Ctrl+C to stop"
 echo ""
-cd "$BUILD_DIR" && python3 -c "
-from http.server import SimpleHTTPRequestHandler
-from socketserver import ThreadingTCPServer
-
-class Handler(SimpleHTTPRequestHandler):
-    protocol_version = 'HTTP/1.1'
-
-ThreadingTCPServer.allow_reuse_address = True
-with ThreadingTCPServer(('', $PORT), Handler) as s:
-    s.serve_forever()
-"
+cd "$BUILD_DIR" && python3 "$SCRIPT_DIR/scripts/http-server.py" --port "$PORT"

@@ -76,7 +76,7 @@ for preset in "${PRESETS[@]}"; do
     # Extract scores
     JSON="${REPORT_NAME}.report.json"
     read_score() {
-        python3 -c "import json; d=json.load(open('$JSON')); print(int(d['categories']['$1']['score']*100))"
+        python3 "$(dirname "$0")/lighthouse-read-score.py" "$JSON" "$1"
     }
 
     PERF=$(read_score performance)

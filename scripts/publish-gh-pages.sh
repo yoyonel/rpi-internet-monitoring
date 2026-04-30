@@ -68,12 +68,7 @@ else
         -format json 2>/dev/null)
 fi
 
-POINT_COUNT=$(echo "$JSON_DATA" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-s = d.get('results', [{}])[0].get('series', [{}])
-print(len(s[0].get('values', [])) if s else 0)
-")
+POINT_COUNT=$(echo "$JSON_DATA" | python3 "$SCRIPT_DIR/scripts/json-count-points.py")
 echo "  → $POINT_COUNT data points exported"
 
 if [[ "$POINT_COUNT" -eq 0 ]]; then
@@ -92,31 +87,8 @@ setup_grafana_auth "$_gf_user" "$_gf_pass"
 
 ALERTS_JSON=$(curl -sf -K <(printf 'user = "%s"\n' "$GRAFANA_CREDS") "http://localhost:3000/api/prometheus/grafana/api/v1/rules" 2>/dev/null || echo '{}')
 
-ALERTS_DATA=$(echo "$ALERTS_JSON" | python3 -c "
-import json, sys
-d = json.load(sys.stdin)
-alerts = []
-last_eval = ''
-for g in d.get('data', {}).get('groups', []):
-    ge = g.get('lastEvaluation', '')
-    if ge > last_eval: last_eval = ge
-    for r in g.get('rules', []):
-        val = ''
-        re_val = r.get('lastEvaluation', ge)
-        for a in r.get('alerts', []):
-            s = a.get('annotations', {}).get('summary', '')
-            if s: val = s
-        alerts.append({
-            'name': r['name'],
-            'state': r['state'],
-            'health': r.get('health', ''),
-            'severity': r.get('labels', {}).get('severity', ''),
-            'summary': val,
-            'lastEvaluation': re_val
-        })
-print(json.dumps({'alerts': alerts, 'lastEvaluation': last_eval}))
-")
-ALERT_COUNT=$(echo "$ALERTS_DATA" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d.get('alerts', d) if isinstance(d, dict) else d))")
+ALERTS_DATA=$(echo "$ALERTS_JSON" | python3 "$SCRIPT_DIR/scripts/extract-alerts.py")
+ALERT_COUNT=$(echo "$ALERTS_DATA" | python3 "$SCRIPT_DIR/scripts/extract-alerts.py" --count)
 echo "  → $ALERT_COUNT alert rules exported"
 
 # ── 2. Build the static page ─────────────────────────────
@@ -137,17 +109,7 @@ if [[ "$PREVIEW" == "true" ]]; then
     echo "  Press Ctrl+C to stop"
     echo ""
     cd "$BUILD_DIR"
-    python3 -c "
-from http.server import SimpleHTTPRequestHandler
-from socketserver import ThreadingTCPServer
-
-class Handler(SimpleHTTPRequestHandler):
-    protocol_version = 'HTTP/1.1'
-
-ThreadingTCPServer.allow_reuse_address = True
-with ThreadingTCPServer(('', 8080), Handler) as s:
-    s.serve_forever()
-"
+    python3 "$SCRIPT_DIR/scripts/http-server.py" --port 8080
 else
     echo ""
     echo "── Pushing to gh-pages branch ──"

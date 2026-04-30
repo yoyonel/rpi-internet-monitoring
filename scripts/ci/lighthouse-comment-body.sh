@@ -17,7 +17,7 @@ badge() {
 }
 
 read_score() {
-    python3 -c "import json; d=json.load(open('$1')); print(int(d['categories']['$2']['score']*100))"
+    python3 "$(dirname "$0")/../lighthouse-read-score.py" "$1" "$2"
 }
 
 {

@@ -12,7 +12,7 @@ REF_NAME="${4:-}"
 # Get PR number from workflow_run context or by branch name
 if [[ -n "$PR_JSON" ]] && [[ "$PR_JSON" != "[]" ]]; then
     PR=$(echo "$PR_JSON" |
-        python3 -c "import json,sys; print(json.load(sys.stdin)[0]['number'])")
+        python3 "$(dirname "$0")/extract-pr-number.py")
 else
     OWNER="${REPO%%/*}"
     PR=$(gh api "repos/${REPO}/pulls?head=${OWNER}:${REF_NAME}&state=open" \

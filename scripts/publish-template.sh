@@ -55,17 +55,7 @@ if [[ "$PREVIEW" == "true" ]]; then
     echo "  Press Ctrl+C to stop"
     echo ""
     cd "$BUILD_DIR"
-    python3 -c "
-from http.server import SimpleHTTPRequestHandler
-from socketserver import ThreadingTCPServer
-
-class Handler(SimpleHTTPRequestHandler):
-    protocol_version = 'HTTP/1.1'
-
-ThreadingTCPServer.allow_reuse_address = True
-with ThreadingTCPServer(('', 8080), Handler) as s:
-    s.serve_forever()
-"
+    python3 "$SCRIPT_DIR/scripts/http-server.py" --port 8080
 else
     echo ""
     echo "── Pushing to gh-pages branch ──"
