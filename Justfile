@@ -237,7 +237,7 @@ cron:
 
 # Lint all source files
 lint:
-    shellcheck scripts/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
+    shellcheck scripts/*.sh scripts/ci/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
     hadolint Dockerfile
     yamllint docker-compose.yml .github/workflows/*.yml grafana/provisioning/alerting/alerts.yml .yamllint.yml .hadolint.yaml
     npx prettier --check 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
