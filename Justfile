@@ -238,18 +238,19 @@ cron:
 # Lint all source files
 lint:
     shellcheck scripts/*.sh scripts/ci/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
+    shfmt -d -i 4 -ci scripts/*.sh scripts/ci/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
     hadolint Dockerfile
     yamllint docker-compose.yml .github/workflows/*.yml grafana/provisioning/alerting/alerts.yml .yamllint.yml .hadolint.yaml
     npx prettier --check 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
-    ruff check scripts/*.py
-    ruff format --check scripts/*.py
+    ruff check scripts/*.py scripts/ci/*.py
+    ruff format --check scripts/*.py scripts/ci/*.py
     @echo "All linters passed ✅"
 
 # Auto-format all source files
 fmt:
-    shfmt -w -i 4 -ci scripts/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
+    shfmt -w -i 4 -ci scripts/*.sh scripts/ci/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
     npx prettier --write 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
-    ruff format scripts/*.py
+    ruff format scripts/*.py scripts/ci/*.py
     @echo "All files formatted ✅"
 
 # E2E tests against a local or remote preview (default: http://127.0.0.1:8080)
@@ -316,18 +317,7 @@ sim-influx-shell:
 
 # Show simulation stats (databases, counts, disk)
 sim-stats:
-    @echo "── Databases ──"
-    @{{ CONTAINER_CLI }} exec rpi-sim-influxdb influx -username admin -password simpass -execute "SHOW DATABASES"
-    @echo ""
-    @echo "── Retention Policies ──"
-    @for db in speedtest telegraf; do \
-        echo "  $db:"; \
-        {{ CONTAINER_CLI }} exec rpi-sim-influxdb influx -username admin -password simpass -execute "SHOW RETENTION POLICIES ON $db" 2>/dev/null | tail -2; \
-        echo ""; \
-    done
-    @echo "── Data Counts ──"
-    @printf "  Speedtest points: %s\n" "$({{ CONTAINER_CLI }} exec rpi-sim-influxdb influx -username admin -password simpass -execute 'SELECT COUNT(download_bandwidth) FROM speedtest' -database speedtest 2>/dev/null | tail -1 | awk '{print $2}')"
-    @printf "  Telegraf cpu (last 1h): %s\n" "$({{ CONTAINER_CLI }} exec rpi-sim-influxdb influx -username admin -password simpass -execute 'SELECT COUNT(usage_idle) FROM cpu WHERE time > now() - 1h' -database telegraf 2>/dev/null | tail -1 | awk '{print $2}')"
+    bash scripts/sim-stats.sh
 
 # Restore an RPi backup into the sim stack (e.g. just sim-restore-backup backups-rpi/20260416-205640)
 sim-restore-backup dir:
@@ -339,35 +329,7 @@ sim-verify-backup:
 
 # Full backup test: nuke sim, restart, restore, verify (e.g. just sim-test-backup backups-rpi/20260416-205640)
 sim-test-backup dir:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    echo "── Step 0/5: Offline integrity check ──"
-    bash scripts/backup-check.sh {{ dir }}
-    echo ""
-    echo "── Step 1/5: Nuke sim stack ──"
-    {{ sim_compose }} down -v 2>/dev/null || true
-    echo ""
-    echo "── Step 2/5: Start fresh sim stack ──"
-    {{ sim_compose }} up -d
-    echo ""
-    echo "── Step 3/5: Wait for InfluxDB healthy ──"
-    for i in $(seq 1 60); do
-        if curl -sf "http://localhost:8086/ping" >/dev/null 2>&1; then
-            echo "  ✅ InfluxDB healthy after ~$((i * 5))s"
-            break
-        fi
-        if [[ "$i" -eq 60 ]]; then
-            echo "  ❌ InfluxDB not healthy after 300s"
-            exit 1
-        fi
-        sleep 5
-    done
-    echo ""
-    echo "── Step 4/5: Restore ──"
-    bash scripts/sim-restore-backup.sh {{ dir }}
-    echo ""
-    echo "── Step 5/5: Verify ──"
-    bash scripts/sim-verify-backup.sh
+    bash scripts/sim-test-backup.sh {{ dir }} bash -c '{{ sim_compose }} "$@"' --
 
 # Register QEMU user-static (needed once per host reboot)
 sim-binfmt:
@@ -409,27 +371,7 @@ sim-vm-query query:
 
 # Show VM internal stats (active series, ingestion rate, storage)
 sim-vm-stats:
-    @echo "── Active Time Series ──"
-    @curl -sf 'http://localhost:8428/api/v1/query' \
-        --data-urlencode 'query=vm_cache_entries{type="storage/hour_metric_ids"}' \
-        | jq -r '.data.result[0].value[1] // "0"' \
-        | xargs -I{} echo "  {}"
-    @echo ""
-    @echo "── Ingestion Rate (rows/sec, last 5m) ──"
-    @curl -sf 'http://localhost:8428/api/v1/query' \
-        --data-urlencode 'query=rate(vm_rows_inserted_total[5m])' \
-        | jq -r '[.data.result[].value[1] // "0"] | add // "0"' \
-        | xargs -I{} echo "  {} rows/sec"
-    @echo ""
-    @echo "── Storage Size ──"
-    @curl -sf 'http://localhost:8428/api/v1/query' \
-        --data-urlencode 'query=sum(vm_data_size_bytes)' \
-        | jq -r '.data.result[0].value[1] // "0"' \
-        | awk '{printf "  %.2f MB\n", $1/1048576}'
-    @echo ""
-    @echo "── Metric Names ──"
-    @curl -sf 'http://localhost:8428/api/v1/label/__name__/values' \
-        | jq -r '.data[]' | head -30
+    bash scripts/sim-vm-stats.sh
 
 # Open vmui in the default browser
 sim-vm-ui:
@@ -452,16 +394,7 @@ sim_dual := "export VICTORIA_METRICS_URL=http://victoriametrics:8428 && " + sim_
 # Start dual-write simulation (InfluxDB + VictoriaMetrics, same data)
 sim-dual-up:
     {{ sim_dual }} up -d
-    @echo "Waiting for VictoriaMetrics to respond on :8428..."
-    @i=0; while [ $i -lt 60 ]; do \
-        i=$((i+1)); \
-        if curl -sf http://localhost:8428/health >/dev/null 2>&1; then \
-            echo "  VM healthy after ~$((i*2))s ✓"; \
-            break; \
-        fi; \
-        if [ $i -eq 60 ]; then echo "  VM did not respond within 120s ✗"; exit 1; fi; \
-        sleep 2; \
-    done
+    bash scripts/wait-for-health.sh http://localhost:8428/health VictoriaMetrics
     @{{ sim_dual }} ps -a
 
 # Stop dual-write simulation
@@ -504,16 +437,7 @@ sim_vm_only := sim_compose + " -f sim/docker-compose.sim-vm-only.yml --profile v
 # Start RPi4 simulation with VictoriaMetrics only (no InfluxDB)
 sim-vm-only-up:
     {{ sim_vm_only }} up -d
-    @echo "Waiting for VictoriaMetrics to respond on :8428..."
-    @i=0; while [ $i -lt 60 ]; do \
-        i=$((i+1)); \
-        if curl -sf http://localhost:8428/health >/dev/null 2>&1; then \
-            echo "  VM healthy after ~$((i*2))s ✓"; \
-            break; \
-        fi; \
-        if [ $i -eq 60 ]; then echo "  VM did not respond within 120s ✗"; exit 1; fi; \
-        sleep 2; \
-    done
+    bash scripts/wait-for-health.sh http://localhost:8428/health VictoriaMetrics
     @{{ sim_vm_only }} ps -a
 
 # Stop VM-only simulation
