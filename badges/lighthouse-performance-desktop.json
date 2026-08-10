@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "label": "Lighthouse performance (desktop)",
-  "message": "95",
-  "color": "brightgreen"
+  "message": "87",
+  "color": "orange"
 }
