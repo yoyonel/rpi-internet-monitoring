@@ -215,14 +215,38 @@ export const COL = { dl: '#7eb6f6', ul: '#c982e0', pi: '#f2a93b' };
 // ── Formatters (pure, no DOM) ────────────────────────────────
 export const pad2 = (n) => (n < 10 ? '0' + n : '' + n);
 
-export const fmtDate = (t) => {
+export const fmtDate = (t, showYear = false) => {
   const d = new Date(t);
-  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(
+  const yr = showYear ? `/${d.getFullYear()}` : '';
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}${yr} ${pad2(d.getHours())}:${pad2(
     d.getMinutes(),
   )}`;
 };
 
-export const fmtDateTz = (t, tzAbbr) => `${fmtDate(t)} ${tzAbbr}`;
+export const fmtDateTz = (t, tzAbbr, showYear = false) => `${fmtDate(t, showYear)} ${tzAbbr}`;
+
+/**
+ * Smart formatting for x-axis time ticks:
+ * - Ranges <= 7 days: pure hours HH:mm (days are shown at top with midnight separators)
+ * - Long-term ranges (>7d): dd/MM (or dd/MM/yy across years)
+ */
+export const formatTick = (ts, index, allTicks, rangeStart, rangeEnd) => {
+  const d = new Date(ts);
+  const spanMs = rangeEnd - rangeStart;
+  const spanH = spanMs / HOUR;
+  const dStart = new Date(rangeStart);
+  const dEnd = new Date(rangeEnd);
+  const crossYear = dStart.getFullYear() !== dEnd.getFullYear();
+
+  // Long term (> 7 days, e.g. 30j): display dates only
+  if (spanH > 168) {
+    const yr = crossYear ? `/${pad2(d.getFullYear() % 100)}` : '';
+    return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}${yr}`;
+  }
+
+  // Ranges <= 7 days: clean hours
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+};
 
 export const fmtSpd = (v) =>
   v >= 1000
@@ -347,72 +371,103 @@ export const DS_LINE = {
   borderWidth: 1.5,
 };
 
-export const makeBandDs = (buckets, color, label) => [
-  {
-    ...DS_LINE,
-    data: buckets.map((b) => ({ x: b.x, y: b.q3 })),
-    borderColor: 'transparent',
-    borderWidth: 0,
-    pointRadius: 0,
-    backgroundColor: rgba(color, 0.15),
-    fill: '+1',
-    _isBand: true,
-    tension: 0.3,
-  },
-  {
-    ...DS_LINE,
-    data: buckets.map((b) => ({ x: b.x, y: b.q1 })),
-    borderColor: rgba(color, 0.3),
-    borderWidth: 0.5,
-    pointRadius: 0,
-    fill: false,
-    _isBand: true,
-    tension: 0.3,
-  },
-  {
-    ...DS_LINE,
-    data: buckets.map((b) => ({ x: b.x, y: b.med })),
-    borderColor: color,
-    borderWidth: 2,
-    pointRadius: 0,
-    fill: false,
-    label,
-    tension: 0.3,
-  },
-  {
-    ...DS_LINE,
-    data: buckets.map((b) => ({ x: b.x, y: b.min })),
-    borderColor: rgba(color, 0.12),
-    borderWidth: 1,
-    pointRadius: 0,
-    borderDash: [2, 3],
-    fill: false,
-    _isBand: true,
-    tension: 0.3,
-  },
-  {
-    ...DS_LINE,
-    data: buckets.map((b) => ({ x: b.x, y: b.max })),
-    borderColor: rgba(color, 0.12),
-    borderWidth: 1,
-    pointRadius: 0,
-    borderDash: [2, 3],
-    fill: false,
-    _isBand: true,
-    tension: 0.3,
-  },
-];
+export const makeBandDs = (buckets, color, label, bucketMs = 2 * HOUR) => {
+  const mapData = (key) => {
+    const data = [];
+    const maxGap = Math.max(bucketMs * 2.5, 3 * HOUR);
+    for (let i = 0; i < buckets.length; i++) {
+      if (i > 0 && buckets[i].x - buckets[i - 1].x > maxGap) {
+        data.push({ x: buckets[i - 1].x + 1000, y: NaN });
+      }
+      data.push({ x: buckets[i].x, y: buckets[i][key] });
+    }
+    return data;
+  };
 
-export const makeLineDs = (xArr, yArr, i0, i1, color, label, gradient) => [
-  {
-    ...DS_LINE,
-    label,
-    data: lttb(xArr, yArr, i0, i1, 600),
-    borderColor: color,
-    backgroundColor: gradient,
-    fill: true,
-  },
-];
+  return [
+    {
+      ...DS_LINE,
+      data: mapData('q3'),
+      borderColor: 'transparent',
+      borderWidth: 0,
+      pointRadius: 0,
+      backgroundColor: rgba(color, 0.15),
+      fill: '+1',
+      _isBand: true,
+      tension: 0.3,
+      spanGaps: false,
+    },
+    {
+      ...DS_LINE,
+      data: mapData('q1'),
+      borderColor: rgba(color, 0.3),
+      borderWidth: 0.5,
+      pointRadius: 0,
+      fill: false,
+      _isBand: true,
+      tension: 0.3,
+      spanGaps: false,
+    },
+    {
+      ...DS_LINE,
+      data: mapData('med'),
+      borderColor: color,
+      borderWidth: 2,
+      pointRadius: 0,
+      fill: false,
+      label,
+      tension: 0.3,
+      spanGaps: false,
+    },
+    {
+      ...DS_LINE,
+      data: mapData('min'),
+      borderColor: rgba(color, 0.12),
+      borderWidth: 1,
+      pointRadius: 0,
+      borderDash: [2, 3],
+      fill: false,
+      _isBand: true,
+      tension: 0.3,
+      spanGaps: false,
+    },
+    {
+      ...DS_LINE,
+      data: mapData('max'),
+      borderColor: rgba(color, 0.12),
+      borderWidth: 1,
+      pointRadius: 0,
+      borderDash: [2, 3],
+      fill: false,
+      _isBand: true,
+      tension: 0.3,
+      spanGaps: false,
+    },
+  ];
+};
+
+export const makeLineDs = (xArr, yArr, i0, i1, color, label, gradient) => {
+  const points = lttb(xArr, yArr, i0, i1, 600);
+  const data = [];
+  const MAX_GAP = 60 * 60_000; // 1 hour threshold for outages
+  for (let i = 0; i < points.length; i++) {
+    if (i > 0 && points[i].x - points[i - 1].x > MAX_GAP) {
+      data.push({ x: points[i - 1].x + 1000, y: NaN });
+    }
+    data.push(points[i]);
+  }
+  return [
+    {
+      ...DS_LINE,
+      label,
+      data,
+      borderColor: color,
+      backgroundColor: gradient,
+      fill: true,
+      spanGaps: false,
+    },
+  ];
+};
 
 // ── Daily status bars (GitHub-style uptime view) ─────────────
 // Returns array of { date, dayStart, dayEnd, metrics: { dl, ul, pi }, overall }

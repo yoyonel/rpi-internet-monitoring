@@ -13,7 +13,9 @@ import {
   HOUR,
   BAND_THRESHOLD,
   COL,
+  pad2,
   fmtDateTz,
+  formatTick,
   fmtSpd,
   fmtSpd0,
   histogramSVG,
@@ -24,7 +26,7 @@ import {
 } from './lib.js';
 import { data, range, qualityData, tzAbbr } from './state.js';
 
-const fmtDateTzLocal = (t) => fmtDateTz(t, tzAbbr);
+const fmtDateTzLocal = (t, showYear = false) => fmtDateTz(t, tzAbbr, showYear);
 
 // ── Decile tooltip (click to show/hide, with bar highlight) ─
 const dclTip = document.createElement('div');
@@ -147,10 +149,16 @@ export const initCharts = async (yieldToMain) => {
     type: 'time',
     time: {
       tooltipFormat: 'dd/MM HH:mm',
-      displayFormats: { hour: 'HH:mm', day: 'dd/MM' },
     },
     grid: { color: '#1e2228' },
-    ticks: { font: { family: mono, size: 10 }, maxTicksLimit: 12 },
+    ticks: {
+      font: { family: mono, size: 10 },
+      maxTicksLimit: 12,
+      callback: (value, index, ticks) => {
+        if (!ticks || !ticks[index]) return '';
+        return formatTick(ticks[index].value, index, ticks, range.start, range.end);
+      },
+    },
     title: {
       display: true,
       text: `Heure (${tzAbbr})`,
@@ -167,6 +175,14 @@ export const initCharts = async (yieldToMain) => {
     animation: false,
     parsing: false,
     normalized: true,
+    layout: {
+      padding: {
+        top: 22,
+        bottom: 2,
+        left: 2,
+        right: 4,
+      },
+    },
     interaction: { mode: 'index', intersect: false },
     events: ['click'],
     scales: { x: { ...scaleX } },
@@ -194,6 +210,137 @@ export const initCharts = async (yieldToMain) => {
         args.changed = true;
         return false;
       }
+    },
+  });
+
+  // Plugin: subtle vertical dashed lines at midnight + top day labels
+  Chart.register({
+    id: 'dayBoundary',
+    afterDraw(chart) {
+      const { ctx, chartArea, scales } = chart;
+      const xScale = scales.x;
+      if (!xScale || !range.start || !range.end) return;
+
+      const spanMs = range.end - range.start;
+      const spanH = spanMs / HOUR;
+      if (spanH > 168) return;
+
+      const dStart = new Date(range.start);
+      const dEnd = new Date(range.end);
+      const crossYear = dStart.getFullYear() !== dEnd.getFullYear();
+
+      const startDate = new Date(range.start);
+      const midnights = [];
+      const m = new Date(
+        startDate.getFullYear(),
+        startDate.getMonth(),
+        startDate.getDate() + 1,
+        0,
+        0,
+        0,
+        0,
+      );
+
+      while (m.getTime() < range.end) {
+        midnights.push(m.getTime());
+        m.setDate(m.getDate() + 1);
+      }
+
+      ctx.save();
+
+      // 1. Vertical subtle dashed line at midnight
+      if (midnights.length > 0) {
+        ctx.beginPath();
+        ctx.setLineDash([3, 3]);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+        ctx.lineWidth = 1;
+
+        for (const midnightTs of midnights) {
+          const x = Math.round(xScale.getPixelForValue(midnightTs)) + 0.5;
+          if (x >= chartArea.left && x <= chartArea.right) {
+            ctx.moveTo(x, chartArea.top);
+            ctx.lineTo(x, chartArea.bottom);
+          }
+        }
+        ctx.stroke();
+      }
+
+      // 2. Day labels along the top header strip of each day section
+      ctx.setLineDash([]);
+      ctx.font = `10px ${mono}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      const dayBounds = [range.start, ...midnights, range.end];
+      let prevPillRight = -Infinity;
+
+      for (let i = 0; i < dayBounds.length - 1; i++) {
+        const t1 = dayBounds[i];
+        const t2 = dayBounds[i + 1];
+        const x1 = Math.max(chartArea.left, xScale.getPixelForValue(t1));
+        const x2 = Math.min(chartArea.right, xScale.getPixelForValue(t2));
+        const width = x2 - x1;
+
+        if (width >= 16) {
+          const segDate = new Date(t1 + 1000);
+          const yr = crossYear ? `/${pad2(segDate.getFullYear() % 100)}` : '';
+          const label = `${pad2(segDate.getDate())}/${pad2(segDate.getMonth() + 1)}${yr}`;
+          const textW = ctx.measureText(label).width;
+          const pillW = textW + 12;
+          const pillH = 16;
+          const pillY = Math.max(2, chartArea.top - 20);
+
+          let xPos = Math.round((x1 + x2) / 2);
+          xPos = Math.max(
+            chartArea.left + pillW / 2 + 2,
+            Math.min(chartArea.right - pillW / 2 - 2, xPos),
+          );
+
+          if (xPos - pillW / 2 >= prevPillRight + 2) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            if (ctx.roundRect) {
+              ctx.roundRect(xPos - pillW / 2, pillY, pillW, pillH, 3);
+            } else {
+              ctx.rect(xPos - pillW / 2, pillY, pillW, pillH);
+            }
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#8b949e';
+            ctx.fillText(label, xPos, pillY + pillH / 2);
+            prevPillRight = xPos + pillW / 2;
+          }
+        }
+      }
+
+      ctx.restore();
+    },
+  });
+
+  // Plugin: draw clean empty message when 0 points are in current range
+  Chart.register({
+    id: 'emptyChartMessage',
+    afterDraw(chart) {
+      if (
+        chart.data.datasets.length > 0 &&
+        chart.data.datasets.some((d) => d.data && d.data.length > 0)
+      ) {
+        return;
+      }
+      const { ctx, chartArea } = chart;
+      if (!chartArea) return;
+      ctx.save();
+      ctx.font = `12px ${mono}`;
+      ctx.fillStyle = '#6b7280';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const x = (chartArea.left + chartArea.right) / 2;
+      const y = (chartArea.top + chartArea.bottom) / 2;
+      ctx.fillText('\u26a1 Aucune mesure sur cette p\u00e9riode (coupure / hors ligne)', x, y);
+      ctx.restore();
     },
   });
 
@@ -393,11 +540,11 @@ const doRender = () => {
       const piB = bucketize(data.ts, data.pi, p0, p1, bMs);
 
       bwChart.data.datasets = [
-        ...makeBandDs(dlB, COL.dl, 'download'),
-        ...makeBandDs(ulB, COL.ul, 'upload'),
+        ...makeBandDs(dlB, COL.dl, 'download', bMs),
+        ...makeBandDs(ulB, COL.ul, 'upload', bMs),
       ];
       bwChart.options.plugins.tooltip = bandTooltipBw;
-      piChart.data.datasets = makeBandDs(piB, COL.pi, 'latency');
+      piChart.data.datasets = makeBandDs(piB, COL.pi, 'latency', bMs);
       piChart.options.plugins.tooltip = bandTooltipPi;
     } else {
       bwChart.data.datasets = [
@@ -426,14 +573,37 @@ const doRender = () => {
     }
   }
 
+  const dStart = new Date(range.start);
+  const dEnd = new Date(range.end);
+  const spanMs = range.end - range.start;
+  const spanH = spanMs / HOUR;
+  const crossYear = dStart.getFullYear() !== dEnd.getFullYear();
+  const isSameDay =
+    !crossYear && dStart.getMonth() === dEnd.getMonth() && dStart.getDate() === dEnd.getDate();
+
+  const axisTitle =
+    spanH > 168
+      ? crossYear
+        ? `Date (${tzAbbr} \u00b7 ${dStart.getFullYear()}\u2013${dEnd.getFullYear()})`
+        : `Date (${tzAbbr})`
+      : `Heure (${tzAbbr})`;
+
+  const tooltipFormat = crossYear ? 'dd/MM/yyyy HH:mm' : 'dd/MM HH:mm';
+
   bwChart.options.scales.x.min = range.start;
   bwChart.options.scales.x.max = range.end;
+  bwChart.options.scales.x.time.tooltipFormat = tooltipFormat;
+  bwChart.options.scales.x.title.text = axisTitle;
+
   piChart.options.scales.x.min = range.start;
   piChart.options.scales.x.max = range.end;
+  piChart.options.scales.x.time.tooltipFormat = tooltipFormat;
+  piChart.options.scales.x.title.text = axisTitle;
 
   document.getElementById('rangeLabel').textContent = `${fmtDateTzLocal(
     range.start,
-  )}  \u2192  ${fmtDateTzLocal(range.end)}`;
+    crossYear,
+  )}  \u2192  ${fmtDateTzLocal(range.end, crossYear)}`;
   document.querySelectorAll('.rb').forEach((b) => {
     if (b.id === 'btnToday') {
       b.classList.toggle('on', range.isToday);

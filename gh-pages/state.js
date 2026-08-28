@@ -32,7 +32,7 @@ export const initData = (ts, dl, ul, pi) => {
   data.pi = pi;
   data.LEN = ts.length;
   range.dataEnd = ts[ts.length - 1];
-  range.end = range.dataEnd + 600_000;
+  range.end = Math.max(Date.now(), range.dataEnd + 600_000);
   // Default: "today" = midnight local time → now
   const now = new Date();
   const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
