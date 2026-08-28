@@ -22,6 +22,7 @@ import {
   pad2,
   fmtDate,
   fmtDateTz,
+  formatTick,
   fmtSpd,
   fmtSpd0,
   fmtPct,
@@ -310,6 +311,10 @@ describe('fmtDate', () => {
     const t = new Date(2026, 0, 15, 14, 30).getTime();
     assert.equal(fmtDate(t), '15/01 14:30');
   });
+  it('formats timestamp with year when showYear is true', () => {
+    const t = new Date(2026, 0, 15, 14, 30).getTime();
+    assert.equal(fmtDate(t, true), '15/01/2026 14:30');
+  });
 });
 
 describe('fmtDateTz', () => {
@@ -318,6 +323,46 @@ describe('fmtDateTz', () => {
     const result = fmtDateTz(t, 'CET');
     assert.ok(result.endsWith('CET'));
     assert.ok(result.startsWith('15/01 14:30'));
+  });
+  it('appends timezone abbreviation with showYear', () => {
+    const t = new Date(2026, 0, 15, 14, 30).getTime();
+    const result = fmtDateTz(t, 'CET', true);
+    assert.equal(result, '15/01/2026 14:30 CET');
+  });
+});
+
+describe('formatTick', () => {
+  it('shows only HH:mm for ranges <= 7d (days are shown at top with midnight separators)', () => {
+    const start = new Date(2026, 7, 27, 8, 0).getTime();
+    const end = new Date(2026, 7, 28, 8, 0).getTime();
+    const t0 = new Date(2026, 7, 27, 8, 0).getTime();
+    const t1 = new Date(2026, 7, 27, 14, 0).getTime();
+    const t2 = new Date(2026, 7, 28, 0, 0).getTime();
+    const t3 = new Date(2026, 7, 28, 6, 0).getTime();
+    const ticks = [{ value: t0 }, { value: t1 }, { value: t2 }, { value: t3 }];
+
+    assert.equal(formatTick(t0, 0, ticks, start, end), '08:00');
+    assert.equal(formatTick(t1, 1, ticks, start, end), '14:00');
+    assert.equal(formatTick(t2, 2, ticks, start, end), '00:00');
+    assert.equal(formatTick(t3, 3, ticks, start, end), '06:00');
+  });
+
+  it('shows only dd/MM for long term ranges (>7d)', () => {
+    const start = new Date(2026, 7, 1, 0, 0).getTime();
+    const end = new Date(2026, 7, 30, 0, 0).getTime();
+    const t0 = new Date(2026, 7, 5, 12, 0).getTime();
+    const ticks = [{ value: t0 }];
+    assert.equal(formatTick(t0, 0, ticks, start, end), '05/08');
+  });
+
+  it('shows year for long term ranges when crossing years', () => {
+    const start = new Date(2026, 11, 1, 0, 0).getTime();
+    const end = new Date(2027, 0, 15, 0, 0).getTime();
+    const t0 = new Date(2026, 11, 28, 8, 0).getTime();
+    const t1 = new Date(2027, 0, 1, 0, 0).getTime();
+    const ticks = [{ value: t0 }, { value: t1 }];
+    assert.equal(formatTick(t0, 0, ticks, start, end), '28/12/26');
+    assert.equal(formatTick(t1, 1, ticks, start, end), '01/01/27');
   });
 });
 
@@ -468,6 +513,15 @@ describe('makeBandDs', () => {
     assert.ok(ds[1]._isBand);
     assert.ok(!ds[2]._isBand); // median is not _isBand
   });
+  it('inserts NaN and sets spanGaps false on gaps > maxGap', () => {
+    const gBuckets = [
+      { x: 0, min: 10, q1: 20, med: 30, q3: 40, max: 50 },
+      { x: 20 * 3_600_000, min: 15, q1: 25, med: 35, q3: 45, max: 55 },
+    ];
+    const ds = makeBandDs(gBuckets, '#7eb6f6', 'download', 2 * 3_600_000);
+    assert.equal(ds[2].spanGaps, false);
+    assert.ok(ds[2].data.some((p) => Number.isNaN(p.y)));
+  });
 });
 
 // ── makeLineDs ───────────────────────────────────────────────
@@ -484,6 +538,12 @@ describe('makeLineDs', () => {
     assert.equal(ds[0].label, 'download');
     assert.equal(ds[0].fill, true);
     assert.equal(ds[0].backgroundColor, 'grad');
+  });
+  it('inserts NaN on gaps > 1 hour', () => {
+    const xGap = f64(0, 10 * 60_000, 20 * 60_000, 5 * 3_600_000, 5 * 3_600_000 + 10 * 60_000);
+    const yGap = f64(100, 100, 100, 100, 100);
+    const ds = makeLineDs(xGap, yGap, 0, 5, '#7eb6f6', 'download', 'grad');
+    assert.ok(ds[0].data.some((p) => Number.isNaN(p.y)));
   });
 });
 

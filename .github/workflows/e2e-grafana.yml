@@ -1,0 +1,85 @@
+name: E2E — Grafana Dashboards
+
+on:
+  push:
+    branches: [master, feat/victoriametrics] # TODO: remove feat branch before merge
+    paths:
+      - 'grafana/**'
+      - 'tests/grafana-dashboards.spec.js'
+      - 'scripts/ci/start-influxdb.sh'
+      - 'scripts/ci/start-victoriametrics.sh'
+      - 'scripts/ci/seed-grafana-data.sh'
+      - 'scripts/ci/start-grafana.sh'
+      - '.github/workflows/e2e-grafana.yml'
+  pull_request:
+    paths:
+      - 'grafana/**'
+      - 'tests/grafana-dashboards.spec.js'
+      - 'scripts/ci/start-influxdb.sh'
+      - 'scripts/ci/start-victoriametrics.sh'
+      - 'scripts/ci/seed-grafana-data.sh'
+      - 'scripts/ci/start-grafana.sh'
+      - '.github/workflows/e2e-grafana.yml'
+  workflow_dispatch:
+
+env:
+  GF_SECURITY_ADMIN_USER: admin
+  GF_SECURITY_ADMIN_PASSWORD: cipass
+  INFLUXDB_ADMIN_USER: admin
+  INFLUXDB_ADMIN_PASSWORD: cipass
+  INFLUXDB_USER: telegraf
+  INFLUXDB_USER_PASSWORD: cipass
+
+jobs:
+  grafana-e2e:
+    name: Grafana dashboard parity (InfluxDB ↔ VM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+
+      - name: Install dependencies and Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Create Docker network
+        run: docker network create grafana-ci
+
+      - name: Start InfluxDB
+        run: bash scripts/ci/start-influxdb.sh --network grafana-ci
+
+      - name: Start VictoriaMetrics
+        run: bash scripts/ci/start-victoriametrics.sh --network grafana-ci --influx-listen-addr :8089
+
+      - name: Seed test data into both backends
+        run: bash scripts/ci/seed-grafana-data.sh
+
+      - name: Start Grafana
+        run: bash scripts/ci/start-grafana.sh --network grafana-ci
+
+      - name: Run Grafana E2E tests
+        run: |
+          GRAFANA_URL=http://localhost:3000 \
+          GRAFANA_USER=admin \
+          GRAFANA_PASS=cipass \
+          npx playwright test tests/grafana-dashboards.spec.js
+
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grafana-e2e-screenshots
+          path: test-results/
+          retention-days: 7
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f grafana victoriametrics influxdb 2>/dev/null || true
+          docker network rm grafana-ci 2>/dev/null || true

@@ -21,7 +21,7 @@ jobs:
       - name: Run E2E tests
         run: |
           E2E_BASE_URL=https://yoyonel.github.io/rpi-internet-monitoring/ \
-            npx playwright test
+            npx playwright test tests/e2e.spec.js
 
       - name: Upload test results on failure
         if: failure()

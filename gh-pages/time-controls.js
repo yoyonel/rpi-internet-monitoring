@@ -9,7 +9,7 @@ import { render } from './charts.js';
 const setToday = () => {
   const now = new Date();
   range.start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  range.end = range.dataEnd + 600_000;
+  range.end = Math.max(Date.now(), range.dataEnd + 600_000);
   range.currentH = (range.end - range.start) / HOUR;
   range.isLive = true;
   range.isToday = true;
@@ -18,7 +18,7 @@ const setToday = () => {
 
 const setRange = (h) => {
   range.currentH = h;
-  if (range.isLive) range.end = range.dataEnd + 600_000;
+  if (range.isLive) range.end = Math.max(Date.now(), range.dataEnd + 600_000);
   range.start = range.end - range.currentH * HOUR;
   range.isToday = false;
   render();

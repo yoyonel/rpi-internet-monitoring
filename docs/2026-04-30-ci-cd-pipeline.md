@@ -89,6 +89,46 @@ graph TD
 3. **Single deployment method** — both RPi and CI use `git push` to the `gh-pages` branch (matches repo config: "Deploy from branch")
 4. **Graceful fallbacks** — local scripts try live JSON → gh-pages branch → fixtures
 
+## VictoriaMetrics CI workflows
+
+Three workflows validate the VictoriaMetrics migration:
+
+### 4. E2E — VM Data (`e2e-vm-data.yml`)
+
+Runs on every push/PR. Starts a preview server, executes the standard E2E tests
+(`tests/e2e.spec.js`) against frontend pages rendered with VictoriaMetrics data.
+
+### 5. E2E — Grafana Dashboards (`e2e-grafana.yml`)
+
+Validates **visual parity** between InfluxDB and VictoriaMetrics Grafana dashboards.
+Triggered on push/PR affecting `grafana/**` or `tests/grafana-dashboards.spec.js`.
+
+```mermaid
+graph LR
+    A[Push/PR] --> B[e2e-grafana.yml]
+    B --> C1[InfluxDB container]
+    B --> C2[VictoriaMetrics container]
+    B --> C3[Grafana container<br/>provisioned datasources]
+    C1 --> D[Seed identical test data]
+    C2 --> D
+    D --> E[Playwright tests<br/>7 checks: 3 API + 4 visual]
+    E --> F[Compare InfluxDB vs VM<br/>errors + No data panels]
+```
+
+Key implementation details:
+
+- All 3 containers share a Docker network (`grafana-ci`) for name resolution
+- Grafana uses anonymous auth (`GF_AUTH_ANONYMOUS_ENABLED=true`) to avoid login redirects in headless CI
+- InfluxDB init waits for `SHOW USERS` (not just `/ping`) to ensure user creation
+- Data is written with `--data-binary` (not `-d`) to preserve InfluxDB line protocol spaces
+- VictoriaMetrics needs `force_flush` + indexing delay after writes
+
+### 6. VM Smoke Tests (`vm-smoke-test.yml`)
+
+Validates that the Docker Compose stack with VictoriaMetrics starts correctly.
+Triggered on push/PR affecting `docker-compose.yml`, `sim/**`, `telegraf/**`,
+or `docker-entrypoint.sh`.
+
 ## Concurrency
 
 The RPi pushes every 10 minutes. The CI pushes on template changes. Both use `--force` to the same branch. The last writer wins, which is acceptable because:

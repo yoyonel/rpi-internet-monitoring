@@ -1,0 +1,86 @@
+name: VM Smoke Tests
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'docker-compose.yml'
+      - 'sim/**'
+      - 'telegraf/**'
+      - 'docker-entrypoint.sh'
+      - '.github/workflows/vm-smoke-test.yml'
+  pull_request:
+    paths:
+      - 'docker-compose.yml'
+      - 'sim/**'
+      - 'telegraf/**'
+      - 'docker-entrypoint.sh'
+      - '.github/workflows/vm-smoke-test.yml'
+  workflow_dispatch:
+
+jobs:
+  vm-smoke:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Start VictoriaMetrics
+        run: bash scripts/ci/start-victoriametrics.sh
+
+      - name: 'Test 1: healthcheck'
+        run: |
+          status=$(curl -sf -o /dev/null -w '%{http_code}' \
+            http://localhost:8428/health)
+          [[ "$status" == "200" ]] && echo "✓ /health → 200" \
+            || { echo "✗ /health → $status"; exit 1; }
+
+      - name: 'Test 2: write via InfluxDB HTTP API'
+        run: bash scripts/ci/vm-write-test-data.sh
+
+      - name: Flush and wait for indexing
+        run: |
+          curl -sf http://localhost:8428/internal/force_flush
+          sleep 2
+
+      - name: 'Test 3: query via MetricsQL'
+        run: |
+          result=$(curl -sf 'http://localhost:8428/api/v1/query' \
+            --data-urlencode 'query=cpu_usage_idle{cpu="cpu-total"}' \
+            --data-urlencode "time=$TS_SEC")
+          echo "$result" | jq .
+          value=$(echo "$result" | jq -r '.data.result[0].value[1]')
+          [[ "$value" == "95.2" ]] && echo "✓ cpu_usage_idle = 95.2" \
+            || { echo "✗ got $value"; exit 1; }
+
+      - name: 'Test 4: query speedtest data'
+        run: |
+          result=$(curl -sf 'http://localhost:8428/api/v1/query' \
+            --data-urlencode \
+              'query=speedtest_download_bandwidth{result_id="test-001"}' \
+            --data-urlencode "time=$TS_SEC")
+          value=$(echo "$result" | jq -r '.data.result[0].value[1]')
+          [[ "$value" == "941000000" ]] \
+            && echo "✓ download_bandwidth = 941000000" \
+            || { echo "✗ got $value"; exit 1; }
+
+      - name: 'Test 5: export data'
+        run: |
+          # Export all speedtest metrics
+          result=$(curl -sf 'http://localhost:8428/api/v1/export' \
+            --data-urlencode 'match={__name__=~"speedtest_.*"}')
+          echo "$result"
+          count=$(echo "$result" | wc -l)
+          [[ "$count" -ge 3 ]] && echo "✓ Exported $count metric lines" || { echo "✗ Only $count lines"; exit 1; }
+
+      - name: 'Test 6: metric naming convention'
+        run: bash scripts/ci/vm-verify-metric-names.sh
+
+      - name: 'Test 7: vmui accessible'
+        run: |
+          status=$(curl -sf -o /dev/null -w '%{http_code}' http://localhost:8428/vmui/)
+          [[ "$status" == "200" ]] && echo "✓ vmui → 200" || { echo "✗ vmui → $status"; exit 1; }
+
+      - name: Cleanup
+        if: always()
+        run: docker rm -f victoriametrics 2>/dev/null || true

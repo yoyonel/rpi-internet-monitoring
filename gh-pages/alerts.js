@@ -43,19 +43,37 @@ export const renderAlerts = (ALERTS) => {
     ? `<div class="al-eval">Derni\u00e8re \u00e9valuation\u00a0: <time>${evalStr}</time></div>`
     : '';
 
+  const nFiring = alertsArr.filter((a) => a.state === 'firing').length;
+  const nPending = alertsArr.filter((a) => a.state === 'pending').length;
+  const sumBadge = document.getElementById('alertsSummaryBadge');
+  if (sumBadge) {
+    if (nFiring > 0) {
+      sumBadge.innerHTML = `<wa-badge variant="danger">${nFiring} actif${nFiring > 1 ? 's' : ''}</wa-badge>`;
+    } else if (nPending > 0) {
+      sumBadge.innerHTML = `<wa-badge variant="warning">${nPending} en attente</wa-badge>`;
+    } else {
+      sumBadge.innerHTML = `<wa-badge variant="success">OK</wa-badge>`;
+    }
+  }
+
   document.getElementById('alertsList').innerHTML =
     evalHtml +
     alertsArr
       .map((a) => {
-        const icon =
-          a.state === 'firing' ? '\uD83D\uDD34' : a.state === 'pending' ? '\u26A0\uFE0F' : '\u2705';
-        const badge = a.state === 'firing' ? 'firing' : a.state === 'pending' ? 'pending' : 'ok';
+        const variant =
+          a.state === 'firing' ? 'danger' : a.state === 'pending' ? 'warning' : 'success';
+        const iconName =
+          a.state === 'firing'
+            ? 'circle-xmark'
+            : a.state === 'pending'
+              ? 'triangle-exclamation'
+              : 'circle-check';
         const label = a.state === 'inactive' ? 'ok' : a.state;
         return `<div class="al-row">
-      <span class="al-icon">${icon}</span>
+      <span class="al-icon"><wa-icon name="${iconName}"></wa-icon></span>
       <span class="al-name">${esc(a.name)}</span>
       <span class="al-sum">${esc(fixTemp(a.summary))}</span>
-      <span class="al-badge ${badge}">${label}</span>
+      <wa-badge class="al-badge" variant="${variant}">${label}</wa-badge>
     </div>`;
       })
       .join('');

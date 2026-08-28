@@ -1,16 +1,23 @@
 #!/usr/bin/env bash
-# Offline integrity check for an RPi backup directory.
-# Validates archive integrity WITHOUT needing the sim stack running.
+# Offline integrity check for a backup directory.
+# Validates archive integrity WITHOUT needing the stack running.
+# Supports both InfluxDB and VictoriaMetrics backup formats.
 #
 # Usage: bash scripts/backup-check.sh <backup-dir>
 #   e.g.: bash scripts/backup-check.sh backups-rpi/20260416-205640
+#         bash scripts/backup-check.sh backups/20260501-120000
 #
 # Checks:
-#   1. Directory structure (influxdb-backup/, manifest, meta)
-#   2. Every .tar.gz referenced in the manifest exists and is not corrupt (gzip -t)
-#   3. Dashboard JSON files are valid JSON
-#   4. Datasources JSON is valid JSON
-#   5. Meta file is non-empty and parseable
+#   For InfluxDB (influxdb-backup/):
+#     1. Directory structure (influxdb-backup/, manifest, meta)
+#     2. Every .tar.gz referenced in the manifest exists and is not corrupt (gzip -t)
+#   For VictoriaMetrics (vm-snapshot/):
+#     1. Snapshot directory exists and is non-empty
+#     2. Contains expected VM storage structure (data/, indexdb/)
+#   Common:
+#     3. Dashboard JSON files are valid JSON
+#     4. Datasources JSON is valid JSON
+#     5. Size sanity check
 set -uo pipefail
 
 if [[ $# -lt 1 ]]; then
@@ -40,6 +47,19 @@ echo ""
 echo "  Target: $BACKUP_DIR"
 echo ""
 
+# Detect which TSDB backup(s) are present
+HAS_INFLUX=false
+HAS_VM=false
+[[ -d "$BACKUP_DIR/influxdb-backup" ]] && HAS_INFLUX=true
+[[ -d "$BACKUP_DIR/vm-snapshot" ]] && HAS_VM=true
+
+if ! $HAS_INFLUX && ! $HAS_VM; then
+    fail "No TSDB backup found (neither influxdb-backup/ nor vm-snapshot/)"
+    echo ""
+    echo "🔴 VERDICT: No TSDB data in backup directory."
+    exit 1
+fi
+
 # ── 1. Directory structure ────────────────────────────────
 echo "── 1. Directory structure ──"
 
@@ -51,68 +71,114 @@ if [[ ! -d "$BACKUP_DIR" ]]; then
 fi
 pass "Backup directory exists"
 
-INFLUX_DIR="$BACKUP_DIR/influxdb-backup"
-if [[ ! -d "$INFLUX_DIR" ]]; then
-    fail "influxdb-backup/ subdirectory missing"
-else
+if $HAS_INFLUX; then
     pass "influxdb-backup/ directory present"
 fi
-echo ""
-
-# ── 2. Manifest & meta ───────────────────────────────────
-echo "── 2. Manifest & meta files ──"
-
-mapfile -t MANIFESTS < <(find "$INFLUX_DIR" -name '*.manifest' 2>/dev/null)
-if [[ ${#MANIFESTS[@]} -eq 0 ]]; then
-    fail "No .manifest file found in influxdb-backup/"
-else
-    for m in "${MANIFESTS[@]}"; do
-        if [[ -s "$m" ]]; then
-            pass "Manifest: $(basename "$m") ($(wc -c <"$m") bytes)"
-        else
-            fail "Manifest is empty: $(basename "$m")"
-        fi
-    done
-fi
-
-mapfile -t METAS < <(find "$INFLUX_DIR" -name '*.meta' 2>/dev/null)
-if [[ ${#METAS[@]} -eq 0 ]]; then
-    fail "No .meta file found in influxdb-backup/"
-else
-    for m in "${METAS[@]}"; do
-        if [[ -s "$m" ]]; then
-            pass "Meta: $(basename "$m") ($(wc -c <"$m") bytes)"
-        else
-            fail "Meta file is empty: $(basename "$m")"
-        fi
-    done
+if $HAS_VM; then
+    pass "vm-snapshot/ directory present"
 fi
 echo ""
 
-# ── 3. Shard archives integrity ──────────────────────────
-echo "── 3. Shard archives (gzip -t) ──"
+# ── 2. InfluxDB: Manifest & meta ─────────────────────────
+if $HAS_INFLUX; then
+    INFLUX_DIR="$BACKUP_DIR/influxdb-backup"
+    echo "── 2a. InfluxDB: Manifest & meta files ──"
 
-mapfile -t SHARDS < <(find "$INFLUX_DIR" -name '*.tar.gz' 2>/dev/null | sort)
-SHARD_COUNT=${#SHARDS[@]}
-
-if [[ "$SHARD_COUNT" -eq 0 ]]; then
-    fail "No .tar.gz shard files found"
-else
-    echo "  📦 Found $SHARD_COUNT shard archive(s) — testing each..."
-    CORRUPT=0
-    for shard in "${SHARDS[@]}"; do
-        if ! gzip -t "$shard" 2>/dev/null; then
-            fail "CORRUPT: $(basename "$shard")"
-            ((CORRUPT++))
-        fi
-    done
-    if [[ "$CORRUPT" -eq 0 ]]; then
-        pass "All $SHARD_COUNT shard archives pass gzip integrity check"
+    mapfile -t MANIFESTS < <(find "$INFLUX_DIR" -name '*.manifest' 2>/dev/null)
+    if [[ ${#MANIFESTS[@]} -eq 0 ]]; then
+        fail "No .manifest file found in influxdb-backup/"
     else
-        fail "$CORRUPT/$SHARD_COUNT shard(s) are corrupt"
+        for m in "${MANIFESTS[@]}"; do
+            if [[ -s "$m" ]]; then
+                pass "Manifest: $(basename "$m") ($(wc -c <"$m") bytes)"
+            else
+                fail "Manifest is empty: $(basename "$m")"
+            fi
+        done
     fi
+
+    mapfile -t METAS < <(find "$INFLUX_DIR" -name '*.meta' 2>/dev/null)
+    if [[ ${#METAS[@]} -eq 0 ]]; then
+        fail "No .meta file found in influxdb-backup/"
+    else
+        for m in "${METAS[@]}"; do
+            if [[ -s "$m" ]]; then
+                pass "Meta: $(basename "$m") ($(wc -c <"$m") bytes)"
+            else
+                fail "Meta file is empty: $(basename "$m")"
+            fi
+        done
+    fi
+    echo ""
+
+    # ── 2b. Shard archives integrity ──────────────────────
+    echo "── 2b. InfluxDB: Shard archives (gzip -t) ──"
+
+    mapfile -t SHARDS < <(find "$INFLUX_DIR" -name '*.tar.gz' 2>/dev/null | sort)
+    SHARD_COUNT=${#SHARDS[@]}
+
+    if [[ "$SHARD_COUNT" -eq 0 ]]; then
+        fail "No .tar.gz shard files found"
+    else
+        echo "  📦 Found $SHARD_COUNT shard archive(s) — testing each..."
+        CORRUPT=0
+        for shard in "${SHARDS[@]}"; do
+            if ! gzip -t "$shard" 2>/dev/null; then
+                fail "CORRUPT: $(basename "$shard")"
+                ((CORRUPT++))
+            fi
+        done
+        if [[ "$CORRUPT" -eq 0 ]]; then
+            pass "All $SHARD_COUNT shard archives pass gzip integrity check"
+        else
+            fail "$CORRUPT/$SHARD_COUNT shard(s) are corrupt"
+        fi
+    fi
+    echo ""
 fi
-echo ""
+
+# ── 3. VictoriaMetrics snapshot ───────────────────────────
+if $HAS_VM; then
+    echo "── 3. VictoriaMetrics snapshot ──"
+    VM_SNAP_DIR="$BACKUP_DIR/vm-snapshot"
+
+    # Find the actual snapshot subdirectory (named like 20260501120000-...)
+    mapfile -t SNAP_DIRS < <(find "$VM_SNAP_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null)
+
+    if [[ ${#SNAP_DIRS[@]} -eq 0 ]]; then
+        fail "vm-snapshot/ is empty — no snapshot subdirectory found"
+    else
+        SNAP="${SNAP_DIRS[0]}"
+        SNAP_NAME=$(basename "$SNAP")
+        pass "Snapshot directory: $SNAP_NAME"
+
+        # Check for expected VM storage structure
+        if [[ -d "$SNAP/data" ]]; then
+            pass "data/ directory present"
+            DATA_SIZE=$(du -sh "$SNAP/data" | awk '{print $1}')
+            pass "data/ size: $DATA_SIZE"
+        else
+            fail "data/ directory missing in snapshot"
+        fi
+
+        if [[ -d "$SNAP/data/indexdb" ]]; then
+            pass "data/indexdb/ directory present"
+        elif [[ -d "$SNAP/indexdb" ]]; then
+            pass "indexdb/ directory present"
+        else
+            warn "indexdb/ directory missing (may be normal for empty DB)"
+        fi
+
+        # Count total files in snapshot
+        FILE_COUNT=$(find "$SNAP" -type f 2>/dev/null | wc -l)
+        if [[ "$FILE_COUNT" -gt 0 ]]; then
+            pass "Snapshot contains $FILE_COUNT file(s)"
+        else
+            fail "Snapshot contains no files"
+        fi
+    fi
+    echo ""
+fi
 
 # ── 4. Dashboard JSON validation ─────────────────────────
 echo "── 4. Dashboard JSON files ──"

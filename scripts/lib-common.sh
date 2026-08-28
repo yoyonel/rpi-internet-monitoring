@@ -99,17 +99,17 @@ _TEST_WARN=0
 
 pass() {
     echo "  ✅ $1"
-    ((_TEST_PASS++))
+    _TEST_PASS=$((_TEST_PASS + 1))
 }
 
 fail() {
     echo "  ❌ $1"
-    ((_TEST_FAIL++))
+    _TEST_FAIL=$((_TEST_FAIL + 1))
 }
 
 warn() {
     echo "  ⚠️  $1"
-    ((_TEST_WARN++))
+    _TEST_WARN=$((_TEST_WARN + 1))
 }
 
 test_summary() {

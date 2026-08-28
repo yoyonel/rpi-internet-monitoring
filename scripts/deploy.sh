@@ -20,6 +20,10 @@ source "$SCRIPT_DIR/scripts/lib-common.sh"
 
 detect_container_cli
 COMPOSE="$DOCKER compose"
+# If VM is configured, activate the vm profile so VictoriaMetrics starts
+if [[ -n "${VICTORIA_METRICS_URL:-}" ]]; then
+    COMPOSE="$COMPOSE --profile vm"
+fi
 MIGRATIONS_DIR="$SCRIPT_DIR/migrations"
 MIGRATIONS_LOG="$SCRIPT_DIR/.migrations-applied"
 
