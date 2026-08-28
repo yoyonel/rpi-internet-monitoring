@@ -24,7 +24,7 @@ import {
 } from './lib.js';
 import { data, range, qualityData, tzAbbr } from './state.js';
 
-const fmtDateTzLocal = (t) => fmtDateTz(t, tzAbbr);
+const fmtDateTzLocal = (t, showYear = false) => fmtDateTz(t, tzAbbr, showYear);
 
 // ── Decile tooltip (click to show/hide, with bar highlight) ─
 const dclTip = document.createElement('div');
@@ -426,14 +426,64 @@ const doRender = () => {
     }
   }
 
+  const dStart = new Date(range.start);
+  const dEnd = new Date(range.end);
+  const spanMs = range.end - range.start;
+  const spanH = spanMs / HOUR;
+  const crossYear = dStart.getFullYear() !== dEnd.getFullYear();
+  const isSameDay =
+    !crossYear &&
+    dStart.getMonth() === dEnd.getMonth() &&
+    dStart.getDate() === dEnd.getDate();
+
+  let hourFormat, dayFormat, axisTitle;
+
+  if (isSameDay) {
+    // Within a single calendar day (e.g. Today, or 6h within the same day)
+    hourFormat = 'HH:mm';
+    dayFormat = 'dd/MM';
+    axisTitle = `Heure (${tzAbbr})`;
+  } else if (spanH <= 168) {
+    // Spans multiple days up to 7 days (e.g. 6h/12h crossing midnight, 24h, 2j, 7j)
+    hourFormat = crossYear ? 'dd/MM/yy HH:mm' : 'dd/MM HH:mm';
+    dayFormat = crossYear ? 'dd/MM/yy' : 'dd/MM';
+    axisTitle = crossYear
+      ? `Date & Heure (${tzAbbr} \u00b7 ${dStart.getFullYear()}\u2013${dEnd.getFullYear()})`
+      : `Date & Heure (${tzAbbr})`;
+  } else {
+    // Long term (> 7 days, e.g. 30j, multi-month, multi-year)
+    hourFormat = crossYear ? 'dd/MM/yy HH:mm' : 'dd/MM HH:mm';
+    dayFormat = crossYear ? 'dd/MM/yy' : 'dd/MM';
+    axisTitle = crossYear
+      ? `Date (${tzAbbr} \u00b7 ${dStart.getFullYear()}\u2013${dEnd.getFullYear()})`
+      : `Date (${tzAbbr})`;
+  }
+
+  const displayFormats = {
+    minute: 'HH:mm',
+    hour: hourFormat,
+    day: dayFormat,
+    month: crossYear ? 'MMM yyyy' : 'MMM',
+    year: 'yyyy',
+  };
+  const tooltipFormat = crossYear ? 'dd/MM/yyyy HH:mm' : 'dd/MM HH:mm';
+
   bwChart.options.scales.x.min = range.start;
   bwChart.options.scales.x.max = range.end;
+  bwChart.options.scales.x.time.displayFormats = displayFormats;
+  bwChart.options.scales.x.time.tooltipFormat = tooltipFormat;
+  bwChart.options.scales.x.title.text = axisTitle;
+
   piChart.options.scales.x.min = range.start;
   piChart.options.scales.x.max = range.end;
+  piChart.options.scales.x.time.displayFormats = displayFormats;
+  piChart.options.scales.x.time.tooltipFormat = tooltipFormat;
+  piChart.options.scales.x.title.text = axisTitle;
 
   document.getElementById('rangeLabel').textContent = `${fmtDateTzLocal(
     range.start,
-  )}  \u2192  ${fmtDateTzLocal(range.end)}`;
+    crossYear,
+  )}  \u2192  ${fmtDateTzLocal(range.end, crossYear)}`;
   document.querySelectorAll('.rb').forEach((b) => {
     if (b.id === 'btnToday') {
       b.classList.toggle('on', range.isToday);

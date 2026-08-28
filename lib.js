@@ -215,14 +215,15 @@ export const COL = { dl: '#7eb6f6', ul: '#c982e0', pi: '#f2a93b' };
 // ── Formatters (pure, no DOM) ────────────────────────────────
 export const pad2 = (n) => (n < 10 ? '0' + n : '' + n);
 
-export const fmtDate = (t) => {
+export const fmtDate = (t, showYear = false) => {
   const d = new Date(t);
-  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)} ${pad2(d.getHours())}:${pad2(
+  const yr = showYear ? `/${d.getFullYear()}` : '';
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}${yr} ${pad2(d.getHours())}:${pad2(
     d.getMinutes(),
   )}`;
 };
 
-export const fmtDateTz = (t, tzAbbr) => `${fmtDate(t)} ${tzAbbr}`;
+export const fmtDateTz = (t, tzAbbr, showYear = false) => `${fmtDate(t, showYear)} ${tzAbbr}`;
 
 export const fmtSpd = (v) =>
   v >= 1000
