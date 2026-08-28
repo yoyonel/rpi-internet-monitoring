@@ -1,5 +1,11 @@
 # rpi-internet-monitoring — Copilot Instructions
 
+## ⚠️ RÈGLE ABSOLUE & STRICTE — SÉCURITÉ ENVIRONNEMENT PROD & RPI
+
+- **INTERDICTION TOTALE** de déployer, tester, modifier ou exécuter des commandes sur le **Raspberry Pi (RPi / `ssh rpi4`)** sans autorisation/permission **EXPLICITES** de l'utilisateur.
+- **INTERDICTION TOTALE** d'altérer, déployer ou pousser sur l'endpoint de **PRODUCTION (`https://yoyonel.github.io/rpi-internet-monitoring/` / branche `gh-pages`)** sans autorisation/permission **EXPLICITES** de l'utilisateur.
+- **TOUS les développements, tests et rendus visuels DOIVENT être effectués à 100% EN LOCAL** (via `just test`, `just test-unit`, `just test-e2e`, `just preview-dev` sur `http://localhost:8080`, `just test-browser`).
+
 ## Workflow obligatoire pour tout changement
 
 ### Checklist avant de rendre la main à l'utilisateur
