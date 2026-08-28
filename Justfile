@@ -142,11 +142,15 @@ clean-all: clean
 
 # ── Testing ─────────────────────────────────────────────
 
-# Run the regression test suite (17 checks)
-test:
-    bash test-stack.sh
+# Run full test suite (unit tests + e2e tests)
+test: test-unit test-e2e
+    @echo "All tests passed ✅"
 
-# Run unit tests (Node.js, no browser needed)
+# Run all tests and visual validations (unit + e2e + browser screenshots)
+test-all: test-unit test-e2e test-browser
+    @echo "All tests and browser validations passed ✅"
+
+# Run unit tests (Node.js + Python, no browser needed)
 test-unit:
     node --test tests/lib.test.js tests/status-bar.test.js
     python3 tests/test_vm_to_datajson.py
@@ -159,13 +163,17 @@ test-coverage:
         --test-reporter spec --test-reporter-destination stdout \
         tests/lib.test.js tests/status-bar.test.js
 
-# Run Playwright E2E tests against a running preview
+# Run Playwright E2E tests (auto-spawns preview server if needed)
 test-e2e:
     npx playwright test
 
-# Verify browser rendering and take screenshots across all presets
+# Verify browser rendering and take screenshots across all presets (auto-spawns preview if needed)
 test-browser url="http://localhost:8080":
     node scripts/test-browser.js {{ url }}
+
+# Run the live monitoring stack regression test suite (17 checks, requires running stack)
+test-stack *args:
+    bash test-stack.sh {{ args }}
 
 # Quick health check (services only)
 check:
@@ -288,8 +296,8 @@ lint-py:
 lint: lint-sh lint-docker lint-yaml lint-prettier lint-py
     @echo "All linters passed ✅"
 
-# Run all local verification steps (format, lint, unit tests)
-check-all: fmt lint test-unit
+# Run all local verification steps (format, lint, unit tests, e2e tests)
+check-all: fmt lint test-unit test-e2e
     @echo "All quality & test checks passed ✅"
 
 # E2E tests against a local or remote preview (default: http://127.0.0.1:8080)

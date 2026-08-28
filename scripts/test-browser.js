@@ -1,7 +1,45 @@
 import { chromium } from 'playwright';
 import fs from 'node:fs';
+import http from 'node:http';
+import { spawn } from 'node:child_process';
+
+function isServerUp(urlStr) {
+  return new Promise((resolve) => {
+    try {
+      const u = new URL(urlStr);
+      const req = http.get({ hostname: u.hostname, port: u.port || 80, path: '/' }, (res) => {
+        resolve(res.statusCode === 200);
+      });
+      req.on('error', () => resolve(false));
+      req.setTimeout(1000, () => {
+        req.destroy();
+        resolve(false);
+      });
+    } catch {
+      resolve(false);
+    }
+  });
+}
 
 (async () => {
+  const url = process.argv[2] || 'http://localhost:8080';
+  let serverProcess = null;
+
+  // Auto-start preview server if not running
+  const up = await isServerUp(url);
+  if (!up && (url.includes('localhost') || url.includes('127.0.0.1'))) {
+    const port = new URL(url).port || '8080';
+    console.log(`Starting local preview server on :${port}...`);
+    serverProcess = spawn('bash', ['scripts/preview-dev.sh', port], {
+      stdio: 'ignore',
+      detached: true,
+    });
+    for (let i = 0; i < 30; i++) {
+      await new Promise((r) => setTimeout(r, 400));
+      if (await isServerUp(url)) break;
+    }
+  }
+
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || '/usr/bin/chromium',
     headless: true,
@@ -21,9 +59,8 @@ import fs from 'node:fs';
     console.error(`[PAGE ERROR] ${err.message}`);
   });
 
-  const url = process.argv[2] || 'http://localhost:8080';
   console.log(`Navigating to ${url}...`);
-  await page.goto(url, { waitUntil: 'networkidle', timeout: 8000 });
+  await page.goto(url, { waitUntil: 'networkidle', timeout: 12000 });
   await page.waitForTimeout(500);
 
   fs.mkdirSync('/tmp/preview-screens', { recursive: true });
@@ -69,6 +106,12 @@ import fs from 'node:fs';
   console.log('  📸 Screenshot: /tmp/preview-screens/06-after-drag-zoom.png');
 
   await browser.close();
+
+  if (serverProcess) {
+    try {
+      process.kill(-serverProcess.pid);
+    } catch {}
+  }
 
   if (errors.length > 0) {
     console.error(`\n❌ Found ${errors.length} browser errors!`);

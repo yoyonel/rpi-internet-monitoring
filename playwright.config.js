@@ -27,5 +27,13 @@ export default defineConfig({
       ? { executablePath: chromiumPath, args: ['--no-sandbox'] }
       : undefined,
   },
+  webServer: isRemote
+    ? undefined
+    : {
+        command: `bash scripts/preview-dev.sh ${new URL(baseURL).port || 8080}`,
+        url: baseURL,
+        reuseExistingServer: !process.env.CI,
+        timeout: 20_000,
+      },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
 });

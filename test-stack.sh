@@ -49,6 +49,11 @@ if [[ "$BACKEND" == "auto" ]]; then
         BACKEND="vm"
     else
         BACKEND="influxdb"
+        if [[ "$("$DOCKER" inspect --format '{{.State.Running}}' grafana 2>/dev/null || echo false)" != "true" && "$MODE" != "sim" ]]; then
+            echo "⚠️  Monitoring stack containers are not running on this host."
+            echo "   To start the stack: 'just up' (prod) or 'just sim-up' (ARM64 simulation)"
+            echo ""
+        fi
     fi
 fi
 
