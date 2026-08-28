@@ -167,9 +167,9 @@ influx_has_database() {
 influx_count_measurements() {
     local output="$1"
     if [[ "$MODE" == "sim" ]]; then
-        echo "$output" | jq -r '.results[]?.series[]?.values[]?[0] // empty' | grep -c '^[a-z]' || echo 0
+        echo "$output" | jq -r '.results[]?.series[]?.values[]?[0] // empty' | grep -c '^[a-z]' || true
     else
-        echo "$output" | grep -c '^[a-z]' || echo 0
+        echo "$output" | grep -c '^[a-z]' || true
     fi
 }
 

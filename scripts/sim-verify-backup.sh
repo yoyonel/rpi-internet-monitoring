@@ -167,7 +167,7 @@ if $HAS_VM; then
     # ── VM 1. Metric names ───────────────────────────────────
     echo "── VM 1. Metric names ──"
     VM_METRICS=$(curl -sf "$VM_URL/api/v1/label/__name__/values" | jq -r '.data[]' 2>/dev/null)
-    VM_METRIC_COUNT=$(echo "$VM_METRICS" | grep -c . 2>/dev/null || echo 0)
+    VM_METRIC_COUNT=$(echo "$VM_METRICS" | grep -c . 2>/dev/null || true)
 
     if [[ "$VM_METRIC_COUNT" -gt 0 ]]; then
         pass "VictoriaMetrics has $VM_METRIC_COUNT metric(s)"

@@ -56,7 +56,7 @@ if _is_container_running "$VM_CONTAINER"; then
     echo ""
     echo "── Metric Names ──"
     METRICS=$(curl -sf "$VM_URL/api/v1/label/__name__/values" | jq -r '.data[]' 2>/dev/null)
-    METRIC_COUNT=$(echo "$METRICS" | grep -c . 2>/dev/null || echo 0)
+    METRIC_COUNT=$(echo "$METRICS" | grep -c . 2>/dev/null || true)
     echo "  $METRIC_COUNT metric(s)"
     echo "$METRICS" | head -20 | sed 's/^/  /'
     echo ""
