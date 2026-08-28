@@ -70,25 +70,25 @@ function isServerUp(urlStr) {
   console.log('  📸 Screenshot: /tmp/preview-screens/01-default.png');
 
   // 2. Click 24h
-  await page.click('button[data-hours="24"]');
+  await page.click('.rb[data-hours="24"]');
   await page.waitForTimeout(400);
   await page.screenshot({ path: '/tmp/preview-screens/02-24h.png' });
   console.log('  📸 Screenshot: /tmp/preview-screens/02-24h.png');
 
   // 3. Click 2j
-  await page.click('button[data-hours="48"]');
+  await page.click('.rb[data-hours="48"]');
   await page.waitForTimeout(400);
   await page.screenshot({ path: '/tmp/preview-screens/03-2j.png' });
   console.log('  📸 Screenshot: /tmp/preview-screens/03-2j.png');
 
   // 4. Click 7j
-  await page.click('button[data-hours="168"]');
+  await page.click('.rb[data-hours="168"]');
   await page.waitForTimeout(400);
   await page.screenshot({ path: '/tmp/preview-screens/04-7j.png' });
   console.log('  📸 Screenshot: /tmp/preview-screens/04-7j.png');
 
   // 5. Click 30j
-  await page.click('button[data-hours="720"]');
+  await page.click('.rb[data-hours="720"]');
   await page.waitForTimeout(400);
   await page.screenshot({ path: '/tmp/preview-screens/05-30j.png' });
   console.log('  📸 Screenshot: /tmp/preview-screens/05-30j.png');
