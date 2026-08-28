@@ -58,10 +58,13 @@
         <div id="statusBars"></div>
       </wa-card>
 
-      <wa-card class="alerts" id="alertsSec">
-        <div slot="header" class="stitle"><wa-icon name="shield-halved"></wa-icon> Alertes RPi</div>
+      <wa-details class="alerts" id="alertsSec">
+        <div slot="summary" class="stitle">
+          <wa-icon name="shield-halved"></wa-icon> Alertes RPi
+          <span id="alertsSummaryBadge"></span>
+        </div>
         <div id="alertsList"></div>
-      </wa-card>
+      </wa-details>
 
       <div class="tp">
         <wa-button-group class="tp-group">
@@ -125,7 +128,7 @@
 
       <wa-card class="panel">
         <div slot="header" class="hd">
-          <h2><wa-icon name="arrow-down-up-across-line"></wa-icon> Bandwidth</h2>
+          <h2><wa-icon name="arrows-up-down"></wa-icon> Bandwidth</h2>
           <div class="lg" id="bwLeg"></div>
         </div>
         <canvas id="bwChart"></canvas>
@@ -133,7 +136,7 @@
 
       <wa-card class="panel">
         <div slot="header" class="hd">
-          <h2><wa-icon name="wave-pulse"></wa-icon> Latency</h2>
+          <h2><wa-icon name="heart-pulse"></wa-icon> Latency</h2>
           <div class="lg" id="piLeg"></div>
         </div>
         <canvas id="piChart"></canvas>

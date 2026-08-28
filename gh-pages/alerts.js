@@ -43,6 +43,19 @@ export const renderAlerts = (ALERTS) => {
     ? `<div class="al-eval">Derni\u00e8re \u00e9valuation\u00a0: <time>${evalStr}</time></div>`
     : '';
 
+  const nFiring = alertsArr.filter((a) => a.state === 'firing').length;
+  const nPending = alertsArr.filter((a) => a.state === 'pending').length;
+  const sumBadge = document.getElementById('alertsSummaryBadge');
+  if (sumBadge) {
+    if (nFiring > 0) {
+      sumBadge.innerHTML = `<wa-badge variant="danger">${nFiring} actif${nFiring > 1 ? 's' : ''}</wa-badge>`;
+    } else if (nPending > 0) {
+      sumBadge.innerHTML = `<wa-badge variant="warning">${nPending} en attente</wa-badge>`;
+    } else {
+      sumBadge.innerHTML = `<wa-badge variant="success">OK</wa-badge>`;
+    }
+  }
+
   document.getElementById('alertsList').innerHTML =
     evalHtml +
     alertsArr

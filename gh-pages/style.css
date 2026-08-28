@@ -366,9 +366,8 @@ nav .meta time {
 
 /* ── ALERTS ── */
 .alerts {
-  padding: 20px 0;
-  border-bottom: 1px solid var(--border);
-  min-height: 324px;
+  padding: 0;
+  border-bottom: none;
 }
 .stitle {
   font-size: 0.75rem;
@@ -1111,9 +1110,39 @@ wa-card.stat::part(body) {
   text-align: center;
 }
 wa-card.sb-section,
-wa-card.alerts,
+wa-details.alerts,
 wa-card.panel {
   margin-bottom: 24px;
+}
+wa-details.alerts {
+  --border-color: var(--border);
+  --border-radius: 8px;
+  background: var(--bg2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: block;
+}
+wa-details.alerts::part(base) {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+wa-details.alerts::part(header) {
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.02);
+}
+wa-details.alerts::part(content) {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+wa-details.alerts .stitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0;
+  cursor: pointer;
+  user-select: none;
 }
 wa-divider {
   --color: var(--border);

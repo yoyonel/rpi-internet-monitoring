@@ -105,6 +105,15 @@ function isServerUp(urlStr) {
   await page.screenshot({ path: '/tmp/preview-screens/06-after-drag-zoom.png' });
   console.log('  📸 Screenshot: /tmp/preview-screens/06-after-drag-zoom.png');
 
+  // 7. Test Alerts expand
+  const alertsSec = await page.$('#alertsSec');
+  if (alertsSec) {
+    await page.click('#alertsSec');
+    await page.waitForTimeout(400);
+    await page.screenshot({ path: '/tmp/preview-screens/07-alerts-open.png' });
+    console.log('  📸 Screenshot: /tmp/preview-screens/07-alerts-open.png');
+  }
+
   await browser.close();
 
   if (serverProcess) {
