@@ -164,6 +164,10 @@ test-coverage:
 test-e2e:
     npx playwright test
 
+# Verify browser rendering and take screenshots across all presets
+test-browser url="http://localhost:8080":
+    node scripts/test-browser.js {{ url }}
+
 # Quick health check (services only)
 check:
     bash scripts/check.sh
@@ -185,6 +189,14 @@ publish days="30":
 # Preview monitoring page locally (http://localhost:8080) without pushing
 preview days="30":
     bash scripts/publish-gh-pages.sh --preview {{ days }}
+
+# Fetch live production data and alerts into local fixtures (tests/fixtures/)
+fetch-live-data host="rpi4":
+    bash scripts/fetch-live-data.sh {{ host }}
+
+# Preview monitoring page locally using fetched live fixtures (http://localhost:8080)
+preview-live port="8080":
+    bash scripts/preview-dev.sh {{ port }} --data tests/fixtures/data-live.json
 
 # Preview monitoring page using live GitHub Pages data (no RPi needed)
 preview-dev port="8080":

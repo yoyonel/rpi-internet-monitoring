@@ -58,6 +58,11 @@ fi
 # ── 2. Build page from template ──────────────────────────
 bash "$SCRIPT_DIR/scripts/build-gh-pages.sh" "$BUILD_DIR" "$BUILD_DIR/data.json" "$BUILD_DIR/alerts.json"
 
+# In dev/preview mode, symlink JS modules and CSS to source for instant live reload on F5
+for f in "$SCRIPT_DIR"/gh-pages/*.js "$SCRIPT_DIR"/gh-pages/style.css; do
+    ln -sf "$f" "$BUILD_DIR/"
+done
+
 # ── 3. Serve ─────────────────────────────────────────────
 echo ""
 echo "── Serving on http://localhost:${PORT} ──"
