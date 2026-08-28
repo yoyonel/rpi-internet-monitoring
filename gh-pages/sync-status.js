@@ -16,12 +16,15 @@ export const initSyncStatus = () => {
 
   if (ageMin < 15) {
     dot.className = 'sync-dot sync-ok';
+    dot.setAttribute('variant', 'success');
     dot.title = 'Synchronisation OK (< 15 min)';
   } else if (ageMin < 30) {
     dot.className = 'sync-dot sync-warn';
+    dot.setAttribute('variant', 'warning');
     dot.title = `Synchronisation dégradée (${Math.round(ageMin)} min)`;
   } else {
     dot.className = 'sync-dot sync-err';
+    dot.setAttribute('variant', 'danger');
     const hours = Math.floor(ageMin / 60);
     const days = Math.floor(hours / 24);
     const ageStr = days > 0 ? `${days}j ${hours % 24}h` : `${hours}h`;

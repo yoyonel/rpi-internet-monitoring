@@ -1,6 +1,6 @@
 <!doctype html>
 <!-- Deployed via GitHub Actions — see .github/workflows/deploy-gh-pages.yml -->
-<html lang="fr">
+<html lang="fr" class="wa-dark wa-theme-default">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -13,14 +13,28 @@
     <title>Internet Speed Monitor — RPi4</title>
     <link rel="preload" href="data.json" as="fetch" crossorigin />
     <link rel="preload" href="fonts/geist-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://ka-f.webawesome.com/webawesome@3.12.0/styles/themes/default.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://ka-f.webawesome.com/webawesome@3.12.0/styles/utilities.css"
+    />
+    <script
+      type="module"
+      src="https://ka-f.webawesome.com/webawesome@3.12.0/webawesome.loader.js"
+    ></script>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <nav>
       <div class="inner">
-        <div class="brand">speed<span class="hi">monitor</span></div>
+        <div class="brand">
+          <wa-icon name="wifi"></wa-icon> speed<span class="hi">monitor</span>
+        </div>
         <div class="meta">
-          <span class="sync-dot" id="syncDot" title=""></span>Mise &agrave; jour :
+          <wa-badge pill variant="success" id="syncDot" title=""></wa-badge>Mise &agrave; jour :
           <time datetime="__LAST_UPDATE_ISO__">__LAST_UPDATE__</time>
         </div>
       </div>
@@ -29,47 +43,63 @@
     <main class="w">
       <section class="hero">
         <h1>Internet Speed Monitor</h1>
-        <p class="sub">Raspberry Pi 4 &mdash; Speedtest Ookla toutes les 10 min</p>
+        <p class="sub">
+          <wa-icon name="gauge-high"></wa-icon> Raspberry Pi 4 &mdash; Speedtest Ookla toutes les 10
+          min
+        </p>
       </section>
 
       <div class="stats" id="statsRow"></div>
 
-      <section class="sb-section">
-        <div class="stitle">Statut 30 jours</div>
+      <wa-card class="sb-section" id="statusCard">
+        <div slot="header" class="stitle">
+          <wa-icon name="calendar-days"></wa-icon> Statut 30 jours
+        </div>
         <div id="statusBars"></div>
-      </section>
+      </wa-card>
 
-      <section class="alerts" id="alertsSec">
-        <div class="stitle">Alertes RPi</div>
+      <wa-card class="alerts" id="alertsSec">
+        <div slot="header" class="stitle"><wa-icon name="shield-halved"></wa-icon> Alertes RPi</div>
         <div id="alertsList"></div>
-      </section>
+      </wa-card>
 
       <div class="tp">
-        <button class="nb" id="btnBack" title="Reculer">&laquo;</button>
-        <div class="rg">
-          <button class="rb rb-today on" id="btnToday" data-hours="today">Auj.</button>
-          <button class="rb" data-hours="6">6h</button>
-          <button class="rb" data-hours="12">12h</button>
-          <button class="rb" data-hours="24">24h</button>
-          <button class="rb" data-hours="48">2j</button>
-          <button class="rb" data-hours="168">7j</button>
-          <button class="rb" data-hours="720">30j</button>
-        </div>
-        <button class="nb" id="btnFwd" title="Avancer">&raquo;</button>
-        <button class="zb" id="btnZoomOut" title="Zoom −">&minus;</button>
-        <button class="zb" id="btnZoomIn" title="Zoom +">+</button>
-        <button class="rl-btn" id="rangeLabelBtn">
+        <wa-button-group class="tp-group">
+          <wa-button size="small" variant="neutral" class="nb" id="btnBack" title="Reculer">
+            <wa-icon name="chevron-left"></wa-icon>
+          </wa-button>
+          <wa-button
+            size="small"
+            variant="neutral"
+            class="rb rb-today on"
+            id="btnToday"
+            data-hours="today"
+            >Auj.</wa-button
+          >
+          <wa-button size="small" variant="neutral" class="rb" data-hours="6">6h</wa-button>
+          <wa-button size="small" variant="neutral" class="rb" data-hours="12">12h</wa-button>
+          <wa-button size="small" variant="neutral" class="rb" data-hours="24">24h</wa-button>
+          <wa-button size="small" variant="neutral" class="rb" data-hours="48">2j</wa-button>
+          <wa-button size="small" variant="neutral" class="rb" data-hours="168">7j</wa-button>
+          <wa-button size="small" variant="neutral" class="rb" data-hours="720">30j</wa-button>
+          <wa-button size="small" variant="neutral" class="nb" id="btnFwd" title="Avancer">
+            <wa-icon name="chevron-right"></wa-icon>
+          </wa-button>
+        </wa-button-group>
+
+        <wa-button-group class="zoom-group">
+          <wa-button size="small" variant="neutral" class="zb" id="btnZoomOut" title="Zoom −">
+            <wa-icon name="magnifying-glass-minus"></wa-icon>
+          </wa-button>
+          <wa-button size="small" variant="neutral" class="zb" id="btnZoomIn" title="Zoom +">
+            <wa-icon name="magnifying-glass-plus"></wa-icon>
+          </wa-button>
+        </wa-button-group>
+
+        <wa-button size="small" variant="neutral" class="rl-btn" id="rangeLabelBtn">
           <span class="rl" id="rangeLabel"></span>
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-            <path
-              d="M3 5l3 3 3-3"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </button>
+          <wa-icon name="chevron-down"></wa-icon>
+        </wa-button>
       </div>
 
       <!-- Grafana-style time range picker -->
@@ -80,7 +110,9 @@
           <div class="tr-abs">
             <label>De <input type="datetime-local" id="trFrom" step="60" /></label>
             <label>&Agrave; <input type="datetime-local" id="trTo" step="60" /></label>
-            <button class="tr-apply" id="trApply">Appliquer</button>
+            <wa-button size="small" variant="brand" class="tr-apply" id="trApply"
+              >Appliquer</wa-button
+            >
           </div>
           <div class="tr-recent-section" id="trRecentSec" style="display: none">
             <div class="tr-section-title">R&eacute;cents</div>
@@ -93,22 +125,24 @@
         </div>
       </div>
 
-      <div class="panel">
-        <div class="hd">
-          <h2>Bandwidth</h2>
+      <wa-card class="panel">
+        <div slot="header" class="hd">
+          <h2><wa-icon name="arrow-down-up-across-line"></wa-icon> Bandwidth</h2>
           <div class="lg" id="bwLeg"></div>
         </div>
         <canvas id="bwChart"></canvas>
-      </div>
+      </wa-card>
 
-      <div class="panel">
-        <div class="hd">
-          <h2>Latency</h2>
+      <wa-card class="panel">
+        <div slot="header" class="hd">
+          <h2><wa-icon name="wave-pulse"></wa-icon> Latency</h2>
           <div class="lg" id="piLeg"></div>
         </div>
         <canvas id="piChart"></canvas>
-      </div>
+      </wa-card>
     </main>
+
+    <wa-divider></wa-divider>
 
     <footer>
       <p>

@@ -353,14 +353,14 @@ export const statCard = (
   timeRange,
   qualityInfo,
 ) =>
-  `<div class="stat ${cls}">
+  `<wa-card class="stat ${cls}">
       <div class="v">${mainVal}${qualityInfo ? `<span class="q-dot" data-metric="${cls}" style="background:${qualityInfo.color};box-shadow:0 0 8px 2px ${qualityInfo.color}"></span>` : ''}</div>
       <div class="l">${label} <span class="l-sub">m\u00e9diane</span></div>
       <div class="dcl-wrap">${chartSVG}</div>
       <div class="stat-sum">${summary}</div>
       <div class="stat-last">LAST <strong>${lastVal}</strong></div>
       <div class="pts">${timeRange} \u00b7 ${nPts} pts</div>
-    </div>`;
+    </wa-card>`;
 
 // ── Dataset factories (Chart.js config builders) ─────────────
 export const DS_LINE = {
