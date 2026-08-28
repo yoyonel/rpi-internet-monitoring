@@ -60,18 +60,29 @@ else
     echo ""
     echo "── Pushing to gh-pages branch ──"
 
-    cd "$BUILD_DIR"
+    DEPLOY_DIR=$(mktemp -d)
+    trap 'rm -rf "$BUILD_DIR" "$DEPLOY_DIR"' EXIT
+    git clone --depth 1 --branch gh-pages "$REPO_URL" "$DEPLOY_DIR" 2>/dev/null || {
+        mkdir -p "$DEPLOY_DIR" && cd "$DEPLOY_DIR" && git init -q && git checkout -q -b gh-pages
+        git remote add origin "$REPO_URL"
+    }
+    cd "$DEPLOY_DIR"
+    cp "$BUILD_DIR"/index.html "$BUILD_DIR"/style.css .
+    cp "$BUILD_DIR"/*.js .
+    cp "$BUILD_DIR"/data.json "$BUILD_DIR"/alerts.json .
+    cp -r "$BUILD_DIR"/fonts .
     touch .nojekyll
-    git init -q
+
     git config user.email "gh-pages-bot@users.noreply.github.com"
     git config user.name "GitHub Pages Bot"
-    git checkout -q -b gh-pages
-    git add index.html style.css ./*.js data.json alerts.json fonts/ .nojekyll
-    git commit -q -m "Update template — $NOW (data from $DATA_SOURCE)"
-    git remote add origin "$REPO_URL"
-    git push --force-with-lease -q origin gh-pages
-
-    echo "  → Pushed to gh-pages branch"
+    git add -A
+    if git diff --cached --quiet; then
+        echo "  → No changes to push"
+    else
+        git commit -q -m "Update template — $NOW (data from $DATA_SOURCE)"
+        git push -q origin gh-pages
+        echo "  → Pushed to gh-pages branch"
+    fi
     echo ""
     echo "── Done! ──"
     echo "  Page will be available shortly at:"
