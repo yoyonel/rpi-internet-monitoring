@@ -34,8 +34,7 @@ restart-svc svc:
     {{ compose }} restart {{ svc }}
 
 # Full deploy: build speedtest, pull latest images, recreate
-deploy:
-    {{ compose }} build speedtest
+deploy: build
     {{ compose }} up -d --pull always --remove-orphans
 
 # Smart deploy: pull, auto-detect changes, backup, rebuild/restart, run migrations
@@ -247,23 +246,51 @@ cron:
 
 # ── Code Quality ────────────────────────────────────────
 
-# Lint all source files
-lint:
-    shellcheck scripts/*.sh scripts/ci/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
-    shfmt -d -i 4 -ci scripts/*.sh scripts/ci/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
-    hadolint Dockerfile
-    yamllint docker-compose.yml .github/workflows/*.yml grafana/provisioning/alerting/alerts.yml .yamllint.yml .hadolint.yaml
-    npx prettier --check 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
-    ruff check scripts/*.py scripts/ci/*.py
-    ruff format --check scripts/*.py scripts/ci/*.py
-    @echo "All linters passed ✅"
+# Auto-format shell scripts
+fmt-sh:
+    shfmt -w -i 4 -ci scripts/*.sh scripts/ci/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
+
+# Auto-format JS, HTML, CSS, JSON, Markdown, YAML with Prettier
+fmt-prettier:
+    npx prettier --write 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
+
+# Auto-format Python scripts with Ruff
+fmt-py:
+    ruff format scripts/*.py scripts/ci/*.py
 
 # Auto-format all source files
-fmt:
-    shfmt -w -i 4 -ci scripts/*.sh scripts/ci/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
-    npx prettier --write 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
-    ruff format scripts/*.py scripts/ci/*.py
+fmt: fmt-sh fmt-prettier fmt-py
     @echo "All files formatted ✅"
+
+# Lint shell scripts (shellcheck + shfmt)
+lint-sh:
+    shellcheck scripts/*.sh scripts/ci/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
+    shfmt -d -i 4 -ci scripts/*.sh scripts/ci/*.sh docker-entrypoint.sh test-stack.sh migrations/*.sh
+
+# Lint Dockerfile (hadolint)
+lint-docker:
+    hadolint Dockerfile
+
+# Lint YAML files (yamllint)
+lint-yaml:
+    yamllint docker-compose.yml .github/workflows/*.yml grafana/provisioning/alerting/alerts.yml .yamllint.yml .hadolint.yaml
+
+# Check code formatting with Prettier
+lint-prettier:
+    npx prettier --check 'gh-pages/*.{html,css,js}' '**/*.json' '**/*.md' 'docker-compose.yml' '.github/workflows/*.yml'
+
+# Lint Python scripts (ruff check + format check)
+lint-py:
+    ruff check scripts/*.py scripts/ci/*.py
+    ruff format --check scripts/*.py scripts/ci/*.py
+
+# Lint all source files across all linters
+lint: lint-sh lint-docker lint-yaml lint-prettier lint-py
+    @echo "All linters passed ✅"
+
+# Run all local verification steps (format, lint, unit tests)
+check-all: fmt lint test-unit
+    @echo "All quality & test checks passed ✅"
 
 # E2E tests against a local or remote preview (default: http://127.0.0.1:8080)
 e2e url="http://127.0.0.1:8080":
@@ -492,8 +519,7 @@ sim-vm-only-export days="30" output="/tmp/sim-vm-only-data.json":
     @echo "Exported to {{ output }}"
 
 # Preview frontend with VM-only simulation data
-sim-vm-only-preview port="8080":
-    just sim-vm-only-export
+sim-vm-only-preview port="8080": (sim-vm-only-export "30" "/tmp/sim-vm-only-data.json")
     bash scripts/preview-dev.sh {{ port }} --data /tmp/sim-vm-only-data.json
 
 # Run smoke tests against VM-only simulation
