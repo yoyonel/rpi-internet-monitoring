@@ -128,7 +128,7 @@ services:
       INFLUXDB_USER: ${INFLUXDB_USER}
       INFLUXDB_USER_PASSWORD: ${INFLUXDB_USER_PASSWORD}
       # Set to enable dual-write to VictoriaMetrics (e.g. http://victoriametrics:8428)
-      VICTORIA_METRICS_URL: ${VICTORIA_METRICS_URL:-}
+      VICTORIA_METRICS_URL: ${VICTORIA_METRICS_URL:-http://localhost:9}
     networks:
       - speedtest
     depends_on:
