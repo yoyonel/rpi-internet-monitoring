@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
   "label": "Lighthouse performance (mobile)",
-  "message": "74",
-  "color": "orange"
+  "message": "42",
+  "color": "red"
 }
